@@ -118,6 +118,10 @@ export function AttendanceGrid({ students, days, currentMonth, total }: Attendan
       : { bg: "bg-gray-200", text: "text-gray-600" }
   }
 
+  const getTotalPresent = (student: Student) => {
+    return student.attendance.filter(att => att.code === "P").length
+  }
+
   const handleCellClick = (studentId: string, day: number, isCtrlClick = false) => {
     const cellId = `${studentId}-${day}`
 
@@ -186,7 +190,7 @@ export function AttendanceGrid({ students, days, currentMonth, total }: Attendan
 
       {/* Attendance Table */}
       <div className="overflow-x-auto border rounded-lg">
-        <table className="w-full border-collapse">
+        <table className="min-w-max border-collapse">
           <thead className="sticky top-0 z-10">
             <tr className="bg-slate-50">
               <th className="sticky left-0 bg-slate-50 border border-slate-300 border-r-2 border-r-slate-400 p-2 w-[200px] text-left font-semibold text-sm text-slate-700">
@@ -208,6 +212,9 @@ export function AttendanceGrid({ students, days, currentMonth, total }: Attendan
                   </th>
                 )
               })}
+              <th className="sticky right-0 bg-slate-50 border border-slate-300 border-l-2 border-l-slate-400 p-2 w-[100px] text-center font-semibold text-sm text-slate-700">
+                Total Present
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -255,6 +262,11 @@ export function AttendanceGrid({ students, days, currentMonth, total }: Attendan
                     </td>
                   )
                 })}
+                <td className="sticky right-0 bg-white border border-slate-300 border-l-2 border-l-slate-400 p-2 w-[100px] text-center">
+                  <div className="font-semibold text-slate-900">
+                    {getTotalPresent(student)}
+                  </div>
+                </td>
               </tr>
             ))}
           </tbody>

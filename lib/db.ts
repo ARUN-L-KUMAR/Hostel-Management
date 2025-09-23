@@ -385,7 +385,7 @@ export const prisma = {
     findMany: async (options?: any) => {
       if (!options?.where) {
         const result = await sql`
-          SELECT b.*, s.name as student_name FROM bills b 
+          SELECT b.*, s.name as student_name FROM bills b
           LEFT JOIN students s ON b."studentId" = s.id
           ORDER BY b.year DESC, b.month DESC
         `
@@ -410,7 +410,7 @@ export const prisma = {
       }
 
       const result = await sql`
-        SELECT b.*, s.name as student_name FROM bills b 
+        SELECT b.*, s.name as student_name FROM bills b
         LEFT JOIN students s ON b."studentId" = s.id
         ${sql.unsafe(whereClause)}
         ORDER BY b.year DESC, b.month DESC
@@ -423,20 +423,133 @@ export const prisma = {
       }))
     },
 
+    findUnique: async (options: any) => {
+      try {
+        let result
+        if (options.where.month) {
+          result = await sql`SELECT * FROM bills WHERE month = ${options.where.month}`
+        } else {
+          return null
+        }
+
+        if (result.length === 0) return null
+
+        const bill = result[0]
+
+        // Include studentBills if requested
+        if (options?.include?.studentBills) {
+          const studentBills = await sql`
+            SELECT sb.*, s.name as student_name, s."rollNo", h.name as hostel_name
+            FROM student_bills sb
+            LEFT JOIN students s ON sb."studentId" = s.id
+            LEFT JOIN hostels h ON s."hostelId" = h.id
+            WHERE sb."billId" = ${bill.id}
+          `
+          bill.studentBills = studentBills.map((sb: any) => ({
+            ...sb,
+            student: {
+              id: sb.studentId,
+              name: sb.student_name,
+              rollNo: sb.rollNo,
+              hostel: { name: sb.hostel_name },
+              attendance: [], // Will be populated if needed
+            },
+          }))
+        }
+
+        return bill
+      } catch (error) {
+        console.error("[v0] Error finding bill:", error)
+        return null
+      }
+    },
+
+    create: async (options: any) => {
+      try {
+        const {
+          month, totalExpense, labourTotal, provisionTotal, carryForward,
+          advanceTotal, perDayRate, totalMandays, mandoAmount, status
+        } = options.data
+
+        const id = `bill_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+        const now = new Date()
+
+        const result = await sql`
+          INSERT INTO bills (
+            id, month, "totalExpense", "labourTotal", "provisionTotal",
+            "carryForward", "advanceTotal", "perDayRate", "totalMandays",
+            "mandoAmount", status, "generatedAt", "createdAt", "updatedAt"
+          ) VALUES (
+            ${id}, ${month}, ${totalExpense || 0}, ${labourTotal || 0}, ${provisionTotal || 0},
+            ${carryForward || 0}, ${advanceTotal || 0}, ${perDayRate || 0}, ${totalMandays || 0},
+            ${mandoAmount || 70250}, ${status || 'DRAFT'}, ${now}, ${now}, ${now}
+          )
+          RETURNING *
+        `
+        return result[0]
+      } catch (error) {
+        console.error("[v0] Error creating bill:", error)
+        throw error
+      }
+    },
+
     upsert: async (options: any) => {
-      const { studentId, month, year, totalAmount, mandoCovered, finalAmount, status } = options.create
-      const result = await sql`
-        INSERT INTO bills ("studentId", month, year, "totalAmount", "mandoCovered", "finalAmount", status) 
-        VALUES (${studentId}, ${month}, ${year}, ${totalAmount}, ${mandoCovered}, ${finalAmount}, ${status}) 
-        ON CONFLICT ("studentId", month, year) 
-        DO UPDATE SET 
-          "totalAmount" = ${totalAmount}, 
-          "mandoCovered" = ${mandoCovered}, 
-          "finalAmount" = ${finalAmount}, 
-          status = ${status} 
-        RETURNING *
-      `
-      return result[0]
+      try {
+        const month = options.where?.month || (options.update || options.create).month
+        const {
+          totalExpense, labourTotal, provisionTotal, carryForward,
+          advanceTotal, perDayRate, provisionPerDayRate, advancePerDayRate,
+          totalMandays, mandoAmount, status
+        } = options.update || options.create
+
+        const now = new Date()
+
+        // First try to find existing bill
+        const existing = await sql`SELECT id FROM bills WHERE month = ${month}`
+        if (existing.length > 0) {
+          // Update existing
+          const result = await sql`
+            UPDATE bills SET
+              "totalExpense" = ${totalExpense || 0},
+              "labourTotal" = ${labourTotal || 0},
+              "provisionTotal" = ${provisionTotal || 0},
+              "carryForward" = ${carryForward || 0},
+              "advanceTotal" = ${advanceTotal || 0},
+              "perDayRate" = ${perDayRate || 0},
+              "provisionPerDayRate" = ${provisionPerDayRate || 25.00},
+              "advancePerDayRate" = ${advancePerDayRate || 18.75},
+              "totalMandays" = ${totalMandays || 0},
+              "mandoAmount" = ${mandoAmount || 70250},
+              status = ${status || 'DRAFT'},
+              "updatedAt" = ${now}
+            WHERE month = ${month}
+            RETURNING *
+          `
+          return result[0]
+        } else {
+          // Create new
+          const id = `bill_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+          const result = await sql`
+            INSERT INTO bills (
+              id, month, "totalExpense", "labourTotal", "provisionTotal",
+              "carryForward", "advanceTotal", "perDayRate", "provisionPerDayRate",
+              "advancePerDayRate", "totalMandays", "mandoAmount", status,
+              "generatedAt", "createdAt", "updatedAt"
+            ) VALUES (
+              ${id}, ${month}, ${totalExpense || 0}, ${labourTotal || 0}, ${provisionTotal || 0},
+              ${carryForward || 0}, ${advanceTotal || 0}, ${perDayRate || 0},
+              ${provisionPerDayRate || 25.00}, ${advancePerDayRate || 18.75},
+              ${totalMandays || 0}, ${mandoAmount || 70250}, ${status || 'DRAFT'},
+              ${now}, ${now}, ${now}
+            )
+            RETURNING *
+          `
+          return result[0]
+        }
+      } catch (error) {
+        console.error("[v0] Error upserting bill:", error)
+        throw error
+      }
     },
   },
 

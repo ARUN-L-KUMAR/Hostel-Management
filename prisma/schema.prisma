@@ -129,24 +129,26 @@ model Expense {
 }
 
 model Bill {
-  id             String        @id @default(cuid())
-  month          String        // YYYY-MM format
-  totalExpense   Decimal       @db.Decimal(10, 2)
-  labourTotal    Decimal       @db.Decimal(10, 2)
-  provisionTotal Decimal       @db.Decimal(10, 2)
-  carryForward   Decimal       @db.Decimal(10, 2) @default(0)
-  advanceTotal   Decimal       @db.Decimal(10, 2) @default(0)
-  perDayRate     Decimal       @db.Decimal(10, 2)
-  totalMandays   Int
-  mandoAmount    Decimal       @db.Decimal(10, 2) @default(70250) // Fixed amount for mando students
-  status         BillStatus    @default(DRAFT)
-  generatedAt    DateTime      @default(now())
-  publishedAt    DateTime?
-  
+  id                  String        @id @default(cuid())
+  month               String        // YYYY-MM format
+  totalExpense        Decimal       @db.Decimal(10, 2)
+  labourTotal         Decimal       @db.Decimal(10, 2)
+  provisionTotal      Decimal       @db.Decimal(10, 2)
+  carryForward        Decimal       @db.Decimal(10, 2) @default(0)
+  advanceTotal        Decimal       @db.Decimal(10, 2) @default(0)
+  perDayRate          Decimal       @db.Decimal(10, 2)
+  provisionPerDayRate Decimal       @db.Decimal(10, 2) @default(25.00)
+  advancePerDayRate   Decimal       @db.Decimal(10, 2) @default(18.75)
+  totalMandays        Int
+  mandoAmount         Decimal       @db.Decimal(10, 2) @default(70250) // Fixed amount for mando students
+  status              BillStatus    @default(DRAFT)
+  generatedAt         DateTime      @default(now())
+  publishedAt         DateTime?
+
   studentBills   StudentBill[]
   expenses       Expense[]
   provisionUsage ProvisionUsage[]
-  
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
