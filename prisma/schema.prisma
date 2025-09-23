@@ -1,0 +1,262 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String
+  role      UserRole @default(VIEWER)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("users")
+}
+
+model Hostel {
+  id          String    @id @default(cuid())
+  name        String    @unique // 'Boys', 'Girls'
+  description String?
+  students    Student[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@map("hostels")
+}
+
+model Student {
+  id       String  @id @default(cuid())
+  name     String
+  rollNo   String  @unique
+  year     Int
+  isMando  Boolean @default(false)
+  company  String? // For mando students
+  status   StudentStatus @default(ACTIVE)
+  
+  hostelId String
+  hostel   Hostel @relation(fields: [hostelId], references: [id])
+  
+  joinDate  DateTime @default(now())
+  leaveDate DateTime?
+  
+  attendance         Attendance[]
+  monthSummaries     InmateMonthlySummary[]
+  studentBills       StudentBill[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("students")
+}
+
+model Attendance {
+  id        String         @id @default(cuid())
+  studentId String
+  student   Student        @relation(fields: [studentId], references: [id])
+  date      DateTime       @db.Date
+  code      AttendanceCode
+  note      String?
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  @@unique([studentId, date])
+  @@map("attendance")
+}
+
+model InmateMonthlySummary {
+  id             String  @id @default(cuid())
+  studentId      String
+  student        Student @relation(fields: [studentId], references: [id])
+  month          String  // YYYY-MM format
+  enrolled       Boolean @default(true)
+  stayingDays    Int     @default(0)
+  totalDays      Int     @default(0)
+  mandaysCounted Int     @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([studentId, month])
+  @@map("inmate_month_summary")
+}
+
+model ProvisionItem {
+  id          String            @id @default(cuid())
+  name        String            @unique
+  unit        String            // 'kg', 'ltr', 'pcs'
+  unitCost    Decimal           @db.Decimal(10, 2)
+  unitMeasure String            @default("1") // e.g., "1 kg", "500 ml"
+  usage       ProvisionUsage[]
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  @@map("provision_items")
+}
+
+model ProvisionUsage {
+  id               String        @id @default(cuid())
+  provisionItemId  String
+  provisionItem    ProvisionItem @relation(fields: [provisionItemId], references: [id])
+  date             DateTime      @db.Date
+  quantity         Decimal       @db.Decimal(10, 3)
+  billId           String?
+  bill             Bill?         @relation(fields: [billId], references: [id])
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  @@map("provision_usage")
+}
+
+model Expense {
+  id          String      @id @default(cuid())
+  type        ExpenseType
+  amount      Decimal     @db.Decimal(10, 2)
+  date        DateTime    @db.Date
+  description String
+  billId      String?
+  bill        Bill?       @relation(fields: [billId], references: [id])
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  @@map("expenses")
+}
+
+model Bill {
+  id             String        @id @default(cuid())
+  month          String        // YYYY-MM format
+  totalExpense   Decimal       @db.Decimal(10, 2)
+  labourTotal    Decimal       @db.Decimal(10, 2)
+  provisionTotal Decimal       @db.Decimal(10, 2)
+  carryForward   Decimal       @db.Decimal(10, 2) @default(0)
+  advanceTotal   Decimal       @db.Decimal(10, 2) @default(0)
+  perDayRate     Decimal       @db.Decimal(10, 2)
+  totalMandays   Int
+  mandoAmount    Decimal       @db.Decimal(10, 2) @default(70250) // Fixed amount for mando students
+  status         BillStatus    @default(DRAFT)
+  generatedAt    DateTime      @default(now())
+  publishedAt    DateTime?
+  
+  studentBills   StudentBill[]
+  expenses       Expense[]
+  provisionUsage ProvisionUsage[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([month])
+  @@map("bills")
+}
+
+model StudentBill {
+  id                   String          @id @default(cuid())
+  billId               String
+  bill                 Bill            @relation(fields: [billId], references: [id])
+  studentId            String
+  student              Student         @relation(fields: [studentId], references: [id])
+  mandays              Int
+  perDayRate           Decimal         @db.Decimal(10, 2)
+  grossAmount          Decimal         @db.Decimal(10, 2)
+  adjustments          Decimal         @db.Decimal(10, 2) @default(0)
+  carryForwardApplied  Decimal         @db.Decimal(10, 2) @default(0)
+  finalAmount          Decimal         @db.Decimal(10, 2)
+  paidAmount           Decimal         @db.Decimal(10, 2) @default(0)
+  status               StudentBillStatus @default(UNPAID)
+  isMandoCovered       Boolean         @default(false) // True if covered by mando amount
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @updatedAt
+
+  @@unique([billId, studentId])
+  @@map("student_bills")
+}
+
+model MandoSettings {
+  id                String  @id @default(cuid())
+  totalAmount       Decimal @db.Decimal(10, 2) @default(70250) // Total mando amount
+  boysAmount        Decimal @db.Decimal(10, 2) @default(58200) // Boys portion
+  girlsAmount       Decimal @db.Decimal(10, 2) @default(12052) // Girls portion
+  perMealRate       Decimal @db.Decimal(10, 2) @default(50)    // Rate per meal
+  mealsPerDay       Int     @default(2) // 2 or 3 meals per day
+  isActive          Boolean @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@map("mando_settings")
+}
+
+model BillingSettings {
+  id          String      @id @default(cuid())
+  leavePolicy LeavePolicy @default(CHARGED) // How to handle 'L' attendance
+  isActive    Boolean     @default(true)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  @@map("billing_settings")
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  action    String
+  entity    String   // table name
+  entityId  String?
+  oldData   Json?
+  newData   Json?
+  timestamp DateTime @default(now())
+
+  @@map("audit_logs")
+}
+
+// Enums
+enum UserRole {
+  ADMIN
+  ACCOUNTANT
+  MESS_MANAGER
+  VIEWER
+}
+
+enum StudentStatus {
+  ACTIVE
+  INACTIVE
+  GRADUATED
+  TRANSFERRED
+}
+
+enum AttendanceCode {
+  P  // Present
+  L  // Leave
+  CN // Concession
+  V  // Vacation
+  C  // Closed/Holiday
+}
+
+enum ExpenseType {
+  LABOUR
+  PROVISION
+  MAINTENANCE
+  UTILITY
+  OTHER
+}
+
+enum BillStatus {
+  DRAFT
+  PUBLISHED
+  FINALIZED
+}
+
+enum StudentBillStatus {
+  UNPAID
+  PARTIAL
+  PAID
+}
+
+enum LeavePolicy {
+  CHARGED     // Leave days are charged
+  NOT_CHARGED // Leave days are not charged
+}
