@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import type { AttendanceCode } from "@prisma/client"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -24,6 +25,7 @@ interface AttendanceGridProps {
   students: Student[]
   days: number[]
   currentMonth: string
+  total: number
 }
 
 const attendanceCodes = [
@@ -34,9 +36,22 @@ const attendanceCodes = [
   { code: "C" as AttendanceCode, label: "Closed", color: "bg-red-500", textColor: "text-white" },
 ]
 
-export function AttendanceGrid({ students, days, currentMonth }: AttendanceGridProps) {
+export function AttendanceGrid({ students, days, currentMonth, total }: AttendanceGridProps) {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const currentPage = parseInt(searchParams.get('page') || '1')
+  const totalPages = Math.ceil(total / 10)
+  const start = (currentPage - 1) * 10
+  const paginatedStudents = students.slice(start, start + 10)
+
   const [selectedCells, setSelectedCells] = useState<Set<string>>(new Set())
   const [bulkCode, setBulkCode] = useState<AttendanceCode>("P")
+
+  const handlePageChange = (page: number) => {
+    const params = new URLSearchParams(searchParams.toString())
+    params.set('page', page.toString())
+    router.push(`?${params.toString()}`, { scroll: false })
+  }
 
   const getAttendanceForDate = (student: Student, day: number) => {
     const dateStr = `${currentMonth}-${day.toString().padStart(2, "0")}`
@@ -84,7 +99,7 @@ export function AttendanceGrid({ students, days, currentMonth }: AttendanceGridP
   }
 
   return (
-    <Card className="p-6 border-0 shadow-md">
+    <Card className="p-6 border-0 shadow-md max-w-screen-xl">
       {/* Bulk Actions */}
       {selectedCells.size > 0 && (
         <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg flex items-center justify-between">
@@ -113,25 +128,25 @@ export function AttendanceGrid({ students, days, currentMonth }: AttendanceGridP
         </div>
       )}
 
-      {/* Calendar Grid */}
-      <div className="overflow-x-auto">
-        <div className="min-w-full">
-          {/* Header Row */}
-          <div className="grid grid-cols-[200px_repeat(31,_40px)] gap-1 mb-2">
-            <div className="font-semibold text-sm text-slate-700 p-2">Student</div>
-            {days.map((day) => (
-              <div key={day} className="text-center text-xs font-medium text-slate-600 p-1">
-                {day}
-              </div>
-            ))}
-          </div>
-
-          {/* Student Rows */}
-          <div className="space-y-1">
-            {students.map((student) => (
-              <div key={student.id} className="grid grid-cols-[200px_repeat(31,_40px)] gap-1 items-center">
-                {/* Student Info */}
-                <div className="p-2 text-sm">
+      {/* Attendance Table */}
+      <div className="overflow-x-auto border rounded-lg" style={{ direction: 'rtl' }}>
+        <table className="w-full border-collapse" style={{ direction: 'ltr' }}>
+          <thead className="sticky top-0 z-10">
+            <tr className="bg-slate-50">
+              <th className="sticky left-0 bg-slate-50 border border-slate-300 border-r-2 border-r-slate-400 p-2 w-[200px] text-left font-semibold text-sm text-slate-700">
+                Student
+              </th>
+              {days.map((day) => (
+                <th key={day} className="border border-slate-300 p-1 w-10 text-center text-xs font-medium text-slate-600">
+                  {day}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {paginatedStudents.map((student) => (
+              <tr key={student.id} className="hover:bg-slate-50">
+                <td className="sticky left-0 bg-white border border-slate-300 border-r-2 border-r-slate-400 p-2 w-[200px]">
                   <div className="font-medium text-slate-900 truncate">{student.name}</div>
                   <div className="text-xs text-slate-500 flex items-center space-x-2">
                     <span>{student.rollNo}</span>
@@ -143,9 +158,7 @@ export function AttendanceGrid({ students, days, currentMonth }: AttendanceGridP
                       </Badge>
                     )}
                   </div>
-                </div>
-
-                {/* Attendance Cells */}
+                </td>
                 {days.map((day) => {
                   const attendance = getAttendanceForDate(student, day)
                   const cellId = `${student.id}-${day}`
@@ -155,26 +168,62 @@ export function AttendanceGrid({ students, days, currentMonth }: AttendanceGridP
                     : { bg: "bg-gray-100", text: "text-gray-400" }
 
                   return (
-                    <button
-                      key={day}
-                      onClick={(e) => handleCellClick(student.id, day, e.ctrlKey || e.metaKey)}
-                      className={cn(
-                        "h-8 w-8 text-xs font-medium rounded border-2 transition-all hover:scale-105",
-                        codeStyle.bg,
-                        codeStyle.text,
-                        isSelected ? "border-blue-500 ring-2 ring-blue-200" : "border-transparent",
-                        "hover:border-slate-300",
-                      )}
-                      title={`${student.name} - Day ${day}${attendance ? ` (${attendance.code})` : " (No data)"}`}
-                    >
-                      {attendance?.code || "-"}
-                    </button>
+                    <td key={day} className="border border-slate-300 p-1 text-center">
+                      <button
+                        onClick={(e) => handleCellClick(student.id, day, e.ctrlKey || e.metaKey)}
+                        className={cn(
+                          "h-8 w-10 text-xs font-medium rounded border-2 transition-all hover:scale-105",
+                          codeStyle.bg,
+                          codeStyle.text,
+                          isSelected ? "border-blue-500 ring-2 ring-blue-200" : "border-transparent",
+                          "hover:border-slate-300",
+                        )}
+                        title={`${student.name} - Day ${day}${attendance ? ` (${attendance.code})` : " (No data)"}`}
+                      >
+                        {attendance?.code || "-"}
+                      </button>
+                    </td>
                   )
                 })}
-              </div>
+              </tr>
             ))}
-          </div>
-        </div>
+          </tbody>
+        </table>
+      </div>
+
+      {/* Pagination */}
+      <div className="mt-4 flex justify-center items-center space-x-2">
+        <Button
+          variant="outline"
+          onClick={() => handlePageChange(1)}
+          disabled={currentPage === 1}
+        >
+          First
+        </Button>
+        <Button
+          variant="outline"
+          onClick={() => handlePageChange(currentPage - 1)}
+          disabled={currentPage <= 1}
+        >
+          Previous
+        </Button>
+        <span className="text-sm text-gray-600">
+          Page {currentPage} of {totalPages}
+        </span>
+        <Button
+          variant="outline"
+          onClick={() => handlePageChange(currentPage + 1)}
+          disabled={currentPage >= totalPages}
+        >
+          Next
+        </Button>
+        <Button
+          variant="outline"
+          onClick={() => handlePageChange(totalPages)}
+          disabled={currentPage === totalPages}
+        >
+          Last
+        </Button>
       </div>
 
       {/* Instructions */}
