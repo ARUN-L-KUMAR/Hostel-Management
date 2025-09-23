@@ -45,14 +45,14 @@ export function ExcelImportDialog({ onClose }: ExcelImportDialogProps) {
       const data = await file.arrayBuffer()
       const workbook = XLSX.read(data, { type: 'array' })
 
+      const allStudents: any[] = []
+      const warnings: string[] = []
+
       // Determine hostel type from filename
       const fileName = file.name.toLowerCase()
       const isGirlsHostel = fileName.includes('girl') || fileName.includes('g ')
       const hostelPrefix = isGirlsHostel ? 'G' : 'B'
       const hostelId = isGirlsHostel ? 'hostel_girls' : 'hostel_boys'
-
-      const allStudents: any[] = []
-      const warnings: string[] = []
 
       // Process each sheet (1st Year, 2nd Year, etc.)
       workbook.SheetNames.forEach(sheetName => {

@@ -1,56 +1,93 @@
-import { prisma } from "@/lib/db"
+"use client"
+
+import { useState, useEffect } from "react"
 import { AttendanceGrid } from "./attendance-grid"
 import { AttendanceLegend } from "./attendance-legend"
 import { AttendancePeriodFilters } from "./attendance-period-filters"
+import { ApiClient } from "@/lib/api-client"
+import type { AttendanceCode } from "@prisma/client"
 
-async function getAttendanceData(year: string, month: string) {
-  const currentMonth = `${year}-${month.padStart(2, '0')}`
-  const startDate = new Date(`${currentMonth}-01`)
-  const endDate = new Date(parseInt(year), parseInt(month), 0) // Last day of month
+interface Student {
+  id: string
+  name: string
+  rollNo: string
+  year: number
+  isMando: boolean
+  status: string
+  hostel: { name: string }
+  attendance: Array<{
+    date: Date
+    code: AttendanceCode
+  }>
+}
 
-  // Get all students with their attendance for the month
-  const students = await prisma.student.findMany({
-    where: { status: "ACTIVE" },
-    include: {
-      hostel: true,
-      attendance: {
-        where: {
-          date: {
-            gte: startDate,
-            lte: endDate,
-          },
-        },
-        orderBy: { date: "asc" },
-      },
-    },
-    orderBy: [{ hostel: { name: "asc" } }, { name: "asc" }],
-  })
+export function AttendanceCalendar({ year, month, filters }: { year: string; month: string; filters: { hostel: string; year: string; mandoFilter: string; status: string } }) {
+  const [students, setStudents] = useState<Student[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true)
+      try {
+        // Fetch students with filters
+        const studentsParams: any = { status: "ACTIVE" }
+        if (filters.hostel !== "all") studentsParams.hostel = filters.hostel
+        if (filters.year !== "all") studentsParams.year = filters.year
+        if (filters.mandoFilter === "mando") studentsParams.isMando = "true"
+        if (filters.mandoFilter === "regular") studentsParams.isMando = "false"
+
+        const studentsData = await ApiClient.students.getAll(studentsParams)
+
+        // Fetch attendance data for the month
+        const attendanceData = await ApiClient.attendance.get(parseInt(month), parseInt(year))
+
+        // Combine students with their attendance
+        const studentsWithAttendance = studentsData.map((student: any) => {
+          const studentAttendance = attendanceData.filter((att: any) => att.studentId === student.id)
+          return {
+            ...student,
+            attendance: studentAttendance.map((att: any) => ({
+              date: new Date(att.date),
+              code: att.code as AttendanceCode,
+            })),
+          }
+        })
+
+        setStudents(studentsWithAttendance)
+      } catch (error) {
+        console.error("Error fetching attendance data:", error)
+        setStudents([])
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchData()
+  }, [year, month, filters])
 
   // Generate days for the month
   const daysInMonth = new Date(parseInt(year), parseInt(month), 0).getDate()
   const days = Array.from({ length: daysInMonth }, (_, i) => i + 1)
+  const currentMonth = `${year}-${month.padStart(2, '0')}`
 
-  return { students, days, currentMonth }
-}
-
-export async function AttendanceCalendar({ year, month, filters }: { year: string; month: string; filters: { hostel: string; year: string; mandoFilter: string; status: string } }) {
-  const { students, days, currentMonth } = await getAttendanceData(year, month)
-
-  // Filter students based on filters
-  const filteredStudents = students.filter((student) => {
-    if (filters.hostel !== "all" && !student.hostel.name.toLowerCase().includes(filters.hostel.toLowerCase())) return false
-    if (filters.year !== "all" && student.year.toString() !== filters.year) return false
-    if (filters.status !== "all" && student.status !== filters.status) return false
-    if (filters.mandoFilter === "mando" && !student.isMando) return false
-    if (filters.mandoFilter === "regular" && student.isMando) return false
-    return true
-  })
+  if (loading) {
+    return (
+      <div className="space-y-4">
+        <AttendanceLegend />
+        <AttendancePeriodFilters />
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+          <span className="ml-2 text-slate-600">Loading attendance data...</span>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-4">
       <AttendanceLegend />
       <AttendancePeriodFilters />
-      <AttendanceGrid students={filteredStudents} days={days} currentMonth={currentMonth} total={filteredStudents.length} />
+      <AttendanceGrid students={students} days={days} currentMonth={currentMonth} total={students.length} />
     </div>
   )
 }

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import type { AttendanceCode } from "@prisma/client"
 import { Card } from "@/components/ui/card"
@@ -42,7 +42,13 @@ export function AttendanceGrid({ students, days, currentMonth, total }: Attendan
   const currentPage = parseInt(searchParams.get('page') || '1')
   const totalPages = Math.ceil(total / 10)
   const start = (currentPage - 1) * 10
-  const paginatedStudents = students.slice(start, start + 10)
+
+  const [localStudents, setLocalStudents] = useState(students)
+  const paginatedStudents = localStudents.slice(start, start + 10)
+
+  useEffect(() => {
+    setLocalStudents(students)
+  }, [students])
 
   const [selectedCells, setSelectedCells] = useState<Set<string>>(new Set())
   const [bulkCode, setBulkCode] = useState<AttendanceCode>("P")
@@ -51,6 +57,41 @@ export function AttendanceGrid({ students, days, currentMonth, total }: Attendan
     const params = new URLSearchParams(searchParams.toString())
     params.set('page', page.toString())
     router.push(`?${params.toString()}`, { scroll: false })
+  }
+
+  const updateAttendance = async (studentId: string, date: string, code: AttendanceCode) => {
+    try {
+      const response = await fetch('/api/attendance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ studentId, date, code }),
+      })
+      if (response.ok) {
+        // Update local state
+        setLocalStudents(prev => prev.map(student => {
+          if (student.id === studentId) {
+            const existingIndex = student.attendance.findIndex(a => a.date.toISOString().split('T')[0] === date)
+            if (existingIndex >= 0) {
+              student.attendance[existingIndex].code = code
+            } else {
+              student.attendance.push({ date: new Date(date), code })
+            }
+          }
+          return student
+        }))
+      } else {
+        console.error('Failed to update attendance')
+      }
+    } catch (error) {
+      console.error('Error updating attendance:', error)
+    }
+  }
+
+  const getNextCode = (currentCode: AttendanceCode | undefined): AttendanceCode => {
+    const codes: AttendanceCode[] = ["P", "L", "CN", "V", "C"]
+    if (!currentCode) return "P"
+    const currentIndex = codes.indexOf(currentCode)
+    return codes[(currentIndex + 1) % codes.length]
   }
 
   const getAttendanceForDate = (student: Student, day: number) => {
@@ -84,16 +125,22 @@ export function AttendanceGrid({ students, days, currentMonth, total }: Attendan
       // Single select or cycle through codes
       if (selectedCells.size === 0) {
         // Cycle through attendance codes for single cell
-        // This would trigger an API call to update attendance
-        console.log(`[v0] Cycling attendance code for student ${studentId} on day ${day}`)
+        const dateStr = `${currentMonth}-${day.toString().padStart(2, "0")}`
+        const attendance = getAttendanceForDate(paginatedStudents.find(s => s.id === studentId)!, day)
+        const nextCode = getNextCode(attendance?.code)
+        updateAttendance(studentId, dateStr, nextCode)
       }
     }
   }
 
-  const handleBulkUpdate = () => {
+  const handleBulkUpdate = async () => {
     if (selectedCells.size > 0) {
-      console.log(`[v0] Bulk updating ${selectedCells.size} cells to ${bulkCode}`)
-      // This would trigger API calls to update multiple attendance records
+      const updates = Array.from(selectedCells).map(cellId => {
+        const [studentId, day] = cellId.split('-')
+        const dateStr = `${currentMonth}-${day.toString().padStart(2, "0")}`
+        return updateAttendance(studentId, dateStr, bulkCode)
+      })
+      await Promise.all(updates)
       setSelectedCells(new Set())
     }
   }
@@ -129,8 +176,8 @@ export function AttendanceGrid({ students, days, currentMonth, total }: Attendan
       )}
 
       {/* Attendance Table */}
-      <div className="overflow-x-auto border rounded-lg" style={{ direction: 'rtl' }}>
-        <table className="w-full border-collapse" style={{ direction: 'ltr' }}>
+      <div className="overflow-x-auto border rounded-lg">
+        <table className="w-full border-collapse">
           <thead className="sticky top-0 z-10">
             <tr className="bg-slate-50">
               <th className="sticky left-0 bg-slate-50 border border-slate-300 border-r-2 border-r-slate-400 p-2 w-[200px] text-left font-semibold text-sm text-slate-700">
@@ -168,11 +215,14 @@ export function AttendanceGrid({ students, days, currentMonth, total }: Attendan
                     : { bg: "bg-gray-100", text: "text-gray-400" }
 
                   return (
-                    <td key={day} className="border border-slate-300 p-1 text-center">
-                      <button
-                        onClick={(e) => handleCellClick(student.id, day, e.ctrlKey || e.metaKey)}
+                    <td
+                      key={day}
+                      className="border border-slate-300 p-1 text-center cursor-pointer"
+                      onClick={(e) => handleCellClick(student.id, day, e.ctrlKey || e.metaKey)}
+                    >
+                      <div
                         className={cn(
-                          "h-8 w-10 text-xs font-medium rounded border-2 transition-all hover:scale-105",
+                          "h-8 w-10 mx-auto text-xs font-medium rounded border-2 transition-all hover:scale-105 flex items-center justify-center",
                           codeStyle.bg,
                           codeStyle.text,
                           isSelected ? "border-blue-500 ring-2 ring-blue-200" : "border-transparent",
@@ -181,7 +231,7 @@ export function AttendanceGrid({ students, days, currentMonth, total }: Attendan
                         title={`${student.name} - Day ${day}${attendance ? ` (${attendance.code})` : " (No data)"}`}
                       >
                         {attendance?.code || "-"}
-                      </button>
+                      </div>
                     </td>
                   )
                 })}

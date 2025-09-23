@@ -139,25 +139,25 @@ export const prisma = {
     },
 
     create: async (options: any) => {
-      const { name, rollNumber, hostel, year, isMando, mandoMultiplier } = options.data
+      const { name, rollNumber, hostelId, year, isMando, mandoMultiplier } = options.data
       // Generate a simple ID since cuid() default might not be working
       const id = `std_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
       const now = new Date()
       const result = await sql`
         INSERT INTO students (id, name, "rollNo", "hostelId", year, "isMando", "company", status, "createdAt", "updatedAt")
-        VALUES (${id}, ${name}, ${rollNumber}, ${hostel}, ${year}, ${isMando}, ${mandoMultiplier}, 'ACTIVE', ${now}, ${now})
+        VALUES (${id}, ${name}, ${rollNumber}, ${hostelId}, ${year}, ${isMando}, ${mandoMultiplier}, 'ACTIVE', ${now}, ${now})
         RETURNING *
       `
       return result[0]
     },
 
     update: async (options: any) => {
-      const { name, rollNumber, hostel, year, isMando, mandoMultiplier } = options.data
+      const { name, rollNumber, hostelId, year, isMando, mandoMultiplier } = options.data
       const result = await sql`
         UPDATE students SET
           name = ${name},
           "rollNo" = ${rollNumber},
-          "hostelId" = ${hostel},
+          "hostelId" = ${hostelId},
           year = ${year},
           "isMando" = ${isMando},
           "company" = ${mandoMultiplier}
@@ -180,7 +180,7 @@ export const prisma = {
       if (!options?.where?.date) {
         // Simple case - get recent attendance
         const result = await sql`
-          SELECT a.*, s.name as student_name FROM attendance a 
+          SELECT a.*, s.name as student_name FROM attendance a
           LEFT JOIN students s ON a."studentId" = s.id
           ORDER BY a.date DESC LIMIT 100
         `
@@ -191,7 +191,7 @@ export const prisma = {
       }
 
       const result = await sql`
-        SELECT a.*, s.name as student_name FROM attendance a 
+        SELECT a.*, s.name as student_name FROM attendance a
         LEFT JOIN students s ON a."studentId" = s.id
         WHERE a.date >= ${options.where.date.gte} AND a.date <= ${options.where.date.lte}
         ORDER BY a.date ASC, s.name ASC
@@ -205,12 +205,15 @@ export const prisma = {
     },
 
     upsert: async (options: any) => {
-      const { studentId, date, breakfast, lunch, dinner } = options.create
+      const { studentId, date, code, note } = options.create
+      // Generate a simple ID since cuid() default might not be working
+      const id = `att_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+      const now = new Date()
       const result = await sql`
-        INSERT INTO attendance ("studentId", date, breakfast, lunch, dinner) 
-        VALUES (${studentId}, ${date}, ${breakfast}, ${lunch}, ${dinner}) 
-        ON CONFLICT ("studentId", date) 
-        DO UPDATE SET breakfast = ${breakfast}, lunch = ${lunch}, dinner = ${dinner} 
+        INSERT INTO attendance (id, "studentId", date, code, note, "createdAt", "updatedAt")
+        VALUES (${id}, ${studentId}, ${date}, ${code}, ${note || null}, ${now}, ${now})
+        ON CONFLICT ("studentId", date)
+        DO UPDATE SET code = ${code}, note = ${note || null}, "updatedAt" = ${now}
         RETURNING *
       `
       return result[0]
@@ -231,15 +234,13 @@ export const prisma = {
 
     groupBy: async (options: any) => {
       const result = await sql`
-        SELECT breakfast, lunch, dinner, COUNT(*) as count 
-        FROM attendance 
-        WHERE date >= ${options.where.date.gte} AND date <= ${options.where.date.lte} 
-        GROUP BY breakfast, lunch, dinner
+        SELECT code, COUNT(*) as count
+        FROM attendance
+        WHERE date >= ${options.where.date.gte} AND date <= ${options.where.date.lte}
+        GROUP BY code
       `
       return result.map((row: any) => ({
-        breakfast: row.breakfast,
-        lunch: row.lunch,
-        dinner: row.dinner,
+        code: row.code,
         _count: Number.parseInt(row.count),
       }))
     },
@@ -405,6 +406,34 @@ export const prisma = {
         RETURNING *
       `
       return result[0]
+    },
+  },
+
+  hostel: {
+    findUnique: async (options: any) => {
+      try {
+        const result = await sql`SELECT * FROM hostels WHERE id = ${options.where.id}`
+        return result.length > 0 ? result[0] : null
+      } catch (error) {
+        console.error("[v0] Error finding hostel:", error)
+        return null
+      }
+    },
+
+    create: async (options: any) => {
+      try {
+        const { id, name, description } = options.data
+        const now = new Date()
+        const result = await sql`
+          INSERT INTO hostels (id, name, description, "createdAt", "updatedAt")
+          VALUES (${id}, ${name}, ${description}, ${now}, ${now})
+          RETURNING *
+        `
+        return result[0]
+      } catch (error) {
+        console.error("[v0] Error creating hostel:", error)
+        throw error
+      }
     },
   },
 

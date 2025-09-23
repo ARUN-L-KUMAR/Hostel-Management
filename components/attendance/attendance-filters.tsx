@@ -1,50 +1,54 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useRouter, useSearchParams } from "next/navigation"
 import { Card } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { Filter, RotateCcw } from "lucide-react"
 
-export function AttendanceFilters() {
-  const router = useRouter()
-  const searchParams = useSearchParams()
+interface AttendanceFiltersProps {
+  onFiltersChange?: (filters: { hostel: string; year: string; mandoFilter: string; status: string }) => void
+  onDateRangeChange?: (dateRange: { year: string; month: string }) => void
+}
 
+export function AttendanceFilters({ onFiltersChange, onDateRangeChange }: AttendanceFiltersProps = {}) {
   const currentDate = new Date()
   const currentYear = currentDate.getFullYear()
   const currentMonth = currentDate.getMonth() + 1 // 1-12
 
-  const attendanceYear = searchParams.get("year") || currentYear.toString()
-  const attendanceMonth = searchParams.get("month") || currentMonth.toString()
-  const hostel = searchParams.get("hostel") || "all"
-  const academicYear = searchParams.get("academicYear") || "all"
-  const mandoFilter = searchParams.get("mandoFilter") || "all"
-
-  const [selectedYear, setSelectedYear] = useState(attendanceYear)
-  const [selectedMonth, setSelectedMonth] = useState(attendanceMonth)
+  const [hostel, setHostel] = useState("all")
+  const [academicYear, setAcademicYear] = useState("all")
+  const [status, setStatus] = useState("all")
+  const [mandoFilter, setMandoFilter] = useState("all")
+  const [selectedYear, setSelectedYear] = useState(currentYear.toString())
+  const [selectedMonth, setSelectedMonth] = useState(currentMonth.toString())
 
   useEffect(() => {
-    setSelectedYear(attendanceYear)
-    setSelectedMonth(attendanceMonth)
-  }, [attendanceYear, attendanceMonth])
-
-  const updateSearchParams = (key: string, value: string) => {
-    const params = new URLSearchParams(searchParams.toString())
-    if (value === "all") {
-      params.delete(key)
-    } else {
-      params.set(key, value)
+    if (onFiltersChange) {
+      onFiltersChange({
+        hostel,
+        year: academicYear,
+        mandoFilter,
+        status,
+      })
     }
-    router.push(`?${params.toString()}`, { scroll: false })
-  }
+  }, [hostel, academicYear, mandoFilter, status, onFiltersChange])
+
+  useEffect(() => {
+    if (onDateRangeChange) {
+      onDateRangeChange({
+        year: selectedYear,
+        month: selectedMonth,
+      })
+    }
+  }, [selectedYear, selectedMonth, onDateRangeChange])
 
   const handleReset = () => {
-    updateSearchParams("hostel", "all")
-    updateSearchParams("academicYear", "all")
-    updateSearchParams("status", "all")
-    updateSearchParams("mandoFilter", "all")
+    setHostel("all")
+    setAcademicYear("all")
+    setStatus("all")
+    setMandoFilter("all")
   }
 
   return (
@@ -64,7 +68,7 @@ export function AttendanceFilters() {
         {/* Hostel Filter */}
         <div className="space-y-2">
           <Label className="text-sm font-medium text-slate-700">Hostel</Label>
-          <Select value={hostel} onValueChange={(value) => updateSearchParams("hostel", value)}>
+          <Select value={hostel} onValueChange={setHostel}>
             <SelectTrigger className="bg-white">
               <SelectValue placeholder="Select hostel" />
             </SelectTrigger>
@@ -79,7 +83,7 @@ export function AttendanceFilters() {
         {/* Year Filter */}
         <div className="space-y-2">
           <Label className="text-sm font-medium text-slate-700">Year</Label>
-          <Select value={academicYear} onValueChange={(value) => updateSearchParams("academicYear", value)}>
+          <Select value={academicYear} onValueChange={setAcademicYear}>
             <SelectTrigger className="bg-white">
               <SelectValue placeholder="Select year" />
             </SelectTrigger>
@@ -96,7 +100,7 @@ export function AttendanceFilters() {
         {/* Status Filter */}
         <div className="space-y-2">
           <Label className="text-sm font-medium text-slate-700">Status</Label>
-          <Select value={searchParams.get("status") || "all"} onValueChange={(value) => updateSearchParams("status", value)}>
+          <Select value={status} onValueChange={setStatus}>
             <SelectTrigger className="bg-white">
               <SelectValue placeholder="Select status" />
             </SelectTrigger>
@@ -111,7 +115,7 @@ export function AttendanceFilters() {
         {/* Mando Filter */}
         <div className="space-y-2">
           <Label className="text-sm font-medium text-slate-700">Mando Filter</Label>
-          <Select value={mandoFilter} onValueChange={(value) => updateSearchParams("mandoFilter", value)}>
+          <Select value={mandoFilter} onValueChange={setMandoFilter}>
             <SelectTrigger className="bg-white">
               <SelectValue placeholder="Select mando filter" />
             </SelectTrigger>

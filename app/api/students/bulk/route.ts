@@ -33,6 +33,23 @@ export async function POST(request: NextRequest) {
             continue
           }
 
+          // Ensure hostel exists
+          const hostelExists = await prisma.hostel.findUnique({
+            where: { id: hostelId.trim() }
+          })
+
+          if (!hostelExists) {
+            // Create the hostel
+            const hostelName = hostelId === 'hostel_boys' ? 'Boys' : hostelId === 'hostel_girls' ? 'Girls' : hostelId.replace('hostel_', '').replace('_', ' ')
+            await prisma.hostel.create({
+              data: {
+                id: hostelId.trim(),
+                name: hostelName,
+                description: `${hostelName} Hostel`
+              }
+            })
+          }
+
           // Check if student already exists
           const existingStudent = await prisma.student.findUnique({
             where: { rollNo }
@@ -50,7 +67,7 @@ export async function POST(request: NextRequest) {
               name: name.trim(),
               rollNumber: rollNo.trim(),
               year: parseInt(year),
-              hostel: hostelId.trim(),
+              hostelId: hostelId.trim(),
               isMando: isMando || false,
               mandoMultiplier: null
             }
