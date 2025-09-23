@@ -419,6 +419,94 @@ export const prisma = {
     },
   },
 
+  provisionUsage: {
+    findMany: async (options?: any) => {
+      try {
+        let query = sql`
+          SELECT pu.*, pi.name as provision_name, pi.unit, pi."unitCost"
+          FROM provision_usage pu
+          LEFT JOIN provision_items pi ON pu."provisionItemId" = pi.id
+        `
+
+        const whereConditions = []
+
+        if (options?.where?.date) {
+          if (options.where.date.gte) {
+            whereConditions.push(sql`pu.date >= ${options.where.date.gte}`)
+          }
+          if (options.where.date.lte) {
+            whereConditions.push(sql`pu.date <= ${options.where.date.lte}`)
+          }
+        }
+
+        if (whereConditions.length > 0) {
+          query = sql`${query} WHERE ${whereConditions[0]}`
+          for (let i = 1; i < whereConditions.length; i++) {
+            query = sql`${query} AND ${whereConditions[i]}`
+          }
+        }
+
+        query = sql`${query} ORDER BY pu.date DESC`
+
+        const result = await query
+
+        return result.map((row: any) => ({
+          ...row,
+          provisionItem: {
+            id: row.provisionItemId,
+            name: row.provision_name,
+            unit: row.unit,
+            unitCost: row.unitCost,
+          },
+        }))
+      } catch (error) {
+        console.error("[v0] Error finding provision usages:", error)
+        return []
+      }
+    },
+
+    create: async (options: any) => {
+      try {
+        const { provisionItemId, date, fromDate, toDate, quantity } = options.data
+        const id = `pu_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+        const now = new Date()
+        const result = await sql`
+          INSERT INTO provision_usage (id, "provisionItemId", date, "fromDate", "toDate", quantity, "createdAt", "updatedAt")
+          VALUES (${id}, ${provisionItemId}, ${date}, ${fromDate || null}, ${toDate || null}, ${quantity}, ${now}, ${now})
+          RETURNING *
+        `
+        return result[0]
+      } catch (error) {
+        console.error("[v0] Error creating provision usage:", error)
+        throw error
+      }
+    },
+
+    update: async (options: any) => {
+      try {
+        const { id } = options.where
+        const { provisionItemId, date, fromDate, toDate, quantity } = options.data
+        const now = new Date()
+
+        const result = await sql`
+          UPDATE provision_usage SET
+            "provisionItemId" = ${provisionItemId},
+            date = ${date},
+            "fromDate" = ${fromDate || null},
+            "toDate" = ${toDate || null},
+            quantity = ${quantity},
+            "updatedAt" = ${now}
+          WHERE id = ${id}
+          RETURNING *
+        `
+        return result[0]
+      } catch (error) {
+        console.error("[v0] Error updating provision usage:", error)
+        throw error
+      }
+    },
+  },
+
   bill: {
     findMany: async (options?: any) => {
       if (!options?.where) {

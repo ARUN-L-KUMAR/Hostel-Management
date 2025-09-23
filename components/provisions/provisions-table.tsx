@@ -20,8 +20,6 @@ interface Provision {
     date: string
   }>
   stats?: {
-    monthlyUsage: number
-    monthlyCost: number
     avgDailyUsage: number
   }
 }
@@ -36,25 +34,38 @@ export function ProvisionsTable() {
   const fetchProvisions = async () => {
     setLoading(true)
     try {
-      const response = await ApiClient.provisions.getAll()
+      // Fetch provisions
+      const provisionsResponse = await ApiClient.provisions.getAll()
 
-      // Calculate monthly usage and costs for December 2024
-      const provisionsWithStats = response.map((provision: Provision) => {
-        // Filter usage for December 2024
-        const decemberUsage = provision.usage?.filter((usage: any) => {
-          const usageDate = new Date(usage.date)
-          return usageDate.getMonth() === 11 && usageDate.getFullYear() === 2024 // December is month 11
-        }) || []
+      // Fetch all provision usage
+      const usageResponse = await fetch('/api/provision-usage')
 
-        const monthlyUsage = decemberUsage.reduce((sum: number, usageItem: any) => sum + Number(usageItem.quantity), 0)
-        const monthlyCost = monthlyUsage * Number(provision.unitCost)
+      let usageData: any[] = []
+      if (usageResponse.ok) {
+        usageData = await usageResponse.json()
+      }
+
+      // Group usage by provisionItemId
+      const usageByProvision = usageData.reduce((acc: Record<string, any[]>, usage: any) => {
+        const provisionId = usage.provisionItemId || usage.provisionItem?.id
+        if (!acc[provisionId]) {
+          acc[provisionId] = []
+        }
+        acc[provisionId].push(usage)
+        return acc
+      }, {})
+
+      // Calculate average daily usage from all provision usage data
+      const provisionsWithStats = provisionsResponse.map((provision: Provision) => {
+        const usageRecords = usageByProvision[provision.id] || []
+        const totalQuantity = usageRecords.reduce((sum: number, usageItem: any) => sum + Number(usageItem.quantity), 0)
+        const totalUsageCount = usageRecords.length
+        const avgDailyUsage = totalUsageCount > 0 ? totalQuantity / totalUsageCount : 0
 
         return {
           ...provision,
           stats: {
-            monthlyUsage,
-            monthlyCost,
-            avgDailyUsage: monthlyUsage / 31,
+            avgDailyUsage,
           },
         }
       })
@@ -99,7 +110,7 @@ export function ProvisionsTable() {
     fetchProvisions() // Refresh the table data
   }
 
-  const totalMonthlyCost = provisions.reduce((sum, p: any) => sum + p.stats?.monthlyCost || 0, 0)
+  // No total cost calculation needed since we removed monthly cost
 
   if (loading) {
     return (
@@ -122,12 +133,7 @@ export function ProvisionsTable() {
     <>
       <Card className="border-0 shadow-md">
       <CardHeader>
-        <div className="flex items-center justify-between">
-          <CardTitle>Provision Items ({provisions.length})</CardTitle>
-          <div className="text-sm text-slate-600">
-            Total Monthly Cost: <span className="font-semibold">₹{totalMonthlyCost.toLocaleString()}</span>
-          </div>
-        </div>
+        <CardTitle>Provision Items ({provisions.length})</CardTitle>
       </CardHeader>
       <CardContent>
         <Table>
@@ -136,48 +142,28 @@ export function ProvisionsTable() {
               <TableHead>Item Name</TableHead>
               <TableHead>Quantity(units)</TableHead>
               <TableHead className="text-right">Unit Cost</TableHead>
-              <TableHead className="text-right">Monthly Usage</TableHead>
-              <TableHead className="text-right">Monthly Cost</TableHead>
               <TableHead className="text-right">Avg Daily Usage</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {provisions.map((provision) => {
-              const monthlyCost = provision.stats?.monthlyCost || 0
-              const costPercentage = totalMonthlyCost > 0 ? (monthlyCost / totalMonthlyCost) * 100 : 0
-              const isHighCost = costPercentage > 10
-
-              return (
-                <TableRow key={provision.id}>
-                  <TableCell>
-                    <div className="font-medium text-slate-900">{provision.name}</div>
-                  </TableCell>
-                  <TableCell>{provision.unitMeasure}</TableCell>
-                  <TableCell className="text-right">₹{Number(provision.unitCost).toFixed(2)}</TableCell>
-                  <TableCell className="text-right">
-                    <div className="font-medium">{(provision.stats?.monthlyUsage || 0).toFixed(1)}</div>
-                    <div className="text-sm text-slate-500">{provision.unit}</div>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="font-semibold">₹{monthlyCost.toFixed(2)}</div>
-                    {isHighCost && (
-                      <Badge variant="secondary" className="bg-red-100 text-red-800 text-xs">
-                        High Cost
-                      </Badge>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    {(provision.stats?.avgDailyUsage || 0).toFixed(2)} {provision.unit}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <Button variant="ghost" size="sm" onClick={() => handleEditClick(provision)}>
-                      <Edit className="w-4 h-4" />
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              )
-            })}
+            {provisions.map((provision) => (
+              <TableRow key={provision.id}>
+                <TableCell>
+                  <div className="font-medium text-slate-900">{provision.name}</div>
+                </TableCell>
+                <TableCell>{provision.unitMeasure}</TableCell>
+                <TableCell className="text-right">₹{Number(provision.unitCost).toFixed(2)}</TableCell>
+                <TableCell className="text-right">
+                  {(provision.stats?.avgDailyUsage || 0).toFixed(2)} {provision.unit}
+                </TableCell>
+                <TableCell className="text-right">
+                  <Button variant="ghost" size="sm" onClick={() => handleEditClick(provision)}>
+                    <Edit className="w-4 h-4" />
+                  </Button>
+                </TableCell>
+              </TableRow>
+            ))}
           </TableBody>
         </Table>
       </CardContent>
