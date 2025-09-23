@@ -102,17 +102,19 @@ model ProvisionItem {
 }
 
 model ProvisionUsage {
-  id               String        @id @default(cuid())
-  provisionItemId  String
-  provisionItem    ProvisionItem @relation(fields: [provisionItemId], references: [id])
-  date             DateTime      @db.Date
-  quantity         Decimal       @db.Decimal(10, 3)
-  billId           String?
-  bill             Bill?         @relation(fields: [billId], references: [id])
-  createdAt        DateTime      @default(now())
-  updatedAt        DateTime      @updatedAt
+   id               String        @id @default(cuid())
+   provisionItemId  String
+   provisionItem    ProvisionItem @relation(fields: [provisionItemId], references: [id])
+   date             DateTime      @db.Date
+   fromDate         DateTime?     @db.Date
+   toDate           DateTime?     @db.Date
+   quantity         Decimal       @db.Decimal(10, 3)
+   billId           String?
+   bill             Bill?         @relation(fields: [billId], references: [id])
+   createdAt        DateTime      @default(now())
+   updatedAt        DateTime      @updatedAt
 
-  @@map("provision_usage")
+   @@map("provision_usage")
 }
 
 model Expense {

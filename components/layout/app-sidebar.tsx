@@ -15,6 +15,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Home,
+  TrendingUp,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
@@ -24,6 +25,7 @@ const menuItems = [
   { icon: Calendar, label: "Attendance", href: "/dashboard/attendance" },
   { icon: Users, label: "Students", href: "/dashboard/students" },
   { icon: Package, label: "Provisions", href: "/dashboard/provisions" },
+  { icon: TrendingUp, label: "Provision Usage", href: "/dashboard/provision-usage" },
   { icon: Receipt, label: "Billing", href: "/dashboard/billing" },
   { icon: FileText, label: "Reports", href: "/dashboard/reports" },
   { icon: Settings, label: "Admin", href: "/dashboard/admin" },
