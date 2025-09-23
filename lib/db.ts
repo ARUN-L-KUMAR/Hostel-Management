@@ -725,6 +725,118 @@ export const prisma = {
     },
   },
 
+  user: {
+    findMany: async (options?: any) => {
+      try {
+        let result
+        if (options?.where) {
+          // Apply filters if needed
+          if (options.where.role) {
+            result = await sql`SELECT * FROM users WHERE role = ${options.where.role} ORDER BY name ASC`
+          } else {
+            result = await sql`SELECT * FROM users ORDER BY name ASC`
+          }
+        } else {
+          result = await sql`SELECT * FROM users ORDER BY name ASC`
+        }
+        
+        console.log("[v0] Found users:", result.length)
+        return result
+      } catch (error) {
+        console.error("[v0] Error finding users:", error)
+        return []
+      }
+    },
+
+    findUnique: async (options: any) => {
+      try {
+        let result
+        if (options.where.id) {
+          result = await sql`SELECT * FROM users WHERE id = ${options.where.id}`
+        } else if (options.where.email) {
+          result = await sql`SELECT * FROM users WHERE email = ${options.where.email}`
+        } else {
+          return null
+        }
+
+        if (result.length === 0) return null
+        return result[0]
+      } catch (error) {
+        console.error("[v0] Error finding user:", error)
+        return null
+      }
+    },
+
+    create: async (options: any) => {
+      try {
+        const { name, email, role, password } = options.data
+        const id = `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+        const now = new Date()
+        
+        // Try with password first, fallback without if column doesn't exist
+        let result
+        try {
+          result = await sql`
+            INSERT INTO users (id, name, email, role, password, "createdAt", "updatedAt")
+            VALUES (${id}, ${name}, ${email}, ${role}, ${password || null}, ${now}, ${now})
+            RETURNING *
+          `
+        } catch (error: any) {
+          if (error.code === '42703') { // Column doesn't exist
+            result = await sql`
+              INSERT INTO users (id, name, email, role, "createdAt", "updatedAt")
+              VALUES (${id}, ${name}, ${email}, ${role}, ${now}, ${now})
+              RETURNING *
+            `
+          } else {
+            throw error
+          }
+        }
+        return result[0]
+      } catch (error) {
+        console.error("[v0] Error creating user:", error)
+        throw error
+      }
+    },
+
+    update: async (options: any) => {
+      try {
+        const { id } = options.where
+        const { name, email, role } = options.data
+        const now = new Date()
+        
+        const result = await sql`
+          UPDATE users SET
+            name = ${name},
+            email = ${email},
+            role = ${role},
+            "updatedAt" = ${now}
+          WHERE id = ${id}
+          RETURNING *
+        `
+        return result[0]
+      } catch (error) {
+        console.error("[v0] Error updating user:", error)
+        throw error
+      }
+    },
+
+    delete: async (options: any) => {
+      try {
+        const { id } = options.where
+        const result = await sql`
+          DELETE FROM users
+          WHERE id = ${id}
+          RETURNING *
+        `
+        return result[0]
+      } catch (error) {
+        console.error("[v0] Error deleting user:", error)
+        throw error
+      }
+    },
+  },
+
   // Transaction support
   $transaction: async (operations: any[]) => {
     // Simple implementation - execute operations sequentially
