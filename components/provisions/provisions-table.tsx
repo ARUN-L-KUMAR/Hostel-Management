@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Edit } from "lucide-react"
+import { Edit, ArrowUp } from "lucide-react"
 import { ApiClient } from "@/lib/api-client"
 import { EditProvisionDialog } from "./edit-provision-dialog"
 
@@ -31,6 +31,7 @@ export function ProvisionsTable() {
   const [loading, setLoading] = useState(true)
   const [editDialogOpen, setEditDialogOpen] = useState(false)
   const [selectedProvision, setSelectedProvision] = useState<Provision | null>(null)
+  const [showScrollToTop, setShowScrollToTop] = useState(false)
 
   const fetchProvisions = async () => {
     setLoading(true)
@@ -70,6 +71,24 @@ export function ProvisionsTable() {
   useEffect(() => {
     fetchProvisions()
   }, [])
+
+  // Scroll to top functionality
+  useEffect(() => {
+    const handleScroll = () => {
+      const scrollY = window.scrollY
+      setShowScrollToTop(scrollY > 300) // Show button after scrolling 300px
+    }
+
+    window.addEventListener('scroll', handleScroll)
+    return () => window.removeEventListener('scroll', handleScroll)
+  }, [])
+
+  const scrollToTop = () => {
+    window.scrollTo({
+      top: 0,
+      behavior: 'smooth'
+    })
+  }
 
   const handleEditClick = (provision: Provision) => {
     setSelectedProvision(provision)
@@ -170,6 +189,18 @@ export function ProvisionsTable() {
       onOpenChange={setEditDialogOpen}
       onSuccess={handleEditSuccess}
     />
+    
+    {/* Scroll to Top Button */}
+    {showScrollToTop && (
+      <Button
+        onClick={scrollToTop}
+        className="fixed bottom-8 right-8 z-50 w-12 h-12 rounded-full shadow-lg bg-blue-600 hover:bg-blue-700 text-white transition-all duration-300 ease-in-out transform hover:scale-110"
+        size="icon"
+        aria-label="Scroll to top"
+      >
+        <ArrowUp className="w-5 h-5" />
+      </Button>
+    )}
   </>
   )
 }
