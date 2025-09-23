@@ -5,20 +5,8 @@ export const dynamic = 'force-dynamic'
 
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url)
-    const month = searchParams.get("month")
-    const year = searchParams.get("year")
-
-    const startDate = new Date(Number.parseInt(year || "2024"), Number.parseInt(month || "0"), 1)
-    const endDate = new Date(Number.parseInt(year || "2024"), Number.parseInt(month || "0") + 1, 0)
-
+    // Return all attendance records - filtering is done client-side for reliability
     const attendance = await prisma.attendance.findMany({
-      where: {
-        date: {
-          gte: startDate,
-          lte: endDate,
-        },
-      },
       include: {
         student: true,
       },
@@ -43,10 +31,13 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const { studentId, date, code } = body
 
+    // Parse date as UTC to avoid timezone issues
+    const utcDate = new Date(date + 'T00:00:00.000Z')
+
     const attendance = await prisma.attendance.upsert({
       create: {
         studentId,
-        date: new Date(date),
+        date: utcDate,
         code,
       },
     })

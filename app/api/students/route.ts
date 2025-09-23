@@ -11,6 +11,8 @@ export async function GET(request: NextRequest) {
     const isMando = searchParams.get("isMando")
     const status = searchParams.get("status")
     const search = searchParams.get("search")
+    const month = searchParams.get("month")
+    const attendanceYear = searchParams.get("attendanceYear")
 
     const where: any = {}
 
@@ -48,24 +50,51 @@ export async function GET(request: NextRequest) {
     console.log(`[DEBUG] Final where clause:`, JSON.stringify(where, null, 2))
 
     console.log(`[DEBUG] About to execute Prisma query...`)
-    
+
+    // Include attendance if month and year are provided
+    const include: any = {
+      hostel: true,
+    }
+
+    if (month && attendanceYear) {
+      // Create UTC dates to avoid timezone issues
+      const startDate = new Date(`${attendanceYear}-${month.padStart(2, '0')}-01T00:00:00.000Z`)
+      const endDate = new Date(Number.parseInt(attendanceYear), Number.parseInt(month), 0)
+      endDate.setUTCHours(23, 59, 59, 999) // End of last day of month
+
+      include.attendance = {
+        where: {
+          date: {
+            gte: startDate,
+            lte: endDate,
+          },
+        },
+        orderBy: { date: "asc" },
+      }
+      console.log(`[DEBUG] Attendance filter applied: ${attendanceYear}-${month} (${startDate.toISOString()} to ${endDate.toISOString()})`)
+    }
+
     const students = await prisma.student.findMany({
       where,
-      include: {
-        hostel: true,
-      },
+      include,
       orderBy: { name: "asc" },
     })
     console.log(`[DEBUG] Prisma query completed. Result count: ${students.length}`)
-    
+
     // Let's also check the actual hostel names in the results
     const hostelNames = [...new Set(students.map(s => s.hostel?.name).filter(Boolean))]
     console.log(`[DEBUG] Hostel names in results: ${JSON.stringify(hostelNames)}`)
 
-    console.log(`[v0] Finding students with options:`, JSON.stringify({where, include: {hostel: true}, orderBy: {name: "asc"}}))  
+    console.log(`[v0] Finding students with options:`, JSON.stringify({where, include, orderBy: {name: "asc"}}))
     console.log(`[v0] Found students:`, students.length)
 
-    return NextResponse.json(students)
+    return NextResponse.json(students, {
+      headers: {
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0',
+      },
+    })
   } catch (error) {
     console.error("Error fetching students:", error)
     return NextResponse.json({ error: "Failed to fetch students" }, { status: 500 })

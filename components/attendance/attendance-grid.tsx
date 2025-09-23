@@ -46,6 +46,15 @@ export function AttendanceGrid({ students, days, currentMonth, total }: Attendan
   const [localStudents, setLocalStudents] = useState(students)
   const paginatedStudents = localStudents.slice(start, start + 10)
 
+  // Get today's date for highlighting
+  const today = new Date()
+  const todayDate = today.getDate()
+  const todayMonth = today.getMonth() + 1
+  const todayYear = today.getFullYear()
+  const currentMonthNum = parseInt(currentMonth.split('-')[1])
+  const currentYearNum = parseInt(currentMonth.split('-')[0])
+  const isTodayInCurrentMonth = todayMonth === currentMonthNum && todayYear === currentYearNum
+
   useEffect(() => {
     setLocalStudents(students)
   }, [students])
@@ -183,11 +192,22 @@ export function AttendanceGrid({ students, days, currentMonth, total }: Attendan
               <th className="sticky left-0 bg-slate-50 border border-slate-300 border-r-2 border-r-slate-400 p-2 w-[200px] text-left font-semibold text-sm text-slate-700">
                 Student
               </th>
-              {days.map((day) => (
-                <th key={day} className="border border-slate-300 p-1 w-10 text-center text-xs font-medium text-slate-600">
-                  {day}
-                </th>
-              ))}
+              {days.map((day) => {
+                const isToday = isTodayInCurrentMonth && day === todayDate
+                return (
+                  <th
+                    key={day}
+                    className={cn(
+                      "border border-slate-300 p-1 w-10 text-center text-xs font-medium",
+                      isToday
+                        ? "bg-blue-100 text-blue-800 font-bold"
+                        : "text-slate-600 bg-slate-50"
+                    )}
+                  >
+                    {day}
+                  </th>
+                )
+              })}
             </tr>
           </thead>
           <tbody>

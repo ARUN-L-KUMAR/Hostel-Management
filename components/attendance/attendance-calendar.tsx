@@ -26,10 +26,11 @@ export function AttendanceCalendar({ year, month, filters }: { year: string; mon
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    console.log(`[v0] AttendanceCalendar useEffect triggered - month: ${month}, year: ${year}`)
     const fetchData = async () => {
       setLoading(true)
       try {
-        // Fetch students with filters
+        // Fetch students without attendance first
         const studentsParams: any = { status: "ACTIVE" }
         if (filters.hostel !== "all") studentsParams.hostel = filters.hostel
         if (filters.year !== "all") studentsParams.year = filters.year
@@ -37,22 +38,48 @@ export function AttendanceCalendar({ year, month, filters }: { year: string; mon
         if (filters.mandoFilter === "regular") studentsParams.isMando = "false"
 
         const studentsData = await ApiClient.students.getAll(studentsParams)
+        console.log(`[v0] Fetched ${studentsData.length} students`)
 
-        // Fetch attendance data for the month
+        // Fetch attendance data for the specific month
+        console.log(`[v0] Fetching attendance for month: ${month}, year: ${year}`)
         const attendanceData = await ApiClient.attendance.get(parseInt(month), parseInt(year))
+        console.log(`[v0] Fetched ${attendanceData.length} attendance records`)
 
-        // Combine students with their attendance
+        // Create date range for filtering attendance to this month only
+        const startOfMonth = new Date(parseInt(year), parseInt(month) - 1, 1)
+        const endOfMonth = new Date(parseInt(year), parseInt(month), 0, 23, 59, 59, 999)
+        console.log(`[v0] Date range: ${startOfMonth.toISOString()} to ${endOfMonth.toISOString()}`)
+
+        // Filter attendance to current month and combine with students
         const studentsWithAttendance = studentsData.map((student: any) => {
-          const studentAttendance = attendanceData.filter((att: any) => att.studentId === student.id)
+          const studentAttendance = attendanceData
+            .filter((att: any) => {
+              const attDate = new Date(att.date)
+              const isInRange = att.studentId === student.id &&
+                     attDate >= startOfMonth &&
+                     attDate <= endOfMonth
+              if (isInRange) {
+                console.log(`[v0] Student ${student.id}: attendance on ${attDate.toISOString()}`)
+              }
+              return isInRange
+            })
+            .map((att: any) => {
+              // Normalize date to avoid timezone shifts and add +1 day
+              const date = new Date(att.date)
+              const normalizedDate = new Date(date.getFullYear(), date.getMonth(), date.getDate() + 1)
+              return {
+                date: normalizedDate,
+                code: att.code as AttendanceCode,
+              }
+            })
+
           return {
             ...student,
-            attendance: studentAttendance.map((att: any) => ({
-              date: new Date(att.date),
-              code: att.code as AttendanceCode,
-            })),
+            attendance: studentAttendance,
           }
         })
 
+        console.log(`[v0] Final result: ${studentsWithAttendance.filter((s: any) => s.attendance.length > 0).length} students with attendance`)
         setStudents(studentsWithAttendance)
       } catch (error) {
         console.error("Error fetching attendance data:", error)

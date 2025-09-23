@@ -57,33 +57,78 @@ export const prisma = {
           }
         }
 
-        // If attendance is requested, fetch it for each student
+        // If attendance is requested, fetch all attendance for the date range and assign to students
         if (options?.include?.attendance && studentsWithHostel.length > 0) {
-          for (const student of studentsWithHostel) {
-            try {
-              if (options.include.attendance.where?.date) {
-                // Query with date filter
-                const attendanceResult = await sql`
-                  SELECT * FROM attendance 
-                  WHERE "studentId" = ${student.id} 
-                  AND date >= ${options.include.attendance.where.date.gte} 
-                  AND date <= ${options.include.attendance.where.date.lte}
-                  ORDER BY date ASC
-                `
-                student.attendance = attendanceResult || []
-              } else {
-                // Query without date filter
-                const attendanceResult = await sql`
-                  SELECT * FROM attendance 
-                  WHERE "studentId" = ${student.id} 
-                  ORDER BY date ASC
-                `
-                student.attendance = attendanceResult || []
-              }
-            } catch (attendanceError) {
-              console.error("[v0] Error fetching attendance for student:", student.id, attendanceError)
-              student.attendance = []
+          try {
+            // Log all attendance records in the table for debugging (only if records exist)
+            const allAttendanceRecords = await sql`SELECT * FROM attendance ORDER BY date ASC`
+            if (allAttendanceRecords.length > 0) {
+              console.log(`[v0] ATTENDANCE RECORDS IN TABLE (${allAttendanceRecords.length} total):`, allAttendanceRecords)
+            } else {
+              console.log(`[v0] No attendance records found in table`)
             }
+
+            let attendanceQuery = sql`SELECT * FROM attendance WHERE 1=1`
+            let orderBy = sql`ORDER BY "studentId", date ASC`
+
+            // Apply date filter if specified
+            if (options.include.attendance.where?.date) {
+              if (options.include.attendance.where.date.gte) {
+                const gteDate = new Date(options.include.attendance.where.date.gte)
+                const gteISOString = gteDate.toISOString()
+                attendanceQuery = sql`${attendanceQuery} AND date >= ${gteISOString}`
+                console.log(`[v0] Applied date gte filter: ${gteISOString}`)
+              }
+              if (options.include.attendance.where.date.lte) {
+                const lteDate = new Date(options.include.attendance.where.date.lte)
+                const lteISOString = lteDate.toISOString()
+                attendanceQuery = sql`${attendanceQuery} AND date <= ${lteISOString}`
+                console.log(`[v0] Applied date lte filter: ${lteISOString}`)
+              }
+            }
+
+            // Apply orderBy if specified
+            if (options.include.attendance.orderBy) {
+              const orderField = options.include.attendance.orderBy.date || options.include.attendance.orderBy
+              const orderDirection = orderField === 'desc' ? sql`DESC` : sql`ASC`
+              orderBy = sql`ORDER BY "studentId", date ${orderDirection}`
+            }
+
+            console.log(`[v0] Executing attendance query with filters`)
+            const allAttendance = await sql`${attendanceQuery} ${orderBy}`
+            console.log(`[v0] Attendance query returned ${allAttendance.length} records`)
+
+            // Group attendance by studentId
+            const attendanceByStudent = new Map()
+            allAttendance.forEach((att: any) => {
+              if (!attendanceByStudent.has(att.studentId)) {
+                attendanceByStudent.set(att.studentId, [])
+              }
+              attendanceByStudent.get(att.studentId).push(att)
+            })
+
+            console.log(`[v0] Student IDs with attendance:`, Array.from(attendanceByStudent.keys()))
+
+            // Assign attendance to students
+            studentsWithHostel.forEach(student => {
+              student.attendance = attendanceByStudent.get(student.id) || []
+              if (student.attendance.length > 0) {
+                console.log(`[v0] Student ${student.id} (${student.name}) has ${student.attendance.length} attendance records`)
+              }
+            })
+
+            // Check if any attendance records couldn't be assigned
+            const assignedStudentIds = new Set(studentsWithHostel.map(s => s.id))
+            const unassignedAttendance = Array.from(attendanceByStudent.entries()).filter(([studentId]) => !assignedStudentIds.has(studentId))
+            if (unassignedAttendance.length > 0) {
+              console.log(`[v0] WARNING: ${unassignedAttendance.length} attendance records could not be assigned to students:`, unassignedAttendance)
+            }
+
+          } catch (attendanceError) {
+            console.error("[v0] Error fetching attendance:", attendanceError)
+            studentsWithHostel.forEach(student => {
+              student.attendance = []
+            })
           }
         }
 
@@ -206,12 +251,16 @@ export const prisma = {
 
     upsert: async (options: any) => {
       const { studentId, date, code, note } = options.create
+      // Ensure date is treated as UTC
+      const utcDate = new Date(date)
+      utcDate.setUTCHours(0, 0, 0, 0) // Set to UTC midnight
+
       // Generate a simple ID since cuid() default might not be working
       const id = `att_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
       const now = new Date()
       const result = await sql`
         INSERT INTO attendance (id, "studentId", date, code, note, "createdAt", "updatedAt")
-        VALUES (${id}, ${studentId}, ${date}, ${code}, ${note || null}, ${now}, ${now})
+        VALUES (${id}, ${studentId}, ${utcDate}, ${code}, ${note || null}, ${now}, ${now})
         ON CONFLICT ("studentId", date)
         DO UPDATE SET code = ${code}, note = ${note || null}, "updatedAt" = ${now}
         RETURNING *
