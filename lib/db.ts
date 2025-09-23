@@ -30,6 +30,10 @@ export const prisma = {
           if (options.where.hostelId) {
             studentsWithHostel = studentsWithHostel.filter(s => s.hostelId === options.where.hostelId)
           }
+          // Handle nested hostel name filtering
+          if (options.where.hostel?.name) {
+            studentsWithHostel = studentsWithHostel.filter(s => s.hostel?.name === options.where.hostel.name)
+          }
           if (options.where.year) {
             studentsWithHostel = studentsWithHostel.filter(s => s.year === options.where.year)
           }

@@ -14,23 +14,25 @@ export async function GET(request: NextRequest) {
 
     // Apply filters
     if (hostel && hostel !== "all") {
-      if (hostel === "boys") {
-        where.hostelId = "hostel_boys"
-      } else if (hostel === "girls") {
-        where.hostelId = "hostel_girls"
+      where.hostel = {
+        name: hostel
       }
+      console.log(`[DEBUG] Hostel filter applied: ${hostel}`)
     }
 
     if (year && year !== "all") {
       where.year = Number.parseInt(year)
+      console.log(`[DEBUG] Year filter applied: ${year}`)
     }
 
     if (isMando && isMando !== "all") {
       where.isMando = isMando === "true"
+      console.log(`[DEBUG] Mando filter applied: ${isMando}`)
     }
 
     if (status && status !== "all") {
       where.status = status
+      console.log(`[DEBUG] Status filter applied: ${status}`)
     }
 
     if (search) {
@@ -38,8 +40,13 @@ export async function GET(request: NextRequest) {
         { name: { contains: search, mode: 'insensitive' } },
         { rollNo: { contains: search, mode: 'insensitive' } }
       ]
+      console.log(`[DEBUG] Search filter applied: ${search}`)
     }
 
+    console.log(`[DEBUG] Final where clause:`, JSON.stringify(where, null, 2))
+
+    console.log(`[DEBUG] About to execute Prisma query...`)
+    
     const students = await prisma.student.findMany({
       where,
       include: {
@@ -47,6 +54,14 @@ export async function GET(request: NextRequest) {
       },
       orderBy: { name: "asc" },
     })
+    console.log(`[DEBUG] Prisma query completed. Result count: ${students.length}`)
+    
+    // Let's also check the actual hostel names in the results
+    const hostelNames = [...new Set(students.map(s => s.hostel?.name).filter(Boolean))]
+    console.log(`[DEBUG] Hostel names in results: ${JSON.stringify(hostelNames)}`)
+
+    console.log(`[v0] Finding students with options:`, JSON.stringify({where, include: {hostel: true}, orderBy: {name: "asc"}}))  
+    console.log(`[v0] Found students:`, students.length)
 
     return NextResponse.json(students)
   } catch (error) {

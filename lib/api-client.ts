@@ -60,7 +60,7 @@ export class ApiClient {
 
   // Specific API methods
   static students = {
-    getAll: (filters?: { hostel?: string; year?: string; isMando?: string }) => this.get("/students", filters),
+    getAll: (filters?: { hostel?: string; year?: string; status?: string; isMando?: string; search?: string }) => this.get("/students", filters),
     getById: (id: string) => this.get(`/students/${id}`),
     create: (data: any) => this.post("/students", data),
     update: (id: string, data: any) => this.put(`/students/${id}`, data),

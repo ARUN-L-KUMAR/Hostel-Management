@@ -3,7 +3,6 @@
 import { useState } from "react"
 import { Card } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -14,7 +13,7 @@ interface StudentsFiltersProps {
     hostel: string
     year: string
     status: string
-    mandoOnly: boolean
+    mandoFilter: string
     search: string
   }) => void
 }
@@ -24,7 +23,7 @@ export function StudentsFilters({ onFiltersChange }: StudentsFiltersProps) {
     hostel: "all",
     year: "all",
     status: "all",
-    mandoOnly: false,
+    mandoFilter: "all",
     search: "",
   })
 
@@ -39,7 +38,7 @@ export function StudentsFilters({ onFiltersChange }: StudentsFiltersProps) {
       hostel: "all",
       year: "all",
       status: "all",
-      mandoOnly: false,
+      mandoFilter: "all",
       search: "",
     }
     setFilters(resetFilters)
@@ -78,13 +77,13 @@ export function StudentsFilters({ onFiltersChange }: StudentsFiltersProps) {
         <div className="space-y-2">
           <Label className="text-sm font-medium text-slate-700">Hostel</Label>
           <Select value={filters.hostel} onValueChange={(value) => handleFilterChange({ hostel: value })}>
-            <SelectTrigger>
+            <SelectTrigger className="bg-white">
               <SelectValue placeholder="Select hostel" />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="bg-white">
               <SelectItem value="all">All Hostels</SelectItem>
-              <SelectItem value="boys">Boys Hostel</SelectItem>
-              <SelectItem value="girls">Girls Hostel</SelectItem>
+              <SelectItem value="Boys">Boys Hostel</SelectItem>
+              <SelectItem value="Girls">Girls Hostel</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -93,15 +92,15 @@ export function StudentsFilters({ onFiltersChange }: StudentsFiltersProps) {
         <div className="space-y-2">
           <Label className="text-sm font-medium text-slate-700">Year</Label>
           <Select value={filters.year} onValueChange={(value) => handleFilterChange({ year: value })}>
-            <SelectTrigger>
+            <SelectTrigger className="bg-white">
               <SelectValue placeholder="Select year" />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="bg-white">
               <SelectItem value="all">All Years</SelectItem>
-              <SelectItem value="2021">2021</SelectItem>
-              <SelectItem value="2022">2022</SelectItem>
-              <SelectItem value="2023">2023</SelectItem>
-              <SelectItem value="2024">2024</SelectItem>
+              <SelectItem value="1">1st Year</SelectItem>
+              <SelectItem value="2">2nd Year</SelectItem>
+              <SelectItem value="3">3rd Year</SelectItem>
+              <SelectItem value="4">4th Year</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -110,31 +109,30 @@ export function StudentsFilters({ onFiltersChange }: StudentsFiltersProps) {
         <div className="space-y-2">
           <Label className="text-sm font-medium text-slate-700">Status</Label>
           <Select value={filters.status} onValueChange={(value) => handleFilterChange({ status: value })}>
-            <SelectTrigger>
+            <SelectTrigger className="bg-white">
               <SelectValue placeholder="Select status" />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="bg-white">
               <SelectItem value="all">All Status</SelectItem>
               <SelectItem value="ACTIVE">Active</SelectItem>
-              <SelectItem value="INACTIVE">Inactive</SelectItem>
-              <SelectItem value="GRADUATED">Graduated</SelectItem>
+              <SelectItem value="VACATED">Vacated</SelectItem>  
             </SelectContent>
           </Select>
         </div>
 
-        {/* Mando Only Toggle */}
+        {/* Mando Filter */}
         <div className="space-y-2">
           <Label className="text-sm font-medium text-slate-700">Mando Filter</Label>
-          <div className="flex items-center space-x-2">
-            <Switch
-              id="mando-only"
-              checked={filters.mandoOnly}
-              onCheckedChange={(checked) => handleFilterChange({ mandoOnly: checked })}
-            />
-            <Label htmlFor="mando-only" className="text-sm text-slate-600">
-              Mando only
-            </Label>
-          </div>
+          <Select value={filters.mandoFilter} onValueChange={(value) => handleFilterChange({ mandoFilter: value })}>
+            <SelectTrigger className="bg-white">
+              <SelectValue placeholder="Select mando filter" />
+            </SelectTrigger>
+            <SelectContent className="bg-white">
+              <SelectItem value="all">All Students</SelectItem>
+              <SelectItem value="mando">Mando Students Only</SelectItem>
+              <SelectItem value="regular">Regular Students Only</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
       </div>
     </Card>

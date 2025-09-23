@@ -32,7 +32,7 @@ interface StudentsTableProps {
     hostel: string
     year: string
     status: string
-    mandoOnly: boolean
+    mandoFilter: string
     search: string
   }
 }
@@ -50,10 +50,14 @@ export function StudentsTable({ filters }: StudentsTableProps) {
         if (filters.hostel !== "all") params.hostel = filters.hostel
         if (filters.year !== "all") params.year = filters.year
         if (filters.status !== "all") params.status = filters.status
-        if (filters.mandoOnly) params.isMando = "true"
+        if (filters.mandoFilter === "mando") params.isMando = "true"
+        if (filters.mandoFilter === "regular") params.isMando = "false"
         if (filters.search) params.search = filters.search
 
         const response = await ApiClient.students.getAll(params)
+        
+        console.log('Frontend: API params sent:', params)
+        console.log('Frontend: API response length:', response.length)
 
         // Calculate stats for each student (simplified)
         const studentsWithStats = response.map((student: any) => ({
