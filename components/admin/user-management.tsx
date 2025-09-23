@@ -1,41 +1,153 @@
+"use client"
+
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { UserPlus, Edit, Trash2, Shield, User, Settings } from "lucide-react"
+import { EditUserDialog } from "@/components/admin/edit-user-dialog"
+import { toast } from "sonner"
+import { UserPlus, Edit, Trash2, Shield, User, Settings, Loader2 } from "lucide-react"
 
-const users = [
-  { id: 1, name: "Admin User", email: "admin@mess.edu", role: "admin", status: "active", lastLogin: "2 hours ago" },
-  { id: 2, name: "Mess Manager", email: "manager@mess.edu", role: "manager", status: "active", lastLogin: "1 day ago" },
-  {
-    id: 3,
-    name: "Staff Member 1",
-    email: "staff1@mess.edu",
-    role: "staff",
-    status: "active",
-    lastLogin: "3 hours ago",
-  },
-  {
-    id: 4,
-    name: "Staff Member 2",
-    email: "staff2@mess.edu",
-    role: "staff",
-    status: "inactive",
-    lastLogin: "1 week ago",
-  },
-  {
-    id: 5,
-    name: "Accountant",
-    email: "accounts@mess.edu",
-    role: "accountant",
-    status: "active",
-    lastLogin: "5 hours ago",
-  },
-]
+interface User {
+  id: string
+  name: string
+  email: string
+  role: "ADMIN" | "ACCOUNTANT" | "MESS_MANAGER" | "VIEWER"
+  createdAt?: string
+  updatedAt?: string
+  created_at?: string
+  updated_at?: string
+  password?: string | null
+}
 
 export function UserManagement() {
+  const [users, setUsers] = useState<User[]>([])
+  const [loading, setLoading] = useState(true)
+  const [addUserLoading, setAddUserLoading] = useState(false)
+  const [deleteUserLoading, setDeleteUserLoading] = useState<string | null>(null)
+  const [newUser, setNewUser] = useState({
+    name: "",
+    email: "",
+    role: "" as "ADMIN" | "ACCOUNTANT" | "MESS_MANAGER" | "VIEWER" | "",
+    password: ""
+  })
+
+  // Fetch users from API
+  const fetchUsers = async () => {
+    try {
+      setLoading(true)
+      const response = await fetch("/api/users")
+      if (!response.ok) {
+        throw new Error("Failed to fetch users")
+      }
+      const data = await response.json()
+      setUsers(data)
+    } catch (error) {
+      console.error("Error fetching users:", error)
+      toast.error("Failed to fetch users")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Add new user
+  const handleAddUser = async () => {
+    if (!newUser.name || !newUser.email || !newUser.role || !newUser.password) {
+      toast.error("Please fill in all fields including password")
+      return
+    }
+
+    try {
+      setAddUserLoading(true)
+      const response = await fetch("/api/users", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(newUser),
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || "Failed to create user")
+      }
+
+      const createdUser = await response.json()
+      setUsers(prev => [...prev, createdUser])
+      setNewUser({ name: "", email: "", role: "", password: "" })
+      toast.success("User created successfully")
+    } catch (error: any) {
+      console.error("Error creating user:", error)
+      toast.error(error.message || "Failed to create user")
+    } finally {
+      setAddUserLoading(false)
+    }
+  }
+
+  // Delete user
+  const handleDeleteUser = async (userId: string) => {
+    if (!confirm("Are you sure you want to delete this user?")) {
+      return
+    }
+
+    try {
+      setDeleteUserLoading(userId)
+      const response = await fetch(`/api/users/${userId}`, {
+        method: "DELETE",
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to delete user")
+      }
+
+      setUsers(prev => prev.filter(user => user.id !== userId))
+      toast.success("User deleted successfully")
+    } catch (error) {
+      console.error("Error deleting user:", error)
+      toast.error("Failed to delete user")
+    } finally {
+      setDeleteUserLoading(null)
+    }
+  }
+
+  // Get role badge variant
+  const getRoleBadgeVariant = (role: string) => {
+    switch (role) {
+      case "ADMIN":
+        return "default"
+      case "MESS_MANAGER":
+        return "secondary"
+      case "ACCOUNTANT":
+        return "outline"
+      default:
+        return "outline"
+    }
+  }
+
+  // Get role icon
+  const getRoleIcon = (role: string) => {
+    switch (role) {
+      case "ADMIN":
+        return <Shield className="h-3 w-3" />
+      case "MESS_MANAGER":
+        return <Settings className="h-3 w-3" />
+      default:
+        return <User className="h-3 w-3" />
+    }
+  }
+
+  // Format role display name
+  const formatRole = (role: string) => {
+    return role.replace("_", " ").toLowerCase().replace(/\b\w/g, l => l.toUpperCase())
+  }
+
+  // Load users on component mount
+  useEffect(() => {
+    fetchUsers()
+  }, [])
   return (
     <div className="space-y-6">
       {/* Add User */}
@@ -45,24 +157,43 @@ export function UserManagement() {
           <CardDescription>Create a new user account with appropriate permissions</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid gap-4 md:grid-cols-3">
-            <Input placeholder="Full Name" />
-            <Input placeholder="Email Address" type="email" />
-            <Select>
+          <div className="grid gap-4 md:grid-cols-2">
+            <Input 
+              placeholder="Full Name" 
+              value={newUser.name}
+              onChange={(e) => setNewUser(prev => ({ ...prev, name: e.target.value }))}
+            />
+            <Input 
+              placeholder="Email Address" 
+              type="email"
+              value={newUser.email}
+              onChange={(e) => setNewUser(prev => ({ ...prev, email: e.target.value }))}
+            />
+            <Input 
+              placeholder="Password" 
+              type="password"
+              value={newUser.password}
+              onChange={(e) => setNewUser(prev => ({ ...prev, password: e.target.value }))}
+            />
+            <Select value={newUser.role} onValueChange={(value) => setNewUser(prev => ({ ...prev, role: value as any }))}>
               <SelectTrigger>
                 <SelectValue placeholder="Select Role" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="admin">Admin</SelectItem>
-                <SelectItem value="manager">Manager</SelectItem>
-                <SelectItem value="staff">Staff</SelectItem>
-                <SelectItem value="accountant">Accountant</SelectItem>
+                <SelectItem value="ADMIN">Admin</SelectItem>
+                <SelectItem value="MESS_MANAGER">Mess Manager</SelectItem>
+                <SelectItem value="ACCOUNTANT">Accountant</SelectItem>
+                <SelectItem value="VIEWER">Viewer</SelectItem>
               </SelectContent>
             </Select>
           </div>
           <div className="flex justify-end mt-4">
-            <Button>
-              <UserPlus className="h-4 w-4 mr-2" />
+            <Button onClick={handleAddUser} disabled={addUserLoading}>
+              {addUserLoading ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <UserPlus className="h-4 w-4 mr-2" />
+              )}
               Add User
             </Button>
           </div>
@@ -76,53 +207,74 @@ export function UserManagement() {
           <CardDescription>Manage user accounts and permissions</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
-            {users.map((user) => (
-              <div key={user.id} className="flex items-center justify-between p-4 border rounded-lg">
-                <div className="flex items-center gap-4">
-                  <Avatar>
-                    <AvatarFallback>
-                      {user.name
-                        .split(" ")
-                        .map((n) => n[0])
-                        .join("")}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div>
-                    <p className="font-medium">{user.name}</p>
-                    <p className="text-sm text-muted-foreground">{user.email}</p>
-                  </div>
+          {loading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin" />
+              <span className="ml-2">Loading users...</span>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {users.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  No users found. Add the first user above.
                 </div>
-                <div className="flex items-center gap-4">
-                  <div className="text-center">
-                    <Badge
-                      variant={user.role === "admin" ? "default" : user.role === "manager" ? "secondary" : "outline"}
-                      className="gap-1"
-                    >
-                      {user.role === "admin" && <Shield className="h-3 w-3" />}
-                      {user.role === "manager" && <Settings className="h-3 w-3" />}
-                      {(user.role === "staff" || user.role === "accountant") && <User className="h-3 w-3" />}
-                      {user.role}
-                    </Badge>
+              ) : (
+                users.map((user) => (
+                  <div key={user.id} className="flex items-center justify-between p-4 border rounded-lg">
+                    <div className="flex items-center gap-4">
+                      <Avatar>
+                        <AvatarFallback>
+                          {user.name
+                            .split(" ")
+                            .map((n) => n[0])
+                            .join("")}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <p className="font-medium">{user.name}</p>
+                        <p className="text-sm text-muted-foreground">{user.email}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <div className="text-center">
+                        <Badge
+                          variant={getRoleBadgeVariant(user.role)}
+                          className="gap-1"
+                        >
+                          {getRoleIcon(user.role)}
+                          {formatRole(user.role)}
+                        </Badge>
+                      </div>
+                      <div className="text-center min-w-[100px]">
+                        <p className="text-sm text-muted-foreground">
+                          {user.createdAt ? new Date(user.createdAt).toLocaleDateString() :
+                           user.created_at ? new Date(user.created_at).toLocaleDateString() :
+                           user.updatedAt ? new Date(user.updatedAt).toLocaleDateString() : 
+                           user.updated_at ? new Date(user.updated_at).toLocaleDateString() : 
+                           'Recent'}
+                        </p>
+                      </div>
+                      <div className="flex gap-2">
+                        <EditUserDialog user={user} onUserUpdated={fetchUsers} />
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => handleDeleteUser(user.id)}
+                          disabled={deleteUserLoading === user.id}
+                        >
+                          {deleteUserLoading === user.id ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Trash2 className="h-4 w-4" />
+                          )}
+                        </Button>
+                      </div>
+                    </div>
                   </div>
-                  <div className="text-center">
-                    <Badge variant={user.status === "active" ? "default" : "secondary"}>{user.status}</Badge>
-                  </div>
-                  <div className="text-center min-w-[100px]">
-                    <p className="text-sm text-muted-foreground">{user.lastLogin}</p>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button variant="outline" size="sm">
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                    <Button variant="outline" size="sm">
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
+                ))
+              )}
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -134,32 +286,37 @@ export function UserManagement() {
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            <div className="grid gap-4 md:grid-cols-4">
+            <div className="grid gap-4 md:grid-cols-5">
               <div className="font-medium">Permission</div>
               <div className="font-medium text-center">Admin</div>
-              <div className="font-medium text-center">Manager</div>
-              <div className="font-medium text-center">Staff</div>
+              <div className="font-medium text-center">Mess Manager</div>
+              <div className="font-medium text-center">Accountant</div>
+              <div className="font-medium text-center">Viewer</div>
             </div>
 
             {[
-              { name: "View Dashboard", admin: true, manager: true, staff: true },
-              { name: "Manage Students", admin: true, manager: true, staff: false },
-              { name: "Edit Attendance", admin: true, manager: true, staff: true },
-              { name: "Generate Bills", admin: true, manager: true, staff: false },
-              { name: "View Reports", admin: true, manager: true, staff: false },
-              { name: "System Settings", admin: true, manager: false, staff: false },
-              { name: "User Management", admin: true, manager: false, staff: false },
+              { name: "View Dashboard", admin: true, messManager: true, accountant: true, viewer: true },
+              { name: "Manage Students", admin: true, messManager: true, accountant: false, viewer: false },
+              { name: "Edit Attendance", admin: true, messManager: true, accountant: false, viewer: false },
+              { name: "Generate Bills", admin: true, messManager: true, accountant: true, viewer: false },
+              { name: "View Reports", admin: true, messManager: true, accountant: true, viewer: false },
+              { name: "Manage Provisions", admin: true, messManager: true, accountant: false, viewer: false },
+              { name: "System Settings", admin: true, messManager: false, accountant: false, viewer: false },
+              { name: "User Management", admin: true, messManager: false, accountant: false, viewer: false },
             ].map((permission) => (
-              <div key={permission.name} className="grid gap-4 md:grid-cols-4 py-2 border-b">
+              <div key={permission.name} className="grid gap-4 md:grid-cols-5 py-2 border-b">
                 <div>{permission.name}</div>
                 <div className="text-center">
                   <Badge variant={permission.admin ? "default" : "secondary"}>{permission.admin ? "✓" : "✗"}</Badge>
                 </div>
                 <div className="text-center">
-                  <Badge variant={permission.manager ? "default" : "secondary"}>{permission.manager ? "✓" : "✗"}</Badge>
+                  <Badge variant={permission.messManager ? "default" : "secondary"}>{permission.messManager ? "✓" : "✗"}</Badge>
                 </div>
                 <div className="text-center">
-                  <Badge variant={permission.staff ? "default" : "secondary"}>{permission.staff ? "✓" : "✗"}</Badge>
+                  <Badge variant={permission.accountant ? "default" : "secondary"}>{permission.accountant ? "✓" : "✗"}</Badge>
+                </div>
+                <div className="text-center">
+                  <Badge variant={permission.viewer ? "default" : "secondary"}>{permission.viewer ? "✓" : "✗"}</Badge>
                 </div>
               </div>
             ))}
