@@ -22,7 +22,7 @@ interface Student {
   }>
 }
 
-export function AttendanceCalendar({ year, month, filters }: { year: string; month: string; filters: { hostel: string; year: string; mandoFilter: string; status: string; dept: string } }) {
+export function AttendanceCalendar({ year, month, filters, onExport, onStudentsChange }: { year: string; month: string; filters: { hostel: string; year: string; mandoFilter: string; status: string; dept: string }; onExport?: (students: any[]) => void; onStudentsChange?: (students: any[]) => void }) {
   const [students, setStudents] = useState<Student[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -90,6 +90,9 @@ export function AttendanceCalendar({ year, month, filters }: { year: string; mon
 
         console.log(`[v0] Final result: ${studentsWithAttendance.filter((s: any) => s.attendance.length > 0).length} students with attendance`)
         setStudents(studentsWithAttendance)
+        if (onStudentsChange) {
+          onStudentsChange(studentsWithAttendance)
+        }
       } catch (error) {
         console.error("Error fetching attendance data:", error)
         setStudents([])
@@ -123,7 +126,7 @@ export function AttendanceCalendar({ year, month, filters }: { year: string; mon
     <div className="space-y-4">
       <AttendanceLegend />
       <AttendancePeriodFilters />
-      <AttendanceGrid students={students} days={days} currentMonth={currentMonth} total={students.length} />
+      <AttendanceGrid students={students} days={days} currentMonth={currentMonth} total={students.length} onExport={onExport} />
     </div>
   )
 }

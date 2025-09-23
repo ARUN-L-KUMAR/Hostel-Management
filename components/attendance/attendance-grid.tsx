@@ -6,6 +6,7 @@ import type { AttendanceCode } from "@prisma/client"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { Download } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 interface Student {
@@ -27,6 +28,7 @@ interface AttendanceGridProps {
   days: number[]
   currentMonth: string
   total: number
+  onExport?: (students: Student[]) => void
 }
 
 const attendanceCodes = [
@@ -37,7 +39,7 @@ const attendanceCodes = [
   { code: "C" as AttendanceCode, label: "Closed", color: "bg-red-500", textColor: "text-white" },
 ]
 
-export function AttendanceGrid({ students, days, currentMonth, total }: AttendanceGridProps) {
+export function AttendanceGrid({ students, days, currentMonth, total, onExport }: AttendanceGridProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const currentPage = parseInt(searchParams.get('page') || '1')

@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
-import { Save, RefreshCw, Filter, RotateCcw, Search } from "lucide-react"
+import { Save, RefreshCw, Filter, RotateCcw, Search, Download } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { computeMandays, AttendanceCode } from "@/lib/calculations"
 
@@ -138,6 +138,66 @@ export default function BillingPage() {
     }
   }
 
+  const exportToCSV = () => {
+    const startMonthLabel = months.find(m => m.value === selectedStartMonth)?.label
+    const endMonthLabel = months.find(m => m.value === selectedEndMonth)?.label
+    const filename = `billing-sem-${selectedStartYear}-${selectedStartMonth}-to-${selectedEndYear}-${selectedEndMonth}.csv`
+
+    // Calculate total days
+    const startYear = parseInt(selectedStartYear)
+    const endYear = parseInt(selectedEndYear)
+    const startMonth = parseInt(selectedStartMonth)
+    const endMonth = parseInt(selectedEndMonth)
+    const startDate = new Date(startYear, startMonth - 1, 1)
+    const endDate = new Date(endYear, endMonth, 1)
+    const totalDays = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24))
+
+    // Billing parameters
+    const params = [
+      ["Billing Parameters"],
+      ["From Year", selectedStartYear],
+      ["From Month", startMonthLabel],
+      ["To Year", selectedEndYear],
+      ["To Month", endMonthLabel],
+      ["Total Days", totalDays.toString()],
+      ["Labor Charge (per day)", semLaborCharge.toString()],
+      ["Provision Charge (per day)", semProvisionCharge.toString()],
+      ["Advance Amount", semAdvanceAmount.toString()],
+      [""], // Empty row
+      ["Student Billing Data"],
+      ["Student", "Roll No", "Dept", "Hostel", "Mandays", "Labor Charge", "Provision Charges", "Advance Paid", "Total Amount"]
+    ]
+
+    // Student data
+    filteredStudentsSem.forEach(student => {
+      params.push([
+        student.name,
+        student.rollNo,
+        student.dept || "Not Set",
+        student.hostel,
+        student.mandays.toString(),
+        student.laborCharge.toFixed(2),
+        student.provisionCharge.toFixed(2),
+        student.advancePaid.toFixed(2),
+        student.totalAmount.toFixed(2)
+      ])
+    })
+
+    // Convert to CSV
+    const csvContent = params.map(row => row.map(cell => `"${cell}"`).join(",")).join("\n")
+
+    // Download
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+    const link = document.createElement("a")
+    const url = URL.createObjectURL(blob)
+    link.setAttribute("href", url)
+    link.setAttribute("download", filename)
+    link.style.visibility = 'hidden'
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  }
+
   const filteredStudentsSem = studentsSem.filter((student) => {
     const matchesSearch =
       filters.search === "" ||
@@ -239,9 +299,15 @@ export default function BillingPage() {
   return (
     <div className="space-y-6">
       {/* Page Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-slate-900">Student Billing Overview</h1>
-        <p className="text-slate-600">View and manage student payment amounts with labor, provision, and advance calculations</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900">Student Billing Overview</h1>
+          <p className="text-slate-600">View and manage student payment amounts with labor, provision, and advance calculations</p>
+        </div>
+        <Button variant="outline" onClick={exportToCSV}>
+          <Download className="w-4 h-4 mr-2" />
+          Export CSV
+        </Button>
       </div>
 
       <div className="space-y-6">

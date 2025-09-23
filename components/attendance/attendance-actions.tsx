@@ -6,19 +6,20 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Upload, Download } from "lucide-react"
 import { ExcelImportDialog } from "./excel-import-dialog"
 
-export function AttendanceActions() {
+export function AttendanceActions({ onExport }: { onExport?: () => void }) {
   const [importDialogOpen, setImportDialogOpen] = useState(false)
 
-  const handleExportExcel = () => {
-    console.log("[v0] Exporting attendance to Excel")
-    // This would generate and download an Excel file
+  const handleExportCSV = () => {
+    if (onExport) {
+      onExport()
+    }
   }
 
   return (
     <div className="flex items-center space-x-2">
-      <Button variant="outline" onClick={handleExportExcel}>
+      <Button variant="outline" onClick={handleExportCSV}>
         <Download className="w-4 h-4 mr-2" />
-        Export Excel
+        Export CSV
       </Button>
 
       <Dialog open={importDialogOpen} onOpenChange={setImportDialogOpen}>
