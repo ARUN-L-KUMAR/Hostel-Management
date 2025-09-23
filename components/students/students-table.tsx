@@ -14,6 +14,7 @@ interface Student {
   id: string
   name: string
   rollNo: string
+  dept: string | null
   year: number
   isMando: boolean
   status: string
@@ -110,19 +111,18 @@ export function StudentsTable({ filters }: StudentsTableProps) {
           <TableHeader>
             <TableRow>
               <TableHead>Student</TableHead>
+              <TableHead>Dept</TableHead>
               <TableHead>Hostel</TableHead>
               <TableHead>Year</TableHead>
               <TableHead>Type</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead className="text-right">Total Days</TableHead>
-              <TableHead className="text-right">Mandays</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {students.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} className="text-center py-8 text-slate-500">
+                <TableCell colSpan={7} className="text-center py-8 text-slate-500">
                   No students found matching the current filters.
                 </TableCell>
               </TableRow>
@@ -135,6 +135,7 @@ export function StudentsTable({ filters }: StudentsTableProps) {
                       <div className="text-sm text-slate-500">{student.rollNo}</div>
                     </div>
                   </TableCell>
+                  <TableCell>{student.dept || 'Not Set'}</TableCell>
                   <TableCell>{student.hostel?.name || 'Unknown'}</TableCell>
                   <TableCell>{student.year}</TableCell>
                   <TableCell>
@@ -156,8 +157,6 @@ export function StudentsTable({ filters }: StudentsTableProps) {
                       {student.status}
                     </Badge>
                   </TableCell>
-                  <TableCell className="text-right">{student.stats.totalDays}</TableCell>
-                  <TableCell className="text-right font-medium">{student.stats.mandays}</TableCell>
                   <TableCell className="text-right">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>

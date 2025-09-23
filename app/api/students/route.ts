@@ -42,7 +42,8 @@ export async function GET(request: NextRequest) {
     if (search) {
       where.OR = [
         { name: { contains: search, mode: 'insensitive' } },
-        { rollNo: { contains: search, mode: 'insensitive' } }
+        { rollNo: { contains: search, mode: 'insensitive' } },
+        { dept: { contains: search, mode: 'insensitive' } }
       ]
       console.log(`[DEBUG] Search filter applied: ${search}`)
     }

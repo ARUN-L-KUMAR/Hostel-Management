@@ -16,6 +16,7 @@ interface StudentProfileProps {
     id: string
     name: string
     rollNo: string
+    dept?: string | null
     year: number
     isMando: boolean
     company?: string | null
@@ -34,6 +35,7 @@ export function StudentProfile({ student, editable = false }: StudentProfileProp
   const [formData, setFormData] = useState({
     name: student.name,
     rollNo: student.rollNo,
+    dept: student.dept || "",
     year: student.year,
     isMando: student.isMando,
     company: student.company || "",
@@ -50,6 +52,7 @@ export function StudentProfile({ student, editable = false }: StudentProfileProp
     setFormData({
       name: student.name,
       rollNo: student.rollNo,
+      dept: student.dept || "",
       year: student.year,
       isMando: student.isMando,
       company: student.company || "",
@@ -116,6 +119,20 @@ export function StudentProfile({ student, editable = false }: StudentProfileProp
                 />
               ) : (
                 <div className="font-medium text-slate-700">{student.rollNo}</div>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="dept">Department</Label>
+              {isEditing ? (
+                <Input
+                  id="dept"
+                  value={formData.dept}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, dept: e.target.value }))}
+                  placeholder="e.g., CSE, ECE, ME"
+                />
+              ) : (
+                <div className="font-medium text-slate-700">{student.dept || "Not Set"}</div>
               )}
             </div>
 

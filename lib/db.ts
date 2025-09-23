@@ -184,13 +184,13 @@ export const prisma = {
     },
 
     create: async (options: any) => {
-      const { name, rollNumber, hostelId, year, isMando, mandoMultiplier } = options.data
+      const { name, rollNo, dept, year, hostelId, isMando } = options.data
       // Generate a simple ID since cuid() default might not be working
       const id = `std_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
       const now = new Date()
       const result = await sql`
-        INSERT INTO students (id, name, "rollNo", "hostelId", year, "isMando", "company", status, "createdAt", "updatedAt")
-        VALUES (${id}, ${name}, ${rollNumber}, ${hostelId}, ${year}, ${isMando}, ${mandoMultiplier}, 'ACTIVE', ${now}, ${now})
+        INSERT INTO students (id, name, "rollNo", "dept", "hostelId", year, "isMando", status, "createdAt", "updatedAt")
+        VALUES (${id}, ${name}, ${rollNo}, ${dept || null}, ${hostelId}, ${year}, ${isMando}, 'ACTIVE', ${now}, ${now})
         RETURNING *
       `
       return result[0]

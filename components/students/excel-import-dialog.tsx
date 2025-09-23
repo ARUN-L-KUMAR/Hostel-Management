@@ -108,6 +108,8 @@ export function ExcelImportDialog({ onClose }: ExcelImportDialogProps) {
             columnMap.sNo = index
           } else if (headerStr && (headerStr.includes('name') || headerStr === 'name')) {
             columnMap.name = index
+          } else if (headerStr && (headerStr.includes('dept') || headerStr === 'dept' || headerStr === 'department')) {
+            columnMap.dept = index
           }
         })
 
@@ -129,6 +131,7 @@ export function ExcelImportDialog({ onClose }: ExcelImportDialogProps) {
 
           const sNo = row[columnMap.sNo]?.toString().trim()
           const name = row[columnMap.name]?.toString().trim()
+          const dept = columnMap.dept !== undefined ? row[columnMap.dept]?.toString().trim() : null
 
           if (!sNo || !name || sNo === '' || name === '') {
             continue // Skip empty rows silently
@@ -145,6 +148,7 @@ export function ExcelImportDialog({ onClose }: ExcelImportDialogProps) {
           allStudents.push({
             name,
             rollNo,
+            dept: dept || null,
             year,
             hostelId: finalHostelId,
             isMando: false, // Default to false, can be updated later
@@ -257,7 +261,7 @@ export function ExcelImportDialog({ onClose }: ExcelImportDialogProps) {
             <li>• Headers can be in any row; data starts from the next row</li>
             <li>• Hostel detected from filename: "girls" → Girls hostel (G prefix), otherwise Boys hostel (B prefix)</li>
             <li>• Roll numbers auto-generated (e.g., 1B001, 1G001) with hostel determined by 2nd character</li>
-            <li>• Room No and Dept columns are ignored</li>
+            <li>• Room No column is ignored, Dept column is processed and saved</li>
           </ul>
         </AlertDescription>
       </Alert>

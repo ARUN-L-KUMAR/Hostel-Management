@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
 
       for (const studentData of batch) {
         try {
-          const { name, rollNo, year, hostelId, isMando } = studentData
+          const { name, rollNo, dept, year, hostelId, isMando } = studentData
 
           // Validate required fields
           if (!name || !rollNo || !year || !hostelId) {
@@ -65,11 +65,11 @@ export async function POST(request: NextRequest) {
           await prisma.student.create({
             data: {
               name: name.trim(),
-              rollNumber: rollNo.trim(),
+              rollNo: rollNo.trim(),
+              dept: dept ? dept.trim() : null,
               year: parseInt(year),
               hostelId: hostelId.trim(),
-              isMando: isMando || false,
-              mandoMultiplier: null
+              isMando: isMando || false
             }
           })
 

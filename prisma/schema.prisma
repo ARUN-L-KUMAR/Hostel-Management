@@ -36,6 +36,7 @@ model Student {
   id       String  @id @default(cuid())
   name     String
   rollNo   String  @unique
+  dept     String? // Department field
   year     Int
   isMando  Boolean @default(false)
   company  String? // For mando students

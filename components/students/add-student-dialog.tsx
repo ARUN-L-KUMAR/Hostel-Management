@@ -18,6 +18,7 @@ export function AddStudentDialog({ onClose }: AddStudentDialogProps) {
   const [formData, setFormData] = useState({
     name: "",
     rollNo: "",
+    dept: "",
     year: "",
     hostel: "",
     isMando: false,
@@ -46,7 +47,7 @@ export function AddStudentDialog({ onClose }: AddStudentDialogProps) {
       <Card>
         <CardContent className="p-6 space-y-4">
           {/* Basic Information */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="space-y-2">
               <Label htmlFor="name">Full Name *</Label>
               <Input
@@ -66,6 +67,16 @@ export function AddStudentDialog({ onClose }: AddStudentDialogProps) {
                 onChange={(e) => setFormData((prev) => ({ ...prev, rollNo: e.target.value }))}
                 placeholder="e.g., B21001"
                 required
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="dept">Department</Label>
+              <Input
+                id="dept"
+                value={formData.dept}
+                onChange={(e) => setFormData((prev) => ({ ...prev, dept: e.target.value }))}
+                placeholder="e.g., CSE, ECE, ME"
               />
             </div>
 
