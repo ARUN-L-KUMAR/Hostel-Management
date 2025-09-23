@@ -7,14 +7,44 @@ export async function GET(request: NextRequest) {
     const hostel = searchParams.get("hostel")
     const year = searchParams.get("year")
     const isMando = searchParams.get("isMando")
+    const status = searchParams.get("status")
+    const search = searchParams.get("search")
 
     const where: any = {}
-    if (hostel && hostel !== "all") where.hostel = hostel
-    if (year && year !== "all") where.year = Number.parseInt(year)
-    if (isMando && isMando !== "all") where.isMando = isMando === "true"
+
+    // Apply filters
+    if (hostel && hostel !== "all") {
+      if (hostel === "boys") {
+        where.hostelId = "hostel_boys"
+      } else if (hostel === "girls") {
+        where.hostelId = "hostel_girls"
+      }
+    }
+
+    if (year && year !== "all") {
+      where.year = Number.parseInt(year)
+    }
+
+    if (isMando && isMando !== "all") {
+      where.isMando = isMando === "true"
+    }
+
+    if (status && status !== "all") {
+      where.status = status
+    }
+
+    if (search) {
+      where.OR = [
+        { name: { contains: search, mode: 'insensitive' } },
+        { rollNo: { contains: search, mode: 'insensitive' } }
+      ]
+    }
 
     const students = await prisma.student.findMany({
       where,
+      include: {
+        hostel: true,
+      },
       orderBy: { name: "asc" },
     })
 

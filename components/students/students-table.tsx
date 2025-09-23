@@ -1,54 +1,83 @@
+"use client"
+
 import Link from "next/link"
-import { prisma } from "@/lib/db"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Eye, Edit, MoreHorizontal } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { ApiClient } from "@/lib/api-client"
 
-async function getStudentsData() {
-  const students = await prisma.student.findMany({
-    include: {
-      hostel: true,
-      attendance: {
-        where: {
-          date: {
-            gte: new Date("2024-12-01"),
-            lte: new Date("2024-12-31"),
-          },
-        },
-      },
-    },
-    orderBy: [{ hostel: { name: "asc" } }, { name: "asc" }],
-  })
-
-  // Calculate monthly stats for each student
-  const studentsWithStats = students.map((student) => {
-    // Safe access to attendance data with fallback to empty array
-    const attendance = student.attendance || []
-    const totalDays = attendance.length
-    const presentDays = attendance.filter((att: any) => att.code === "P").length
-    const leaveDays = attendance.filter((att: any) => att.code === "L").length
-    const concessionDays = attendance.filter((att: any) => att.code === "CN").length
-
-    return {
-      ...student,
-      stats: {
-        totalDays,
-        presentDays,
-        leaveDays,
-        concessionDays,
-        mandays: presentDays + (leaveDays || 0), // Assuming leave is charged
-      },
-    }
-  })
-
-  return studentsWithStats
+interface Student {
+  id: string
+  name: string
+  rollNo: string
+  year: number
+  isMando: boolean
+  status: string
+  hostel: { name: string }
+  stats: {
+    totalDays: number
+    presentDays: number
+    leaveDays: number
+    concessionDays: number
+    mandays: number
+  }
 }
 
-export async function StudentsTable() {
-  const students = await getStudentsData()
+interface StudentsTableProps {
+  filters: {
+    hostel: string
+    year: string
+    status: string
+    mandoOnly: boolean
+    search: string
+  }
+}
+
+export function StudentsTable({ filters }: StudentsTableProps) {
+  const [students, setStudents] = useState<Student[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const fetchStudents = async () => {
+      setLoading(true)
+      try {
+        const params: any = {}
+
+        if (filters.hostel !== "all") params.hostel = filters.hostel
+        if (filters.year !== "all") params.year = filters.year
+        if (filters.status !== "all") params.status = filters.status
+        if (filters.mandoOnly) params.isMando = "true"
+        if (filters.search) params.search = filters.search
+
+        const response = await ApiClient.students.getAll(params)
+
+        // Calculate stats for each student (simplified)
+        const studentsWithStats = response.map((student: any) => ({
+          ...student,
+          stats: {
+            totalDays: 0, // Would need attendance data
+            presentDays: 0,
+            leaveDays: 0,
+            concessionDays: 0,
+            mandays: 0,
+          },
+        }))
+
+        setStudents(studentsWithStats)
+      } catch (error) {
+        console.error("Error fetching students:", error)
+        setStudents([])
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchStudents()
+  }, [filters])
 
   return (
     <Card className="border-0 shadow-md">

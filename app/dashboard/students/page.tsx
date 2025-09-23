@@ -1,10 +1,19 @@
-import { Suspense } from "react"
+"use client"
+
+import { useState } from "react"
 import { StudentsTable } from "@/components/students/students-table"
 import { StudentsFilters } from "@/components/students/students-filters"
 import { StudentsActions } from "@/components/students/students-actions"
-import { Skeleton } from "@/components/ui/skeleton"
 
 export default function StudentsPage() {
+  const [filters, setFilters] = useState({
+    hostel: "all",
+    year: "all",
+    status: "all",
+    mandoOnly: false,
+    search: "",
+  })
+
   return (
     <div className="space-y-6">
       {/* Page Header */}
@@ -17,20 +26,10 @@ export default function StudentsPage() {
       </div>
 
       {/* Filters */}
-      <StudentsFilters />
+      <StudentsFilters onFiltersChange={setFilters} />
 
       {/* Students Table */}
-      <Suspense
-        fallback={
-          <div className="space-y-4">
-            {Array.from({ length: 10 }).map((_, i) => (
-              <Skeleton key={i} className="h-16 w-full" />
-            ))}
-          </div>
-        }
-      >
-        <StudentsTable />
-      </Suspense>
+      <StudentsTable filters={filters} />
     </div>
   )
 }

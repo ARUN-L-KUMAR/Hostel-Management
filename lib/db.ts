@@ -58,10 +58,18 @@ export const prisma = {
     },
 
     findUnique: async (options: any) => {
-      console.log("[v0] Finding unique student:", options.where.id)
+      console.log("[v0] Finding unique student:", options.where.id || options.where.rollNo)
 
       try {
-        const result = await sql`SELECT * FROM students WHERE id = ${options.where.id}`
+        let result
+
+        if (options.where.id) {
+          result = await sql`SELECT * FROM students WHERE id = ${options.where.id}`
+        } else if (options.where.rollNo) {
+          result = await sql`SELECT * FROM students WHERE "rollNo" = ${options.where.rollNo}`
+        } else {
+          return null
+        }
 
         if (result.length === 0) return null
 
@@ -73,13 +81,13 @@ export const prisma = {
         // Fetch related data if includes are specified
         if (options?.include?.attendance) {
           student.attendance = await sql`
-            SELECT * FROM attendance WHERE "studentId" = ${student.id} 
+            SELECT * FROM attendance WHERE "studentId" = ${student.id}
             ORDER BY date DESC LIMIT 30
           `
         }
         if (options?.include?.bills) {
           student.bills = await sql`
-            SELECT * FROM bills WHERE "studentId" = ${student.id} 
+            SELECT * FROM bills WHERE "studentId" = ${student.id}
             ORDER BY year DESC, month DESC LIMIT 12
           `
         }
@@ -94,9 +102,12 @@ export const prisma = {
 
     create: async (options: any) => {
       const { name, rollNumber, hostel, year, isMando, mandoMultiplier } = options.data
+      // Generate a simple ID since cuid() default might not be working
+      const id = `std_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+      const now = new Date()
       const result = await sql`
-        INSERT INTO students (name, "rollNumber", hostel, year, "isMando", "mandoMultiplier", status) 
-        VALUES (${name}, ${rollNumber}, ${hostel}, ${year}, ${isMando}, ${mandoMultiplier}, 'ACTIVE') 
+        INSERT INTO students (id, name, "rollNo", "hostelId", year, "isMando", "company", status, "createdAt", "updatedAt")
+        VALUES (${id}, ${name}, ${rollNumber}, ${hostel}, ${year}, ${isMando}, ${mandoMultiplier}, 'ACTIVE', ${now}, ${now})
         RETURNING *
       `
       return result[0]
@@ -105,14 +116,14 @@ export const prisma = {
     update: async (options: any) => {
       const { name, rollNumber, hostel, year, isMando, mandoMultiplier } = options.data
       const result = await sql`
-        UPDATE students SET 
-          name = ${name}, 
-          "rollNumber" = ${rollNumber}, 
-          hostel = ${hostel}, 
-          year = ${year}, 
-          "isMando" = ${isMando}, 
-          "mandoMultiplier" = ${mandoMultiplier} 
-        WHERE id = ${options.where.id} 
+        UPDATE students SET
+          name = ${name},
+          "rollNo" = ${rollNumber},
+          "hostelId" = ${hostel},
+          year = ${year},
+          "isMando" = ${isMando},
+          "company" = ${mandoMultiplier}
+        WHERE id = ${options.where.id}
         RETURNING *
       `
       return result[0]

@@ -9,7 +9,17 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Filter, RotateCcw, Search } from "lucide-react"
 
-export function StudentsFilters() {
+interface StudentsFiltersProps {
+  onFiltersChange: (filters: {
+    hostel: string
+    year: string
+    status: string
+    mandoOnly: boolean
+    search: string
+  }) => void
+}
+
+export function StudentsFilters({ onFiltersChange }: StudentsFiltersProps) {
   const [filters, setFilters] = useState({
     hostel: "all",
     year: "all",
@@ -18,14 +28,22 @@ export function StudentsFilters() {
     search: "",
   })
 
+  const handleFilterChange = (newFilters: Partial<typeof filters>) => {
+    const updatedFilters = { ...filters, ...newFilters }
+    setFilters(updatedFilters)
+    onFiltersChange(updatedFilters)
+  }
+
   const handleReset = () => {
-    setFilters({
+    const resetFilters = {
       hostel: "all",
       year: "all",
       status: "all",
       mandoOnly: false,
       search: "",
-    })
+    }
+    setFilters(resetFilters)
+    onFiltersChange(resetFilters)
   }
 
   return (
@@ -50,7 +68,7 @@ export function StudentsFilters() {
             <Input
               placeholder="Name or roll number..."
               value={filters.search}
-              onChange={(e) => setFilters((prev) => ({ ...prev, search: e.target.value }))}
+              onChange={(e) => handleFilterChange({ search: e.target.value })}
               className="pl-10"
             />
           </div>
@@ -59,7 +77,7 @@ export function StudentsFilters() {
         {/* Hostel Filter */}
         <div className="space-y-2">
           <Label className="text-sm font-medium text-slate-700">Hostel</Label>
-          <Select value={filters.hostel} onValueChange={(value) => setFilters((prev) => ({ ...prev, hostel: value }))}>
+          <Select value={filters.hostel} onValueChange={(value) => handleFilterChange({ hostel: value })}>
             <SelectTrigger>
               <SelectValue placeholder="Select hostel" />
             </SelectTrigger>
@@ -74,7 +92,7 @@ export function StudentsFilters() {
         {/* Year Filter */}
         <div className="space-y-2">
           <Label className="text-sm font-medium text-slate-700">Year</Label>
-          <Select value={filters.year} onValueChange={(value) => setFilters((prev) => ({ ...prev, year: value }))}>
+          <Select value={filters.year} onValueChange={(value) => handleFilterChange({ year: value })}>
             <SelectTrigger>
               <SelectValue placeholder="Select year" />
             </SelectTrigger>
@@ -91,7 +109,7 @@ export function StudentsFilters() {
         {/* Status Filter */}
         <div className="space-y-2">
           <Label className="text-sm font-medium text-slate-700">Status</Label>
-          <Select value={filters.status} onValueChange={(value) => setFilters((prev) => ({ ...prev, status: value }))}>
+          <Select value={filters.status} onValueChange={(value) => handleFilterChange({ status: value })}>
             <SelectTrigger>
               <SelectValue placeholder="Select status" />
             </SelectTrigger>
@@ -111,7 +129,7 @@ export function StudentsFilters() {
             <Switch
               id="mando-only"
               checked={filters.mandoOnly}
-              onCheckedChange={(checked) => setFilters((prev) => ({ ...prev, mandoOnly: checked }))}
+              onCheckedChange={(checked) => handleFilterChange({ mandoOnly: checked })}
             />
             <Label htmlFor="mando-only" className="text-sm text-slate-600">
               Mando only
