@@ -79,6 +79,23 @@ export function StudentsTable({ filters }: StudentsTableProps) {
     fetchStudents()
   }, [filters])
 
+  if (loading) {
+    return (
+      <Card className="border-0 shadow-md">
+        <CardHeader>
+          <CardTitle>Loading Students...</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <div key={i} className="h-16 bg-slate-100 rounded animate-pulse"></div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
+
   return (
     <Card className="border-0 shadow-md">
       <CardHeader>
@@ -99,60 +116,68 @@ export function StudentsTable({ filters }: StudentsTableProps) {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {students.map((student) => (
-              <TableRow key={student.id}>
-                <TableCell>
-                  <div>
-                    <div className="font-medium text-slate-900">{student.name}</div>
-                    <div className="text-sm text-slate-500">{student.rollNo}</div>
-                  </div>
-                </TableCell>
-                <TableCell>{student.hostel.name}</TableCell>
-                <TableCell>{student.year}</TableCell>
-                <TableCell>
-                  {student.isMando ? (
-                    <Badge variant="secondary" className="bg-orange-100 text-orange-800">
-                      Mando
-                    </Badge>
-                  ) : (
-                    <Badge variant="outline">Regular</Badge>
-                  )}
-                </TableCell>
-                <TableCell>
-                  <Badge
-                    variant={student.status === "ACTIVE" ? "default" : "secondary"}
-                    className={
-                      student.status === "ACTIVE" ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"
-                    }
-                  >
-                    {student.status}
-                  </Badge>
-                </TableCell>
-                <TableCell className="text-right">{student.stats.totalDays}</TableCell>
-                <TableCell className="text-right font-medium">{student.stats.mandays}</TableCell>
-                <TableCell className="text-right">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="sm">
-                        <MoreHorizontal className="w-4 h-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem asChild>
-                        <Link href={`/dashboard/students/${student.id}`}>
-                          <Eye className="w-4 h-4 mr-2" />
-                          View Profile
-                        </Link>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem>
-                        <Edit className="w-4 h-4 mr-2" />
-                        Edit Student
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+            {students.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={8} className="text-center py-8 text-slate-500">
+                  No students found matching the current filters.
                 </TableCell>
               </TableRow>
-            ))}
+            ) : (
+              students.map((student) => (
+                <TableRow key={student.id}>
+                  <TableCell>
+                    <div>
+                      <div className="font-medium text-slate-900">{student.name}</div>
+                      <div className="text-sm text-slate-500">{student.rollNo}</div>
+                    </div>
+                  </TableCell>
+                  <TableCell>{student.hostel?.name || 'Unknown'}</TableCell>
+                  <TableCell>{student.year}</TableCell>
+                  <TableCell>
+                    {student.isMando ? (
+                      <Badge variant="secondary" className="bg-orange-100 text-orange-800">
+                        Mando
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline">Regular</Badge>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <Badge
+                      variant={student.status === "ACTIVE" ? "default" : "secondary"}
+                      className={
+                        student.status === "ACTIVE" ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"
+                      }
+                    >
+                      {student.status}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-right">{student.stats.totalDays}</TableCell>
+                  <TableCell className="text-right font-medium">{student.stats.mandays}</TableCell>
+                  <TableCell className="text-right">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="sm">
+                          <MoreHorizontal className="w-4 h-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem asChild>
+                          <Link href={`/dashboard/students/${student.id}`}>
+                            <Eye className="w-4 h-4 mr-2" />
+                            View Profile
+                          </Link>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem>
+                          <Edit className="w-4 h-4 mr-2" />
+                          Edit Student
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
           </TableBody>
         </Table>
       </CardContent>

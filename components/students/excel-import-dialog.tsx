@@ -45,6 +45,12 @@ export function ExcelImportDialog({ onClose }: ExcelImportDialogProps) {
       const data = await file.arrayBuffer()
       const workbook = XLSX.read(data, { type: 'array' })
 
+      // Determine hostel type from filename
+      const fileName = file.name.toLowerCase()
+      const isGirlsHostel = fileName.includes('girl') || fileName.includes('g ')
+      const hostelPrefix = isGirlsHostel ? 'G' : 'B'
+      const hostelId = isGirlsHostel ? 'hostel_girls' : 'hostel_boys'
+
       const allStudents: any[] = []
       const warnings: string[] = []
 
@@ -130,14 +136,17 @@ export function ExcelImportDialog({ onClose }: ExcelImportDialogProps) {
 
           // Generate unique roll number based on year and counter
           // Format: [Year][Hostel][Counter] e.g., 1B001, 2B001, 1G001
-          const hostelPrefix = 'B' // Default to boys, since user said ignore hostel determination
           const rollNo = `${year}${hostelPrefix}${studentCounter.toString().padStart(3, '0')}`
+
+          // Determine hostel from roll number (second character)
+          const hostelFromRoll = rollNo.charAt(1).toUpperCase()
+          const finalHostelId = hostelFromRoll === 'G' ? 'hostel_girls' : 'hostel_boys'
 
           allStudents.push({
             name,
             rollNo,
             year,
-            hostelId: 'hostel_boys', // Default to boys hostel
+            hostelId: finalHostelId,
             isMando: false, // Default to false, can be updated later
           })
 
@@ -246,8 +255,9 @@ export function ExcelImportDialog({ onClose }: ExcelImportDialogProps) {
             <li>• Multiple sheets named "1st Year", "2nd Year", "3rd Year", "4th Year" or "Sheet1", "Sheet2", "Sheet3", "Sheet4"</li>
             <li>• Header row with columns: "S.No", "Name", "Room No", "Dept" (case-insensitive)</li>
             <li>• Headers can be in any row; data starts from the next row</li>
-            <li>• Roll numbers will be auto-generated (e.g., 1B001, 2B001) based on year and sequence</li>
-            <li>• All students default to Boys hostel; Room No and Dept columns are ignored</li>
+            <li>• Hostel detected from filename: "girls" → Girls hostel (G prefix), otherwise Boys hostel (B prefix)</li>
+            <li>• Roll numbers auto-generated (e.g., 1B001, 1G001) with hostel determined by 2nd character</li>
+            <li>• Room No and Dept columns are ignored</li>
           </ul>
         </AlertDescription>
       </Alert>

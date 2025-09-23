@@ -10,14 +10,48 @@ export const prisma = {
       console.log("[v0] Finding students with options:", JSON.stringify(options))
 
       try {
-        // Get all active students
-        const result = await sql`SELECT * FROM students WHERE status = 'ACTIVE' ORDER BY name ASC`
-        
+        // For now, get all students with hostel info
+        // TODO: Implement proper filtering
+        const result = await sql`
+          SELECT s.*, h.name as hostel_name
+          FROM students s
+          LEFT JOIN hostels h ON s."hostelId" = h.id
+          ORDER BY s.name ASC
+        `
+
         let studentsWithHostel = result.map((student: any) => ({
           ...student,
-          hostel: { name: student.hostel }, // Convert string to object
+          hostel: { name: student.hostel_name }, // Use the joined hostel name
           attendance: [], // Initialize empty attendance array
         }))
+
+        // Apply client-side filtering for now
+        if (options?.where) {
+          if (options.where.hostelId) {
+            studentsWithHostel = studentsWithHostel.filter(s => s.hostelId === options.where.hostelId)
+          }
+          if (options.where.year) {
+            studentsWithHostel = studentsWithHostel.filter(s => s.year === options.where.year)
+          }
+          if (options.where.isMando !== undefined) {
+            studentsWithHostel = studentsWithHostel.filter(s => s.isMando === options.where.isMando)
+          }
+          if (options.where.status) {
+            studentsWithHostel = studentsWithHostel.filter(s => s.status === options.where.status)
+          }
+          if (options.where.OR) {
+            studentsWithHostel = studentsWithHostel.filter(s => {
+              return options.where.OR.some((condition: any) => {
+                if (condition.name) {
+                  return s.name.toLowerCase().includes(condition.name.contains.toLowerCase())
+                } else if (condition.rollNo) {
+                  return s.rollNo.toLowerCase().includes(condition.rollNo.contains.toLowerCase())
+                }
+                return false
+              })
+            })
+          }
+        }
 
         // If attendance is requested, fetch it for each student
         if (options?.include?.attendance && studentsWithHostel.length > 0) {
