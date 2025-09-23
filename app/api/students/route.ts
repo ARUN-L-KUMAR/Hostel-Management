@@ -10,6 +10,7 @@ export async function GET(request: NextRequest) {
     const year = searchParams.get("year")
     const isMando = searchParams.get("isMando")
     const status = searchParams.get("status")
+    const dept = searchParams.get("dept")
     const search = searchParams.get("search")
     const month = searchParams.get("month")
     const attendanceYear = searchParams.get("attendanceYear")
@@ -37,6 +38,14 @@ export async function GET(request: NextRequest) {
     if (status && status !== "all") {
       where.status = status
       console.log(`[DEBUG] Status filter applied: ${status}`)
+    }
+
+    if (dept && dept !== "all") {
+      where.dept = {
+        contains: dept,
+        mode: 'insensitive'
+      }
+      console.log(`[DEBUG] Dept filter applied: ${dept}`)
     }
 
     if (search) {

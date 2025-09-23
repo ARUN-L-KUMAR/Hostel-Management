@@ -1,3 +1,6 @@
+"use client"
+
+import { useState } from "react"
 import { AttendanceCalendar } from "@/components/attendance/attendance-calendar"
 import { AttendanceFilters } from "@/components/attendance/attendance-filters"
 import { AttendanceActions } from "@/components/attendance/attendance-actions"
@@ -11,17 +14,14 @@ export default function AttendancePage({ searchParams }: { searchParams: { [key:
 
   const year = typeof searchParams.year === 'string' ? searchParams.year : currentYear.toString()
   const month = typeof searchParams.month === 'string' ? searchParams.month : currentMonth.toString()
-  const hostel = typeof searchParams.hostel === 'string' ? searchParams.hostel : "all"
-  const academicYear = typeof searchParams.academicYear === 'string' ? searchParams.academicYear : "all"
-  const mandoFilter = typeof searchParams.mandoFilter === 'string' ? searchParams.mandoFilter : "all"
-  const status = typeof searchParams.status === 'string' ? searchParams.status : "all"
 
-  const filters = {
-    hostel,
-    year: academicYear,
-    mandoFilter,
-    status,
-  }
+  const [filters, setFilters] = useState({
+    hostel: "all",
+    year: "all",
+    mandoFilter: "all",
+    status: "all",
+    dept: "all",
+  })
 
   return (
     <div className="space-y-6">
@@ -35,7 +35,7 @@ export default function AttendancePage({ searchParams }: { searchParams: { [key:
       </div>
 
       {/* Filters */}
-      <AttendanceFilters />
+      <AttendanceFilters onFiltersChange={setFilters} />
 
       {/* Attendance Calendar */}
       <AttendanceCalendar year={year} month={month} filters={filters} />

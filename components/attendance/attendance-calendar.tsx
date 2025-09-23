@@ -11,6 +11,7 @@ interface Student {
   id: string
   name: string
   rollNo: string
+  dept: string | null
   year: number
   isMando: boolean
   status: string
@@ -21,7 +22,7 @@ interface Student {
   }>
 }
 
-export function AttendanceCalendar({ year, month, filters }: { year: string; month: string; filters: { hostel: string; year: string; mandoFilter: string; status: string } }) {
+export function AttendanceCalendar({ year, month, filters }: { year: string; month: string; filters: { hostel: string; year: string; mandoFilter: string; status: string; dept: string } }) {
   const [students, setStudents] = useState<Student[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -30,15 +31,23 @@ export function AttendanceCalendar({ year, month, filters }: { year: string; mon
     const fetchData = async () => {
       setLoading(true)
       try {
-        // Fetch students without attendance first
-        const studentsParams: any = { status: "ACTIVE" }
-        if (filters.hostel !== "all") studentsParams.hostel = filters.hostel
-        if (filters.year !== "all") studentsParams.year = filters.year
-        if (filters.mandoFilter === "mando") studentsParams.isMando = "true"
-        if (filters.mandoFilter === "regular") studentsParams.isMando = "false"
-
-        const studentsData = await ApiClient.students.getAll(studentsParams)
+        // Fetch all students without filters
+        const studentsData = await ApiClient.students.getAll({ status: "ACTIVE" })
         console.log(`[v0] Fetched ${studentsData.length} students`)
+
+        // Client-side filtering
+        const filteredStudents = studentsData.filter((student: any) => {
+          const matchesHostel = filters.hostel === "all" || student.hostel?.name === filters.hostel
+          const matchesYear = filters.year === "all" || student.year?.toString() === filters.year
+          const matchesMando = filters.mandoFilter === "all" ||
+            (filters.mandoFilter === "mando" && student.isMando) ||
+            (filters.mandoFilter === "regular" && !student.isMando)
+          const matchesDept = filters.dept === "all" || (student.dept && student.dept.toLowerCase().includes(filters.dept.toLowerCase()))
+
+          return matchesHostel && matchesYear && matchesMando && matchesDept
+        })
+
+        console.log(`[v0] Filtered to ${filteredStudents.length} students`)
 
         // Fetch attendance data for the specific month
         console.log(`[v0] Fetching attendance for month: ${month}, year: ${year}`)
@@ -50,14 +59,14 @@ export function AttendanceCalendar({ year, month, filters }: { year: string; mon
         const endOfMonth = new Date(parseInt(year), parseInt(month), 0, 23, 59, 59, 999)
         console.log(`[v0] Date range: ${startOfMonth.toISOString()} to ${endOfMonth.toISOString()}`)
 
-        // Filter attendance to current month and combine with students
-        const studentsWithAttendance = studentsData.map((student: any) => {
+        // Filter attendance to current month and combine with filtered students
+        const studentsWithAttendance = filteredStudents.map((student: any) => {
           const studentAttendance = attendanceData
             .filter((att: any) => {
               const attDate = new Date(att.date)
               const isInRange = att.studentId === student.id &&
-                     attDate >= startOfMonth &&
-                     attDate <= endOfMonth
+                      attDate >= startOfMonth &&
+                      attDate <= endOfMonth
               if (isInRange) {
                 console.log(`[v0] Student ${student.id}: attendance on ${attDate.toISOString()}`)
               }

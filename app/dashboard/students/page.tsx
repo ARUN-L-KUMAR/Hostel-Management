@@ -11,6 +11,7 @@ export default function StudentsPage() {
     year: "all",
     status: "all",
     mandoFilter: "all",
+    dept: "all",
     search: "",
   })
 

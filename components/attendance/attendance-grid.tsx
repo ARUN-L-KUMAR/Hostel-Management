@@ -12,6 +12,7 @@ interface Student {
   id: string
   name: string
   rollNo: string
+  dept: string | null
   year: number
   isMando: boolean
   hostel: { name: string }
@@ -224,6 +225,8 @@ export function AttendanceGrid({ students, days, currentMonth, total }: Attendan
                   <div className="font-medium text-slate-900 truncate">{student.name}</div>
                   <div className="text-xs text-slate-500 flex items-center space-x-2">
                     <span>{student.rollNo}</span>
+                    <span>•</span>
+                    <span className="text-slate-400">{student.dept || 'Not Set'}</span>
                     <span>•</span>
                     <span>{student.hostel.name}</span>
                     {student.isMando && (

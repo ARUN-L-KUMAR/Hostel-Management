@@ -14,6 +14,7 @@ interface StudentsFiltersProps {
     year: string
     status: string
     mandoFilter: string
+    dept: string
     search: string
   }) => void
 }
@@ -24,6 +25,7 @@ export function StudentsFilters({ onFiltersChange }: StudentsFiltersProps) {
     year: "all",
     status: "all",
     mandoFilter: "all",
+    dept: "all",
     search: "",
   })
 
@@ -39,6 +41,7 @@ export function StudentsFilters({ onFiltersChange }: StudentsFiltersProps) {
       year: "all",
       status: "all",
       mandoFilter: "all",
+      dept: "all",
       search: "",
     }
     setFilters(resetFilters)
@@ -58,7 +61,7 @@ export function StudentsFilters({ onFiltersChange }: StudentsFiltersProps) {
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
         {/* Search */}
         <div className="space-y-2">
           <Label className="text-sm font-medium text-slate-700">Search</Label>
@@ -116,6 +119,23 @@ export function StudentsFilters({ onFiltersChange }: StudentsFiltersProps) {
               <SelectItem value="all">All Status</SelectItem>
               <SelectItem value="ACTIVE">Active</SelectItem>
               <SelectItem value="VACATED">Vacated</SelectItem>  
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Dept Filter */}
+        <div className="space-y-2">
+          <Label className="text-sm font-medium text-slate-700">Dept</Label>
+          <Select value={filters.dept} onValueChange={(value) => handleFilterChange({ dept: value })}>
+            <SelectTrigger className="bg-white">
+              <SelectValue placeholder="Select dept" />
+            </SelectTrigger>
+            <SelectContent className="bg-white">
+              <SelectItem value="all">All Depts</SelectItem>
+              <SelectItem value="cse">CSE</SelectItem>
+              <SelectItem value="ece">ECE</SelectItem>
+              <SelectItem value="eee">EEE</SelectItem>
+              <SelectItem value="mech">Mech</SelectItem>
             </SelectContent>
           </Select>
         </div>

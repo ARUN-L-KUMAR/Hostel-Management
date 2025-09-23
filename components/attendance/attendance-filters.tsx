@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Filter, RotateCcw } from "lucide-react"
 
 interface AttendanceFiltersProps {
-  onFiltersChange?: (filters: { hostel: string; year: string; mandoFilter: string; status: string }) => void
+  onFiltersChange?: (filters: { hostel: string; year: string; mandoFilter: string; status: string; dept: string }) => void
   onDateRangeChange?: (dateRange: { year: string; month: string }) => void
 }
 
@@ -21,6 +21,7 @@ export function AttendanceFilters({ onFiltersChange, onDateRangeChange }: Attend
   const [academicYear, setAcademicYear] = useState("all")
   const [status, setStatus] = useState("all")
   const [mandoFilter, setMandoFilter] = useState("all")
+  const [dept, setDept] = useState("all")
   const [selectedYear, setSelectedYear] = useState(currentYear.toString())
   const [selectedMonth, setSelectedMonth] = useState(currentMonth.toString())
 
@@ -31,9 +32,10 @@ export function AttendanceFilters({ onFiltersChange, onDateRangeChange }: Attend
         year: academicYear,
         mandoFilter,
         status,
+        dept,
       })
     }
-  }, [hostel, academicYear, mandoFilter, status, onFiltersChange])
+  }, [hostel, academicYear, mandoFilter, status, dept, onFiltersChange])
 
   useEffect(() => {
     if (onDateRangeChange) {
@@ -49,6 +51,7 @@ export function AttendanceFilters({ onFiltersChange, onDateRangeChange }: Attend
     setAcademicYear("all")
     setStatus("all")
     setMandoFilter("all")
+    setDept("all")
   }
 
   return (
@@ -64,7 +67,7 @@ export function AttendanceFilters({ onFiltersChange, onDateRangeChange }: Attend
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-4">
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mt-4">
         {/* Hostel Filter */}
         <div className="space-y-2">
           <Label className="text-sm font-medium text-slate-700">Hostel</Label>
@@ -108,6 +111,23 @@ export function AttendanceFilters({ onFiltersChange, onDateRangeChange }: Attend
               <SelectItem value="all">All Status</SelectItem>
               <SelectItem value="ACTIVE">Active</SelectItem>
               <SelectItem value="VACATED">Vacated</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Dept Filter */}
+        <div className="space-y-2">
+          <Label className="text-sm font-medium text-slate-700">Dept</Label>
+          <Select value={dept} onValueChange={setDept}>
+            <SelectTrigger className="bg-white">
+              <SelectValue placeholder="Select dept" />
+            </SelectTrigger>
+            <SelectContent className="bg-white">
+              <SelectItem value="all">All Depts</SelectItem>
+              <SelectItem value="cse">CSE</SelectItem>
+              <SelectItem value="ece">ECE</SelectItem>
+              <SelectItem value="eee">EEE</SelectItem>
+              <SelectItem value="mech">Mech</SelectItem>
             </SelectContent>
           </Select>
         </div>

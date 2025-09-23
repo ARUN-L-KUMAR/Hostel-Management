@@ -8,8 +8,9 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
-import { Save, RefreshCw } from "lucide-react"
+import { Save, RefreshCw, Filter, RotateCcw, Search } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
+import { computeMandays, AttendanceCode } from "@/lib/calculations"
 
 interface StudentBillingData {
   id: string
@@ -17,6 +18,9 @@ interface StudentBillingData {
   rollNo: string
   dept: string | null
   hostel: string
+  year?: number
+  status?: string
+  isMando?: boolean
   mandays: number
   laborCharge: number
   provisionCharge: number
@@ -44,6 +48,14 @@ export default function BillingPage() {
   const [updatingSem, setUpdatingSem] = useState(false)
   const [studentsSem, setStudentsSem] = useState<StudentBillingData[]>([])
   const [loadingStudentsSem, setLoadingStudentsSem] = useState(false)
+  const [filters, setFilters] = useState({
+    hostel: "all",
+    year: "all",
+    status: "all",
+    mandoFilter: "all",
+    dept: "all",
+    search: "",
+  })
 
   const months = [
     { value: "1", label: "January" },
@@ -126,15 +138,92 @@ export default function BillingPage() {
     }
   }
 
+  const filteredStudentsSem = studentsSem.filter((student) => {
+    const matchesSearch =
+      filters.search === "" ||
+      student.name.toLowerCase().includes(filters.search.toLowerCase()) ||
+      student.rollNo.toLowerCase().includes(filters.search.toLowerCase())
+
+    const matchesHostel = filters.hostel === "all" || student.hostel === filters.hostel
+
+    const matchesYear = filters.year === "all" || student.year?.toString() === filters.year
+
+    const matchesStatus = filters.status === "all" || student.status === filters.status
+
+    const matchesDept = filters.dept === "all" || (student.dept && student.dept.toLowerCase().includes(filters.dept.toLowerCase()))
+
+    const matchesMando = filters.mandoFilter === "all" ||
+      (filters.mandoFilter === "mando" && student.isMando) ||
+      (filters.mandoFilter === "regular" && !student.isMando)
+
+    return matchesSearch && matchesHostel && matchesYear && matchesStatus && matchesDept && matchesMando
+  })
+
   const fetchSemStudentsData = async () => {
     setLoadingStudentsSem(true)
     try {
-      const response = await fetch(`/api/billing/overview?year=${selectedStartYear}&month=${selectedStartMonth}`)
-      if (!response.ok) {
-        throw new Error("Failed to fetch billing data")
+      const startYear = parseInt(selectedStartYear)
+      const endYear = parseInt(selectedEndYear)
+      const startMonth = parseInt(selectedStartMonth)
+      const endMonth = parseInt(selectedEndMonth)
+
+      const startDate = new Date(startYear, startMonth - 1, 1)
+      const endDate = new Date(endYear, endMonth, 1)
+
+      // Get all students
+      const studentsResponse = await fetch('/api/students')
+      if (!studentsResponse.ok) {
+        throw new Error("Failed to fetch students")
       }
-      const data = await response.json()
-      setStudentsSem(data.students)
+      const students = await studentsResponse.json()
+
+      // Get all attendance
+      const attendanceResponse = await fetch('/api/attendance')
+      if (!attendanceResponse.ok) {
+        throw new Error("Failed to fetch attendance")
+      }
+      const allAttendance = await attendanceResponse.json()
+
+      // For each student, filter attendance for the period and sum mandays
+      const studentsData = []
+
+      for (const student of students) {
+        const studentAttendance = allAttendance.filter((att: any) =>
+          att.studentId === student.id &&
+          new Date(att.date) >= startDate &&
+          new Date(att.date) < endDate
+        )
+
+        const attendanceRecords = studentAttendance.map((att: any) => ({
+          code: att.code as AttendanceCode,
+          date: new Date(att.date),
+        }))
+
+        const totalMandays = computeMandays(attendanceRecords)
+
+        const laborCharge = totalMandays * semLaborCharge
+        const provisionCharge = semProvisionCharge * totalMandays
+        const advancePaid = semAdvanceAmount // Fixed amount, not per day
+        const totalAmount = advancePaid - (laborCharge + provisionCharge)
+
+        studentsData.push({
+          id: student.id,
+          name: student.name,
+          rollNo: student.rollNo,
+          dept: student.dept,
+          hostel: student.hostel?.name || 'Unknown',
+          year: student.year,
+          status: student.status,
+          isMando: student.isMando,
+          mandays: totalMandays,
+          laborCharge,
+          provisionCharge,
+          advancePaid,
+          totalAmount,
+        })
+      }
+
+      setStudentsSem(studentsData)
     } catch (error) {
       console.error("Error fetching sem students data:", error)
     } finally {
@@ -145,7 +234,7 @@ export default function BillingPage() {
 
   useEffect(() => {
     fetchSemStudentsData()
-  }, [selectedStartYear, selectedStartMonth])
+  }, [selectedStartYear, selectedStartMonth, selectedEndYear, selectedEndMonth])
 
   return (
     <div className="space-y-6">
@@ -264,10 +353,142 @@ export default function BillingPage() {
           </Card>
 
 
+          {/* Filters */}
+          <Card className="p-4 border-0 shadow-md">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center space-x-2">
+                <Filter className="w-4 h-4 text-slate-600" />
+                <span className="font-medium text-slate-900">Filters</span>
+              </div>
+              <Button variant="outline" size="sm" onClick={() => setFilters({
+                hostel: "all",
+                year: "all",
+                status: "all",
+                mandoFilter: "all",
+                dept: "all",
+                search: "",
+              })}>
+                <RotateCcw className="w-4 h-4 mr-2" />
+                Reset
+              </Button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
+              {/* Search */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium text-slate-700">Search</Label>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <Input
+                    placeholder="Name or roll number..."
+                    value={filters.search}
+                    onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
+                    className="pl-10"
+                  />
+                </div>
+              </div>
+
+              {/* Hostel Filter */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium text-slate-700">Hostel</Label>
+                <Select value={filters.hostel} onValueChange={(value) => setFilters(prev => ({ ...prev, hostel: value }))}>
+                  <SelectTrigger className="bg-white">
+                    <SelectValue placeholder="Select hostel" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-white">
+                    <SelectItem value="all">All Hostels</SelectItem>
+                    <SelectItem value="Boys">Boys Hostel</SelectItem>
+                    <SelectItem value="Girls">Girls Hostel</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Year Filter */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium text-slate-700">Year</Label>
+                <Select value={filters.year} onValueChange={(value) => setFilters(prev => ({ ...prev, year: value }))}>
+                  <SelectTrigger className="bg-white">
+                    <SelectValue placeholder="Select year" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-white">
+                    <SelectItem value="all">All Years</SelectItem>
+                    <SelectItem value="1">1st Year</SelectItem>
+                    <SelectItem value="2">2nd Year</SelectItem>
+                    <SelectItem value="3">3rd Year</SelectItem>
+                    <SelectItem value="4">4th Year</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Status Filter */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium text-slate-700">Status</Label>
+                <Select value={filters.status} onValueChange={(value) => setFilters(prev => ({ ...prev, status: value }))}>
+                  <SelectTrigger className="bg-white">
+                    <SelectValue placeholder="Select status" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-white">
+                    <SelectItem value="all">All Status</SelectItem>
+                    <SelectItem value="ACTIVE">Active</SelectItem>
+                    <SelectItem value="VACATED">Vacated</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Dept Filter */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium text-slate-700">Dept</Label>
+                <Select value={filters.dept} onValueChange={(value) => setFilters(prev => ({ ...prev, dept: value }))}>
+                  <SelectTrigger className="bg-white">
+                    <SelectValue placeholder="Select dept" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-white">
+                    <SelectItem value="all">All Depts</SelectItem>
+                    <SelectItem value="cse">CSE</SelectItem>
+                    <SelectItem value="ece">ECE</SelectItem>
+                    <SelectItem value="eee">EEE</SelectItem>
+                    <SelectItem value="mech">Mech</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Mando Filter */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium text-slate-700">Mando Filter</Label>
+                <Select value={filters.mandoFilter} onValueChange={(value) => setFilters(prev => ({ ...prev, mandoFilter: value }))}>
+                  <SelectTrigger className="bg-white">
+                    <SelectValue placeholder="Select mando filter" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-white">
+                    <SelectItem value="all">All Students</SelectItem>
+                    <SelectItem value="mando">Mando Students Only</SelectItem>
+                    <SelectItem value="regular">Regular Students Only</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </Card>
+
           {/* Students Table for Sem */}
           <Card className="border-0 shadow-md">
             <CardHeader>
-              <CardTitle>Student Payment Overview - {months.find(m => m.value === selectedStartMonth)?.label} {selectedStartYear}</CardTitle>
+              <CardTitle>
+                Student Payment Overview - {(() => {
+                  const startYear = parseInt(selectedStartYear)
+                  const endYear = parseInt(selectedEndYear)
+                  const startMonth = parseInt(selectedStartMonth)
+                  const endMonth = parseInt(selectedEndMonth)
+
+                  const startDate = new Date(startYear, startMonth - 1, 1)
+                  const endDate = new Date(endYear, endMonth, 1)
+                  const totalDays = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24))
+
+                  const startMonthLabel = months.find(m => m.value === selectedStartMonth)?.label
+                  const endMonthLabel = months.find(m => m.value === selectedEndMonth)?.label
+
+                  return `${startMonthLabel} ${startYear} to ${endMonthLabel} ${endYear} (${totalDays} days)`
+                })()}
+              </CardTitle>
             </CardHeader>
             <CardContent>
               <Table>
@@ -284,7 +505,7 @@ export default function BillingPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {studentsSem.map((student) => (
+                  {filteredStudentsSem.map((student) => (
                     <TableRow key={student.id}>
                       <TableCell>
                         <div>
