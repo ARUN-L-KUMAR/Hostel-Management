@@ -277,9 +277,26 @@ export const prisma = {
   provisionItem: {
     findMany: async (options?: any) => {
       try {
-        const result = await sql`SELECT * FROM provision_items ORDER BY name ASC`
+        let result
+
+        // Handle where clause for case-insensitive name search
+        if (options?.where?.name?.equals) {
+          if (options.where.name.mode === 'insensitive') {
+            result = await sql`SELECT * FROM provision_items WHERE LOWER(name) = LOWER(${options.where.name.equals}) ORDER BY name ASC`
+          } else {
+            result = await sql`SELECT * FROM provision_items WHERE name = ${options.where.name.equals} ORDER BY name ASC`
+          }
+
+          // Handle take limit
+          if (options?.take && result.length > options.take) {
+            result = result.slice(0, options.take)
+          }
+        } else {
+          result = await sql`SELECT * FROM provision_items ORDER BY name ASC`
+        }
+
         console.log("[v0] Found provision items:", result.length)
-        
+
         // Add empty usage array for each provision item
         return result.map((item: any) => ({
           ...item,
@@ -293,10 +310,13 @@ export const prisma = {
 
     create: async (options: any) => {
       try {
-        const { name, unit, unitCost, category } = options.data
+        const { name, unit, unitCost, unitMeasure } = options.data
+        // Generate a simple ID since cuid() default might not be working
+        const id = `prov_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+        const now = new Date()
         const result = await sql`
-          INSERT INTO provision_items (name, unit, unit_cost, category) 
-          VALUES (${name}, ${unit}, ${unitCost}, ${category}) 
+          INSERT INTO provision_items (id, name, unit, "unitCost", "unitMeasure", "createdAt", "updatedAt")
+          VALUES (${id}, ${name}, ${unit}, ${unitCost}, ${unitMeasure}, ${now}, ${now})
           RETURNING *
         `
         return result[0]

@@ -4,16 +4,18 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Plus, Download, Upload, TrendingUp } from "lucide-react"
+import { ProvisionsExcelImportDialog } from "./excel-import-dialog"
 
 export function ProvisionsActions() {
   const [addDialogOpen, setAddDialogOpen] = useState(false)
+  const [importDialogOpen, setImportDialogOpen] = useState(false)
 
   const handleExport = () => {
     console.log("[v0] Exporting provisions data")
   }
 
   const handleImport = () => {
-    console.log("[v0] Importing provisions data")
+    setImportDialogOpen(true)
   }
 
   const handleAnalytics = () => {
@@ -32,10 +34,20 @@ export function ProvisionsActions() {
         Export
       </Button>
 
-      <Button variant="outline" onClick={handleImport}>
-        <Upload className="w-4 h-4 mr-2" />
-        Import
-      </Button>
+      <Dialog open={importDialogOpen} onOpenChange={setImportDialogOpen}>
+        <DialogTrigger asChild>
+          <Button variant="outline">
+            <Upload className="w-4 h-4 mr-2" />
+            Import
+          </Button>
+        </DialogTrigger>
+        <DialogContent className="max-w-4xl bg-white">
+          <DialogHeader>
+            <DialogTitle>Import Provisions from Excel</DialogTitle>
+          </DialogHeader>
+          <ProvisionsExcelImportDialog onClose={() => setImportDialogOpen(false)} />
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
         <DialogTrigger asChild>
@@ -44,7 +56,7 @@ export function ProvisionsActions() {
             Add Item
           </Button>
         </DialogTrigger>
-        <DialogContent>
+        <DialogContent className="max-w-4xl bg-white">
           <DialogHeader>
             <DialogTitle>Add Provision Item</DialogTitle>
           </DialogHeader>
