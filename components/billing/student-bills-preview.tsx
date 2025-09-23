@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -21,78 +21,68 @@ interface StudentBillsPreviewProps {
   onBack: () => void
 }
 
-// Mock student bills data
-const studentBills = [
-  {
-    id: "1",
-    name: "Arjun Kumar",
-    rollNo: "B21001",
-    hostel: "Boys",
-    isMando: false,
-    mandays: 28,
-    grossAmount: 1385.44,
-    adjustments: 0,
-    finalAmount: 1385.44,
-    status: "unpaid",
-  },
-  {
-    id: "2",
-    name: "Rahul Sharma",
-    rollNo: "B21002",
-    hostel: "Boys",
-    isMando: true,
-    mandays: 30,
-    grossAmount: 1484.4,
-    adjustments: 0,
-    finalAmount: 0, // Covered by Mando
-    status: "covered",
-  },
-  {
-    id: "3",
-    name: "Vikram Singh",
-    rollNo: "B21003",
-    hostel: "Boys",
-    isMando: false,
-    mandays: 25,
-    grossAmount: 1237.0,
-    adjustments: -200, // Some adjustment
-    finalAmount: 1037.0,
-    status: "unpaid",
-  },
-  {
-    id: "4",
-    name: "Sneha Patel",
-    rollNo: "G21032",
-    hostel: "Girls",
-    isMando: true,
-    mandays: 29,
-    grossAmount: 1434.92,
-    adjustments: 0,
-    finalAmount: 0, // Covered by Mando
-    status: "covered",
-  },
-  {
-    id: "5",
-    name: "Pooja Singh",
-    rollNo: "G21033",
-    hostel: "Girls",
-    isMando: false,
-    mandays: 31,
-    grossAmount: 1533.88,
-    adjustments: 0,
-    finalAmount: 1533.88,
-    status: "unpaid",
-  },
-]
+interface StudentBill {
+  id: string
+  name: string
+  rollNo: string
+  dept: string | null
+  hostel: string
+  isMando: boolean
+  mandays: number
+  grossAmount: number
+  adjustments: number
+  finalAmount: number
+  status: string
+}
 
 export function StudentBillsPreview({ data, onNext, onBack }: StudentBillsPreviewProps) {
   const [searchQuery, setSearchQuery] = useState("")
   const [sortBy, setSortBy] = useState("name")
+  const [studentBills, setStudentBills] = useState<StudentBill[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const fetchStudentBills = async () => {
+      setLoading(true)
+      try {
+        const response = await fetch(`/api/billing/overview?year=${new Date().getFullYear()}&month=${new Date().getMonth() + 1}`)
+        if (!response.ok) {
+          throw new Error("Failed to fetch billing data")
+        }
+        const billingData = await response.json()
+        
+        // Transform the student data into bill format
+        const bills: StudentBill[] = billingData.students.map((student: any) => ({
+          id: student.id,
+          name: student.name,
+          rollNo: student.rollNo,
+          dept: student.dept,
+          hostel: student.hostel,
+          isMando: student.isMando || false,
+          mandays: student.mandays,
+          grossAmount: student.laborCharge + student.provisionCharge,
+          adjustments: 0, // Default to 0, can be enhanced later
+          finalAmount: student.isMando ? 0 : student.laborCharge + student.provisionCharge,
+          status: student.isMando ? "covered" : "unpaid"
+        }))
+        
+        setStudentBills(bills)
+      } catch (error) {
+        console.error("Error fetching student bills:", error)
+        setStudentBills([])
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchStudentBills()
+  }, [])
 
   const filteredBills = studentBills.filter(
     (bill) =>
       bill.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      bill.rollNo.toLowerCase().includes(searchQuery.toLowerCase()),
+      bill.rollNo.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (bill.dept && bill.dept.toLowerCase().includes(searchQuery.toLowerCase())),
   )
 
   const totalRegularBills = filteredBills
@@ -171,6 +161,7 @@ export function StudentBillsPreview({ data, onNext, onBack }: StudentBillsPrevie
             <TableHeader>
               <TableRow>
                 <TableHead>Student</TableHead>
+                <TableHead>Dept</TableHead>
                 <TableHead>Hostel</TableHead>
                 <TableHead>Type</TableHead>
                 <TableHead className="text-right">Mandays</TableHead>
@@ -182,57 +173,72 @@ export function StudentBillsPreview({ data, onNext, onBack }: StudentBillsPrevie
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredBills.map((bill) => (
-                <TableRow key={bill.id}>
-                  <TableCell>
-                    <div>
-                      <div className="font-medium text-slate-900">{bill.name}</div>
-                      <div className="text-sm text-slate-500">{bill.rollNo}</div>
-                    </div>
-                  </TableCell>
-                  <TableCell>{bill.hostel}</TableCell>
-                  <TableCell>
-                    {bill.isMando ? (
-                      <Badge variant="secondary" className="bg-orange-100 text-orange-800">
-                        Mando
-                      </Badge>
-                    ) : (
-                      <Badge variant="outline">Regular</Badge>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-right">{bill.mandays}</TableCell>
-                  <TableCell className="text-right">₹{bill.grossAmount.toFixed(2)}</TableCell>
-                  <TableCell className="text-right">
-                    {bill.adjustments !== 0 && (
-                      <span className={bill.adjustments > 0 ? "text-red-600" : "text-green-600"}>
-                        {bill.adjustments > 0 ? "+" : ""}₹{bill.adjustments.toFixed(2)}
-                      </span>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-right font-semibold">
-                    {bill.isMando ? (
-                      <span className="text-orange-600">₹0.00 (Covered)</span>
-                    ) : (
-                      <span>₹{bill.finalAmount.toFixed(2)}</span>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <Badge
-                      variant={bill.status === "covered" ? "secondary" : "outline"}
-                      className={
-                        bill.status === "covered" ? "bg-orange-100 text-orange-800" : "bg-yellow-100 text-yellow-800"
-                      }
-                    >
-                      {bill.status === "covered" ? "Mando Covered" : "Unpaid"}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Button variant="ghost" size="sm">
-                      <Eye className="w-4 h-4" />
-                    </Button>
+              {loading ? (
+                <TableRow>
+                  <TableCell colSpan={10} className="text-center py-8 text-slate-500">
+                    Loading student bills...
                   </TableCell>
                 </TableRow>
-              ))}
+              ) : filteredBills.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={10} className="text-center py-8 text-slate-500">
+                    No student bills found.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                filteredBills.map((bill) => (
+                  <TableRow key={bill.id}>
+                    <TableCell>
+                      <div>
+                        <div className="font-medium text-slate-900">{bill.name}</div>
+                        <div className="text-sm text-slate-500">{bill.rollNo}</div>
+                      </div>
+                    </TableCell>
+                    <TableCell>{bill.dept || 'Not Set'}</TableCell>
+                    <TableCell>{bill.hostel}</TableCell>
+                    <TableCell>
+                      {bill.isMando ? (
+                        <Badge variant="secondary" className="bg-orange-100 text-orange-800">
+                          Mando
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline">Regular</Badge>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right">{bill.mandays}</TableCell>
+                    <TableCell className="text-right">₹{bill.grossAmount.toFixed(2)}</TableCell>
+                    <TableCell className="text-right">
+                      {bill.adjustments !== 0 && (
+                        <span className={bill.adjustments > 0 ? "text-red-600" : "text-green-600"}>
+                          {bill.adjustments > 0 ? "+" : ""}₹{bill.adjustments.toFixed(2)}
+                        </span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right font-semibold">
+                      {bill.isMando ? (
+                        <span className="text-orange-600">₹0.00 (Covered)</span>
+                      ) : (
+                        <span>₹{bill.finalAmount.toFixed(2)}</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <Badge
+                        variant={bill.status === "covered" ? "secondary" : "outline"}
+                        className={
+                          bill.status === "covered" ? "bg-orange-100 text-orange-800" : "bg-yellow-100 text-yellow-800"
+                        }
+                      >
+                        {bill.status === "covered" ? "Mando Covered" : "Unpaid"}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Button variant="ghost" size="sm">
+                        <Eye className="w-4 h-4" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
             </TableBody>
           </Table>
         </CardContent>

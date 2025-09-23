@@ -68,6 +68,7 @@ export async function GET(request: NextRequest) {
         id: student.id,
         name: student.name,
         rollNo: student.rollNo,
+        dept: student.dept,
         hostel: student.hostel.name,
         mandays,
         laborCharge,

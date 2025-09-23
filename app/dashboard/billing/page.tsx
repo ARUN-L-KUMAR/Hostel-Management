@@ -15,6 +15,7 @@ interface StudentBillingData {
   id: string
   name: string
   rollNo: string
+  dept: string | null
   hostel: string
   mandays: number
   laborCharge: number
@@ -273,6 +274,7 @@ export default function BillingPage() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Student</TableHead>
+                    <TableHead>Dept</TableHead>
                     <TableHead>Hostel</TableHead>
                     <TableHead className="text-right">Mandays</TableHead>
                     <TableHead className="text-right">Labor Charge</TableHead>
@@ -290,6 +292,7 @@ export default function BillingPage() {
                           <div className="text-sm text-slate-500">{student.rollNo}</div>
                         </div>
                       </TableCell>
+                      <TableCell>{student.dept || 'Not Set'}</TableCell>
                       <TableCell>{student.hostel}</TableCell>
                       <TableCell className="text-right">{student.mandays}</TableCell>
                       <TableCell className="text-right">₹{student.laborCharge.toFixed(2)}</TableCell>
