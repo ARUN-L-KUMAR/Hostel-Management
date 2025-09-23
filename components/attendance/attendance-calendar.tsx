@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db"
 import { AttendanceGrid } from "./attendance-grid"
 import { AttendanceLegend } from "./attendance-legend"
+import { AttendancePeriodFilters } from "./attendance-period-filters"
 
 async function getAttendanceData(year: string, month: string) {
   const currentMonth = `${year}-${month.padStart(2, '0')}`
@@ -32,13 +33,24 @@ async function getAttendanceData(year: string, month: string) {
   return { students, days, currentMonth }
 }
 
-export async function AttendanceCalendar({ year, month }: { year: string; month: string }) {
+export async function AttendanceCalendar({ year, month, filters }: { year: string; month: string; filters: { hostel: string; year: string; mandoFilter: string; status: string } }) {
   const { students, days, currentMonth } = await getAttendanceData(year, month)
+
+  // Filter students based on filters
+  const filteredStudents = students.filter((student) => {
+    if (filters.hostel !== "all" && !student.hostel.name.toLowerCase().includes(filters.hostel.toLowerCase())) return false
+    if (filters.year !== "all" && student.year.toString() !== filters.year) return false
+    if (filters.status !== "all" && student.status !== filters.status) return false
+    if (filters.mandoFilter === "mando" && !student.isMando) return false
+    if (filters.mandoFilter === "regular" && student.isMando) return false
+    return true
+  })
 
   return (
     <div className="space-y-4">
       <AttendanceLegend />
-      <AttendanceGrid students={students} days={days} currentMonth={currentMonth} total={students.length} />
+      <AttendancePeriodFilters />
+      <AttendanceGrid students={filteredStudents} days={days} currentMonth={currentMonth} total={filteredStudents.length} />
     </div>
   )
 }
