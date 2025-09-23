@@ -3,10 +3,15 @@
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { Plus, Download, Upload, TrendingUp } from "lucide-react"
+import { Plus, Download, Upload } from "lucide-react"
 import { ProvisionsExcelImportDialog } from "./excel-import-dialog"
+import { AddProvisionDialog } from "./add-provision-dialog"
 
-export function ProvisionsActions() {
+interface ProvisionsActionsProps {
+  onRefresh?: () => void
+}
+
+export function ProvisionsActions({ onRefresh }: ProvisionsActionsProps) {
   const [addDialogOpen, setAddDialogOpen] = useState(false)
   const [importDialogOpen, setImportDialogOpen] = useState(false)
 
@@ -18,17 +23,8 @@ export function ProvisionsActions() {
     setImportDialogOpen(true)
   }
 
-  const handleAnalytics = () => {
-    console.log("[v0] Opening provisions analytics")
-  }
-
   return (
     <div className="flex items-center space-x-2">
-      <Button variant="outline" onClick={handleAnalytics}>
-        <TrendingUp className="w-4 h-4 mr-2" />
-        Analytics
-      </Button>
-
       <Button variant="outline" onClick={handleExport}>
         <Download className="w-4 h-4 mr-2" />
         Export
@@ -49,22 +45,16 @@ export function ProvisionsActions() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
-        <DialogTrigger asChild>
-          <Button>
-            <Plus className="w-4 h-4 mr-2" />
-            Add Item
-          </Button>
-        </DialogTrigger>
-        <DialogContent className="max-w-4xl bg-white">
-          <DialogHeader>
-            <DialogTitle>Add Provision Item</DialogTitle>
-          </DialogHeader>
-          <div className="p-4">
-            <p className="text-slate-600">Add provision item dialog would go here...</p>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <Button onClick={() => setAddDialogOpen(true)}>
+        <Plus className="w-4 h-4 mr-2" />
+        Add Item
+      </Button>
+      
+      <AddProvisionDialog
+        open={addDialogOpen}
+        onOpenChange={setAddDialogOpen}
+        onSuccess={() => onRefresh?.()}
+      />
     </div>
   )
 }

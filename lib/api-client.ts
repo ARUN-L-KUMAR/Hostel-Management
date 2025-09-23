@@ -76,6 +76,8 @@ export class ApiClient {
   static provisions = {
     getAll: () => this.get("/provisions"),
     create: (data: any) => this.post("/provisions", data),
+    update: (id: string, data: any) => this.put(`/provisions/${id}`, data),
+    delete: (id: string) => this.delete(`/provisions/${id}`),
   }
 
   static billing = {

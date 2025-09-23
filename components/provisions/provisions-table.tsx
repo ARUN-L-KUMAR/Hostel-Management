@@ -5,8 +5,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Edit, TrendingUp, TrendingDown } from "lucide-react"
+import { Edit } from "lucide-react"
 import { ApiClient } from "@/lib/api-client"
+import { EditProvisionDialog } from "./edit-provision-dialog"
 
 interface Provision {
   id: string
@@ -28,45 +29,56 @@ interface Provision {
 export function ProvisionsTable() {
   const [provisions, setProvisions] = useState<Provision[]>([])
   const [loading, setLoading] = useState(true)
+  const [editDialogOpen, setEditDialogOpen] = useState(false)
+  const [selectedProvision, setSelectedProvision] = useState<Provision | null>(null)
+
+  const fetchProvisions = async () => {
+    setLoading(true)
+    try {
+      const response = await ApiClient.provisions.getAll()
+
+      // Calculate monthly usage and costs for December 2024
+      const provisionsWithStats = response.map((provision: Provision) => {
+        // Filter usage for December 2024
+        const decemberUsage = provision.usage?.filter((usage: any) => {
+          const usageDate = new Date(usage.date)
+          return usageDate.getMonth() === 11 && usageDate.getFullYear() === 2024 // December is month 11
+        }) || []
+
+        const monthlyUsage = decemberUsage.reduce((sum: number, usageItem: any) => sum + Number(usageItem.quantity), 0)
+        const monthlyCost = monthlyUsage * Number(provision.unitCost)
+
+        return {
+          ...provision,
+          stats: {
+            monthlyUsage,
+            monthlyCost,
+            avgDailyUsage: monthlyUsage / 31,
+          },
+        }
+      })
+
+      setProvisions(provisionsWithStats)
+    } catch (error) {
+      console.error("Error fetching provisions:", error)
+      setProvisions([])
+    } finally {
+      setLoading(false)
+    }
+  }
 
   useEffect(() => {
-    const fetchProvisions = async () => {
-      setLoading(true)
-      try {
-        const response = await ApiClient.provisions.getAll()
-
-        // Calculate monthly usage and costs for December 2024
-        const provisionsWithStats = response.map((provision: Provision) => {
-          // Filter usage for December 2024
-          const decemberUsage = provision.usage?.filter((usage: any) => {
-            const usageDate = new Date(usage.date)
-            return usageDate.getMonth() === 11 && usageDate.getFullYear() === 2024 // December is month 11
-          }) || []
-
-          const monthlyUsage = decemberUsage.reduce((sum: number, usageItem: any) => sum + Number(usageItem.quantity), 0)
-          const monthlyCost = monthlyUsage * Number(provision.unitCost)
-
-          return {
-            ...provision,
-            stats: {
-              monthlyUsage,
-              monthlyCost,
-              avgDailyUsage: monthlyUsage / 31,
-            },
-          }
-        })
-
-        setProvisions(provisionsWithStats)
-      } catch (error) {
-        console.error("Error fetching provisions:", error)
-        setProvisions([])
-      } finally {
-        setLoading(false)
-      }
-    }
-
     fetchProvisions()
   }, [])
+
+  const handleEditClick = (provision: Provision) => {
+    setSelectedProvision(provision)
+    setEditDialogOpen(true)
+  }
+
+  const handleEditSuccess = () => {
+    fetchProvisions() // Refresh the table data
+  }
 
   const totalMonthlyCost = provisions.reduce((sum, p: any) => sum + p.stats?.monthlyCost || 0, 0)
 
@@ -88,7 +100,8 @@ export function ProvisionsTable() {
   }
 
   return (
-    <Card className="border-0 shadow-md">
+    <>
+      <Card className="border-0 shadow-md">
       <CardHeader>
         <div className="flex items-center justify-between">
           <CardTitle>Provision Items ({provisions.length})</CardTitle>
@@ -102,12 +115,11 @@ export function ProvisionsTable() {
           <TableHeader>
             <TableRow>
               <TableHead>Item Name</TableHead>
-              <TableHead>Unit</TableHead>
+              <TableHead>Quantity(units)</TableHead>
               <TableHead className="text-right">Unit Cost</TableHead>
               <TableHead className="text-right">Monthly Usage</TableHead>
               <TableHead className="text-right">Monthly Cost</TableHead>
               <TableHead className="text-right">Avg Daily Usage</TableHead>
-              <TableHead className="text-right">Trend</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -120,12 +132,9 @@ export function ProvisionsTable() {
               return (
                 <TableRow key={provision.id}>
                   <TableCell>
-                    <div>
-                      <div className="font-medium text-slate-900">{provision.name}</div>
-                      <div className="text-sm text-slate-500">{provision.unitMeasure}</div>
-                    </div>
+                    <div className="font-medium text-slate-900">{provision.name}</div>
                   </TableCell>
-                  <TableCell>{provision.unit}</TableCell>
+                  <TableCell>{provision.unitMeasure}</TableCell>
                   <TableCell className="text-right">₹{Number(provision.unitCost).toFixed(2)}</TableCell>
                   <TableCell className="text-right">
                     <div className="font-medium">{(provision.stats?.monthlyUsage || 0).toFixed(1)}</div>
@@ -143,21 +152,7 @@ export function ProvisionsTable() {
                     {(provision.stats?.avgDailyUsage || 0).toFixed(2)} {provision.unit}
                   </TableCell>
                   <TableCell className="text-right">
-                    {/* Mock trend - in real app this would be calculated from historical data */}
-                    {Math.random() > 0.5 ? (
-                      <div className="flex items-center justify-end text-green-600">
-                        <TrendingDown className="w-4 h-4 mr-1" />
-                        <span className="text-sm">-5%</span>
-                      </div>
-                    ) : (
-                      <div className="flex items-center justify-end text-red-600">
-                        <TrendingUp className="w-4 h-4 mr-1" />
-                        <span className="text-sm">+8%</span>
-                      </div>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <Button variant="ghost" size="sm">
+                    <Button variant="ghost" size="sm" onClick={() => handleEditClick(provision)}>
                       <Edit className="w-4 h-4" />
                     </Button>
                   </TableCell>
@@ -168,5 +163,13 @@ export function ProvisionsTable() {
         </Table>
       </CardContent>
     </Card>
+    
+    <EditProvisionDialog
+      provision={selectedProvision}
+      open={editDialogOpen}
+      onOpenChange={setEditDialogOpen}
+      onSuccess={handleEditSuccess}
+    />
+  </>
   )
 }

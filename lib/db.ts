@@ -379,6 +379,44 @@ export const prisma = {
         throw error
       }
     },
+
+    update: async (options: any) => {
+      try {
+        const { id } = options.where
+        const { name, unit, unitCost, unitMeasure } = options.data
+        const now = new Date()
+        
+        const result = await sql`
+          UPDATE provision_items SET
+            name = ${name},
+            unit = ${unit},
+            "unitCost" = ${unitCost},
+            "unitMeasure" = ${unitMeasure},
+            "updatedAt" = ${now}
+          WHERE id = ${id}
+          RETURNING *
+        `
+        return result[0]
+      } catch (error) {
+        console.error("[v0] Error updating provision item:", error)
+        throw error
+      }
+    },
+
+    delete: async (options: any) => {
+      try {
+        const { id } = options.where
+        const result = await sql`
+          DELETE FROM provision_items
+          WHERE id = ${id}
+          RETURNING *
+        `
+        return result[0]
+      } catch (error) {
+        console.error("[v0] Error deleting provision item:", error)
+        throw error
+      }
+    },
   },
 
   bill: {

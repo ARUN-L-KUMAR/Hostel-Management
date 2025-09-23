@@ -17,14 +17,14 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { name, unit, unitCost, category } = body
+    const { name, unit, unitCost, unitMeasure } = body
 
     const provision = await prisma.provisionItem.create({
       data: {
         name,
         unit,
         unitCost,
-        category,
+        unitMeasure,
       },
     })
 
