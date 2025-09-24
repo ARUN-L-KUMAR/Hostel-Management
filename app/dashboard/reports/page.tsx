@@ -65,15 +65,24 @@ export default function ReportsPage() {
 
   const fetchMealRates = async () => {
     try {
+      console.log('Fetching meal rates...')
       const response = await fetch('/api/meal-rates')
       const rates = await response.json()
+      console.log('Fetched meal rates from API:', rates)
+      console.log('Current mealRates state before update:', mealRates)
       setMealRates(rates)
+      console.log('Called setMealRates with:', rates)
+
+      // Return the rates so we can use them immediately
+      return rates
     } catch (error) {
       console.error("Error fetching meal rates:", error)
+      return null
     }
   }
 
   const fetchReportData = async () => {
+    console.log('fetchReportData called with mealRates:', mealRates)
     setLoading(true)
     try {
       const params = new URLSearchParams({ year: selectedYear, month: selectedMonth })
@@ -91,11 +100,15 @@ export default function ReportsPage() {
         mandoRes.json()
       ])
 
+      console.log('Fetched data - outsidersData length:', outsidersData.length, 'mandoData length:', mandoData.length)
+
       // Calculate totals
       const provisionsTotal = provisionsData.reduce((sum: number, item: any) => sum + parseFloat(item.totalAmount || 0), 0)
 
       const outsidersMeals = outsidersData.reduce((sum: number, record: any) =>
         sum + (record.breakfast ? 1 : 0) + (record.lunch ? 1 : 0) + (record.dinner ? 1 : 0), 0)
+
+      console.log('Calculated outsidersMeals:', outsidersMeals, 'using mealRates.outsiders:', mealRates.outsiders)
 
       // Calculate mando meals by gender (boys/girls)
       const mandoMealsByGender = mandoData.reduce((acc: any, record: any) => {
@@ -114,6 +127,9 @@ export default function ReportsPage() {
 
       const totalMandoMeals = Object.values(mandoMealsByGender).reduce((sum: number, gender: any) => sum + gender.meals, 0)
       const totalMandoCost = Object.values(mandoMealsByGender).reduce((sum: number, gender: any) => sum + gender.cost, 0)
+
+      console.log('Calculated mandoMealsByGender:', mandoMealsByGender, 'using mealRates.mando:', mealRates.mando)
+      console.log('Total mando cost:', totalMandoCost, 'total mando meals:', totalMandoMeals)
 
       setReportData({
         provisions: {
@@ -143,16 +159,18 @@ export default function ReportsPage() {
   }
 
   useEffect(() => {
-    fetchMealRates()
-  }, [])
-
-  useEffect(() => {
-    if (mealRates.outsiders && mealRates.mando) {
-      fetchReportData()
+    const loadData = async () => {
+      const rates = await fetchMealRates()
+      if (rates) {
+        // Now fetch report data with the loaded rates
+        await fetchReportData()
+      }
     }
-  }, [selectedYear, selectedMonth, mealRates])
+    loadData()
+  }, [selectedYear, selectedMonth])
 
   const handleEditRates = async () => {
+    console.log('Saving meal rates:', mealRates)
     try {
       const response = await fetch('/api/meal-rates', {
         method: 'PUT',
@@ -160,11 +178,15 @@ export default function ReportsPage() {
         body: JSON.stringify(mealRates)
       })
 
+      console.log('API response status:', response.status)
       if (response.ok) {
         const updatedRates = await response.json()
+        console.log('Updated rates from API:', updatedRates)
         setMealRates(updatedRates)
         toast.success("Meal rates updated successfully")
       } else {
+        const errorText = await response.text()
+        console.error('API error:', errorText)
         toast.error("Failed to update meal rates")
       }
     } catch (error) {
@@ -223,7 +245,7 @@ export default function ReportsPage() {
                 Edit Rates
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-md">
+            <DialogContent className="max-w-md bg-white">
               <DialogHeader>
                 <DialogTitle>Edit Meal Rates</DialogTitle>
               </DialogHeader>
@@ -234,7 +256,11 @@ export default function ReportsPage() {
                     id="outsiders-rate"
                     type="number"
                     value={mealRates.outsiders}
-                    onChange={(e) => setMealRates(prev => ({ ...prev, outsiders: parseInt(e.target.value) || 0 }))}
+                    onChange={(e) => {
+                      const newValue = parseInt(e.target.value) || 0
+                      console.log('Outsiders rate changed to:', newValue)
+                      setMealRates(prev => ({ ...prev, outsiders: newValue }))
+                    }}
                   />
                 </div>
                 <div className="space-y-2">
@@ -243,8 +269,15 @@ export default function ReportsPage() {
                     id="mando-rate"
                     type="number"
                     value={mealRates.mando}
-                    onChange={(e) => setMealRates(prev => ({ ...prev, mando: parseInt(e.target.value) || 0 }))}
+                    onChange={(e) => {
+                      const newValue = parseInt(e.target.value) || 0
+                      console.log('Mando rate changed to:', newValue)
+                      setMealRates(prev => ({ ...prev, mando: newValue }))
+                    }}
                   />
+                </div>
+                <div className="text-sm text-gray-600">
+                  Current values: Mando: {mealRates.mando}, Outsiders: {mealRates.outsiders}
                 </div>
                 <div className="flex justify-end space-x-2">
                   <Button variant="outline" onClick={() => setEditDialogOpen(false)}>

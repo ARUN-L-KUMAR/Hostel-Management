@@ -1196,15 +1196,20 @@ export const prisma = {
   mandoSettings: {
     findFirst: async (options?: any) => {
       try {
+        console.log('[v0] Finding mando settings with options:', options)
+
         let query = sql`SELECT * FROM mando_settings`
 
-        if (options?.where?.isActive) {
+        if (options?.where?.isActive !== undefined) {
+          console.log('[v0] Filtering by isActive:', options.where.isActive)
           query = sql`${query} WHERE "isActive" = ${options.where.isActive}`
         }
 
         query = sql`${query} ORDER BY "createdAt" DESC LIMIT 1`
 
         const result = await query
+        console.log('[v0] Query result:', result)
+        console.log('[v0] Returning:', result[0] || null)
         return result[0] || null
       } catch (error) {
         console.error("[v0] Error finding mando settings:", error)
@@ -1243,6 +1248,42 @@ export const prisma = {
         }
       } catch (error) {
         console.error("[v0] Error upserting mando settings:", error)
+        throw error
+      }
+    },
+
+    update: async (options: any) => {
+      try {
+        const { id } = options.where
+        const data = options.data
+
+        const result = await sql`
+          UPDATE mando_settings SET
+            "perMealRate" = ${data.perMealRate},
+            "outsiderMealRate" = ${data.outsiderMealRate},
+            "updatedAt" = NOW()
+          WHERE id = ${id}
+          RETURNING *
+        `
+        return result[0]
+      } catch (error) {
+        console.error("[v0] Error updating mando settings:", error)
+        throw error
+      }
+    },
+
+    create: async (options: any) => {
+      try {
+        const data = options.data
+
+        const result = await sql`
+          INSERT INTO mando_settings (id, "perMealRate", "outsiderMealRate", "createdAt", "updatedAt")
+          VALUES (${data.id}, ${data.perMealRate}, ${data.outsiderMealRate}, NOW(), NOW())
+          RETURNING *
+        `
+        return result[0]
+      } catch (error) {
+        console.error("[v0] Error creating mando settings:", error)
         throw error
       }
     },

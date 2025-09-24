@@ -5,21 +5,30 @@ export const dynamic = 'force-dynamic'
 
 export async function GET(request: NextRequest) {
   try {
+    console.log('GET /api/meal-rates - Fetching meal rates...')
     const mandoSettings = await prisma.mandoSettings.findFirst({
-      where: { isActive: true }
+      where: { id: "default" }
     })
 
+    console.log('Raw mando settings from DB:', mandoSettings)
+    console.log('mandoSettings.perMealRate:', mandoSettings?.perMealRate, 'type:', typeof mandoSettings?.perMealRate)
+    console.log('mandoSettings.outsiderMealRate:', mandoSettings?.outsiderMealRate, 'type:', typeof mandoSettings?.outsiderMealRate)
+
     if (!mandoSettings) {
+      console.log('No settings found, returning defaults')
       return NextResponse.json({
         mando: 50,
         outsiders: 50
       })
     }
 
-    return NextResponse.json({
+    const result = {
       mando: Number(mandoSettings.perMealRate),
       outsiders: Number(mandoSettings.outsiderMealRate)
-    })
+    }
+
+    console.log('Final result being returned:', result)
+    return NextResponse.json(result)
   } catch (error) {
     console.error("Error fetching meal rates:", error)
     return NextResponse.json({ error: "Failed to fetch meal rates" }, { status: 500 })
@@ -31,18 +40,42 @@ export async function PUT(request: NextRequest) {
     const body = await request.json()
     const { mando, outsiders } = body
 
-    const updatedSettings = await prisma.mandoSettings.upsert({
-      where: { id: "default" }, // Use a fixed ID for the default settings
-      update: {
-        perMealRate: mando,
-        outsiderMealRate: outsiders
-      },
-      create: {
-        id: "default",
-        perMealRate: mando,
-        outsiderMealRate: outsiders
-      }
+    console.log('Updating meal rates - mando:', mando, 'outsiders:', outsiders)
+
+    // First try to find existing settings
+    console.log('Looking for existing settings with id: default')
+    const existingSettings = await prisma.mandoSettings.findFirst({
+      where: { id: "default" }
     })
+
+    console.log('Existing settings found:', existingSettings)
+    console.log('Existing settings type:', typeof existingSettings)
+    console.log('Existing settings isActive:', existingSettings?.isActive)
+
+    let updatedSettings
+    if (existingSettings) {
+      // Update existing
+      console.log('Updating existing settings')
+      updatedSettings = await prisma.mandoSettings.update({
+        where: { id: existingSettings.id },
+        data: {
+          perMealRate: mando,
+          outsiderMealRate: outsiders
+        }
+      })
+    } else {
+      // Create new
+      console.log('Creating new settings')
+      updatedSettings = await prisma.mandoSettings.create({
+        data: {
+          id: "default",
+          perMealRate: mando,
+          outsiderMealRate: outsiders
+        }
+      })
+    }
+
+    console.log('Updated settings:', updatedSettings)
 
     return NextResponse.json({
       mando: Number(updatedSettings.perMealRate),
