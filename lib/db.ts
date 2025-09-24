@@ -37,8 +37,12 @@ export const prisma = {
           if (options.where.year) {
             studentsWithHostel = studentsWithHostel.filter(s => s.year === options.where.year)
           }
+          // Only filter by mando status if explicitly requested
           if (options.where.isMando !== undefined) {
             studentsWithHostel = studentsWithHostel.filter(s => s.isMando === options.where.isMando)
+          } else {
+            // If no mando filter specified, exclude mando students (for attendance system)
+            studentsWithHostel = studentsWithHostel.filter(s => !s.isMando)
           }
           if (options.where.status) {
             studentsWithHostel = studentsWithHostel.filter(s => s.status === options.where.status)
@@ -55,6 +59,9 @@ export const prisma = {
               })
             })
           }
+        } else {
+          // If no where clause, exclude mando students by default
+          studentsWithHostel = studentsWithHostel.filter(s => !s.isMando)
         }
 
         // If attendance is requested, fetch all attendance for the date range and assign to students
@@ -223,10 +230,11 @@ export const prisma = {
       console.log("[v0] Finding attendance with options:", options)
 
       if (!options?.where?.date) {
-        // Simple case - get recent attendance
+        // Simple case - get recent attendance (exclude mando students)
         const result = await sql`
           SELECT a.*, s.name as student_name FROM attendance a
           LEFT JOIN students s ON a."studentId" = s.id
+          WHERE (s."isMando" IS NULL OR s."isMando" = false)
           ORDER BY a.date DESC LIMIT 100
         `
         return result.map((row: any) => ({
@@ -239,6 +247,7 @@ export const prisma = {
         SELECT a.*, s.name as student_name FROM attendance a
         LEFT JOIN students s ON a."studentId" = s.id
         WHERE a.date >= ${options.where.date.gte} AND a.date <= ${options.where.date.lte}
+        AND (s."isMando" IS NULL OR s."isMando" = false)
         ORDER BY a.date ASC, s.name ASC
       `
 
@@ -1099,6 +1108,86 @@ export const prisma = {
         }
       } catch (error) {
         console.error("[v0] Error upserting meal record:", error)
+        throw error
+      }
+    },
+  },
+
+  outsiderMealRecord: {
+    findMany: async (options?: any) => {
+      try {
+        let query = sql`SELECT * FROM outsider_meal_records`
+        const whereConditions = []
+
+        if (options?.where) {
+          if (options.where.outsiderId) {
+            whereConditions.push(sql`"outsiderId" = ${options.where.outsiderId}`)
+          }
+          if (options.where.date?.gte) {
+            whereConditions.push(sql`date >= ${options.where.date.gte}`)
+          }
+          if (options.where.date?.lte) {
+            whereConditions.push(sql`date <= ${options.where.date.lte}`)
+          }
+        }
+
+        if (whereConditions.length > 0) {
+          query = sql`${query} WHERE ${whereConditions[0]}`
+          for (let i = 1; i < whereConditions.length; i++) {
+            query = sql`${query} AND ${whereConditions[i]}`
+          }
+        }
+
+        query = sql`${query} ORDER BY date DESC`
+
+        const result = await query
+
+        // Add outsider relation if include is specified
+        if (options?.include?.outsider) {
+          for (const record of result) {
+            const outsider = await sql`SELECT * FROM outsiders WHERE id = ${record.outsiderId}`
+            record.outsider = outsider[0] || null
+          }
+        }
+
+        return result
+      } catch (error) {
+        console.error("[v0] Error finding outsider meal records:", error)
+        return []
+      }
+    },
+
+    upsert: async (options: any) => {
+      try {
+        const { outsiderId, date } = options.where.outsiderId_date || options.where
+        const createData = options.create
+        const updateData = options.update
+
+        // First try to find existing record
+        const existing = await sql`SELECT * FROM outsider_meal_records WHERE "outsiderId" = ${outsiderId} AND date = ${date}`
+
+        if (existing.length > 0) {
+          // Update existing
+          const result = await sql`
+            UPDATE outsider_meal_records SET
+              breakfast = ${updateData.breakfast !== undefined ? updateData.breakfast : existing[0].breakfast},
+              lunch = ${updateData.lunch !== undefined ? updateData.lunch : existing[0].lunch},
+              dinner = ${updateData.dinner !== undefined ? updateData.dinner : existing[0].dinner}
+            WHERE "outsiderId" = ${outsiderId} AND date = ${date}
+            RETURNING *
+          `
+          return result[0]
+        } else {
+          // Create new
+          const result = await sql`
+            INSERT INTO outsider_meal_records ("outsiderId", date, breakfast, lunch, dinner, "mealRate")
+            VALUES (${outsiderId}, ${date}, ${createData.breakfast || false}, ${createData.lunch || false}, ${createData.dinner || false}, ${createData.mealRate || 50})
+            RETURNING *
+          `
+          return result[0]
+        }
+      } catch (error) {
+        console.error("[v0] Error upserting outsider meal record:", error)
         throw error
       }
     },

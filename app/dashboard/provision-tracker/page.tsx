@@ -385,7 +385,7 @@ export default function ProvisionTrackerPage() {
           </TabsTrigger>
           <TabsTrigger
             value="usage"
-            className="flex items-center gap-2 font-medium data-[state=active]:bg-green-600 data-[state=active]:text-white data-[state=inactive]:bg-white data-[state=inactive]:text-slate-700 data-[state=inactive]:hover:bg-slate-50 transition-colors"
+            className="flex items-center gap-2 font-medium data-[state=active]:bg-blue-600 data-[state=active]:text-white data-[state=inactive]:bg-white data-[state=inactive]:text-slate-700 data-[state=inactive]:hover:bg-slate-50 transition-colors"
           >
             <BarChart3 className="w-5 h-5" />
             <span className="hidden sm:inline">Provision Usage</span>

@@ -132,20 +132,7 @@ export function AttendanceFilters({ onFiltersChange, onDateRangeChange }: Attend
           </Select>
         </div>
 
-        {/* Mando Filter */}
-        <div className="space-y-2">
-          <Label className="text-sm font-medium text-slate-700">Mando Filter</Label>
-          <Select value={mandoFilter} onValueChange={setMandoFilter}>
-            <SelectTrigger className="bg-white">
-              <SelectValue placeholder="Select mando filter" />
-            </SelectTrigger>
-            <SelectContent className="bg-white">
-              <SelectItem value="all">All Students</SelectItem>
-              <SelectItem value="mando">Mando Students Only</SelectItem>
-              <SelectItem value="regular">Regular Students Only</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+        
       </div>
     </Card>
   )

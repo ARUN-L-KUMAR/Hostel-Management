@@ -10,6 +10,8 @@ interface Student {
   id: string
   name: string
   rollNo: string
+  dept: string | null
+  gender: string | null
   company: string | null
   meals: Array<{
     id: number
@@ -32,7 +34,13 @@ export function MealEntryCalendar({ year, month, onExport, onStudentsChange }: {
         // Fetch all mando students (students where isMando = true)
         const studentsData = await ApiClient.students.getAll({ isMando: "true" })
         // Filter out students with invalid IDs
-        const validStudentsData = studentsData.filter(s => s.id && s.id !== 'NaN' && s.id.trim() !== '')
+        interface StudentData {
+          id: string;
+          name: string;
+          rollNo: string;
+          company: string | null;
+        }
+        const validStudentsData = studentsData.filter((s: StudentData) => s.id && s.id !== 'NaN' && s.id.trim() !== '')
         console.log(`[v0] Fetched ${studentsData.length} mando students, ${validStudentsData.length} valid`)
 
         // Create date range for the current month

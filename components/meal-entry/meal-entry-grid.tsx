@@ -13,6 +13,8 @@ interface Student {
   id: string
   name: string
   rollNo: string
+  dept: string | null
+  gender: string | null
   company: string | null
   meals: Array<{
     id: number
@@ -170,7 +172,9 @@ export function MealEntryGrid({ students, days, currentMonth, total, onExport }:
               <tr key={student.id} className="hover:bg-slate-50">
                 <td className="sticky left-0 bg-white border border-slate-300 border-r-2 border-r-slate-400 p-2 w-[200px]">
                   <div className="font-medium text-slate-900 truncate">{student.name}</div>
-                  <div className="text-xs text-slate-500">{student.company || 'No Company'}</div>
+                  <div className="text-xs text-slate-500">
+                    {student.rollNo || 'N/A'} • {student.dept || 'N/A'} • {student.gender || 'N/A'}
+                  </div>
                 </td>
                 {days.map((day) => {
                   const mealRecord = getMealForDate(student, day)
