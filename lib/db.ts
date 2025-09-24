@@ -1211,6 +1211,41 @@ export const prisma = {
         return null
       }
     },
+
+    upsert: async (options: any) => {
+      try {
+        const { id } = options.where
+        const createData = options.create
+        const updateData = options.update
+
+        // First try to find existing record
+        const existing = await sql`SELECT * FROM mando_settings WHERE id = ${id}`
+
+        if (existing.length > 0) {
+          // Update existing
+          const result = await sql`
+            UPDATE mando_settings SET
+              "perMealRate" = ${updateData.perMealRate || createData.perMealRate},
+              "outsiderMealRate" = ${updateData.outsiderMealRate || createData.outsiderMealRate},
+              "updatedAt" = NOW()
+            WHERE id = ${id}
+            RETURNING *
+          `
+          return result[0]
+        } else {
+          // Create new
+          const result = await sql`
+            INSERT INTO mando_settings (id, "perMealRate", "outsiderMealRate", "createdAt", "updatedAt")
+            VALUES (${id}, ${createData.perMealRate}, ${createData.outsiderMealRate}, NOW(), NOW())
+            RETURNING *
+          `
+          return result[0]
+        }
+      } catch (error) {
+        console.error("[v0] Error upserting mando settings:", error)
+        throw error
+      }
+    },
   },
 
   // Raw query support

@@ -6,8 +6,8 @@ const sql = neon(process.env.DATABASE_URL!)
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
-    const startDate = searchParams.get('startDate')
-    const endDate = searchParams.get('endDate')
+    const year = searchParams.get('year')
+    const month = searchParams.get('month')
 
     let query = sql`
       SELECT
@@ -37,8 +37,13 @@ export async function GET(request: NextRequest) {
       LEFT JOIN provision_items pi ON ppi."provisionItemId" = pi.id
     `
 
-    if (startDate && endDate) {
-      query = sql`${query} WHERE pp.date >= ${startDate} AND pp.date <= ${endDate}`
+    // Filter by year and month if provided
+    if (year && month) {
+      const startDate = `${year}-${month.padStart(2, '0')}-01`
+      const endDate = new Date(parseInt(year), parseInt(month), 0)
+      const endDateStr = endDate.toISOString().split('T')[0]
+
+      query = sql`${query} WHERE pp.date >= ${startDate} AND pp.date <= ${endDateStr}`
     }
 
     query = sql`${query} GROUP BY pp.id, pp.date, pp.vendor, pp."paymentType", pp."billId", pp."totalAmount", pp."createdAt" ORDER BY pp.date DESC`

@@ -219,7 +219,8 @@ model MandoSettings {
   totalAmount       Decimal @db.Decimal(10, 2) @default(70250) // Total mando amount
   boysAmount        Decimal @db.Decimal(10, 2) @default(58200) // Boys portion
   girlsAmount       Decimal @db.Decimal(10, 2) @default(12052) // Girls portion
-  perMealRate       Decimal @db.Decimal(10, 2) @default(50)    // Rate per meal
+  perMealRate       Decimal @db.Decimal(10, 2) @default(50)    // Rate per meal for mando students
+  outsiderMealRate  Decimal @db.Decimal(10, 2) @default(50)    // Rate per meal for outsiders
   mealsPerDay       Int     @default(2) // 2 or 3 meals per day
   isActive          Boolean @default(true)
   createdAt         DateTime @default(now())
