@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Plus } from "lucide-react"
 import { AddOutsiderMealDialog } from "@/components/outsiders/add-outsider-meal-dialog"
 
@@ -29,11 +30,20 @@ export default function OutsidersPage() {
   const [loading, setLoading] = useState(true)
   const [addDialogOpen, setAddDialogOpen] = useState(false)
 
+  // Filter states
+  const currentDate = new Date()
+  const [selectedYear, setSelectedYear] = useState(currentDate.getFullYear().toString())
+  const [selectedMonth, setSelectedMonth] = useState((currentDate.getMonth() + 1).toString())
+
   useEffect(() => {
     const fetchMealRecords = async () => {
       setLoading(true)
       try {
-        const response = await fetch('/api/outsider-meal-records')
+        const params = new URLSearchParams()
+        if (selectedMonth) params.append('month', selectedMonth)
+        if (selectedYear) params.append('year', selectedYear)
+
+        const response = await fetch(`/api/outsider-meal-records?${params.toString()}`)
         const data = await response.json()
         setMealRecords(data)
       } catch (error) {
@@ -45,7 +55,7 @@ export default function OutsidersPage() {
     }
 
     fetchMealRecords()
-  }, [])
+  }, [selectedYear, selectedMonth])
 
   const refreshData = async () => {
     try {
@@ -103,6 +113,46 @@ export default function OutsidersPage() {
             />
           </DialogContent>
         </Dialog>
+      </div>
+
+      {/* Filters */}
+      <div className="flex items-center space-x-4">
+        <div className="flex items-center space-x-2">
+          <label className="text-sm font-medium">Year:</label>
+          <Select value={selectedYear} onValueChange={setSelectedYear}>
+            <SelectTrigger className="w-24">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="2024">2024</SelectItem>
+              <SelectItem value="2025">2025</SelectItem>
+              <SelectItem value="2026">2026</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="flex items-center space-x-2">
+          <label className="text-sm font-medium">Month:</label>
+          <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+            <SelectTrigger className="w-32">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="1">January</SelectItem>
+              <SelectItem value="2">February</SelectItem>
+              <SelectItem value="3">March</SelectItem>
+              <SelectItem value="4">April</SelectItem>
+              <SelectItem value="5">May</SelectItem>
+              <SelectItem value="6">June</SelectItem>
+              <SelectItem value="7">July</SelectItem>
+              <SelectItem value="8">August</SelectItem>
+              <SelectItem value="9">September</SelectItem>
+              <SelectItem value="10">October</SelectItem>
+              <SelectItem value="11">November</SelectItem>
+              <SelectItem value="12">December</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       {/* Meal Records Table */}
