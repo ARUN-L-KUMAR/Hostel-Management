@@ -27,9 +27,18 @@ export async function GET(request: NextRequest) {
     }
 
     const mealRecords = await prisma.mealRecord.findMany({
-      where,
+      where: {
+        ...where,
+        student: {
+          isMando: true
+        }
+      },
       include: {
-        student: true
+        student: {
+          include: {
+            hostel: true
+          }
+        }
       },
       orderBy: { date: "asc" },
     })
@@ -44,6 +53,11 @@ export async function GET(request: NextRequest) {
         ...record.student,
         createdAt: record.student.createdAt ? new Date(record.student.createdAt).toISOString() : null,
         updatedAt: record.student.updatedAt ? new Date(record.student.updatedAt).toISOString() : null,
+        hostel: record.student.hostel ? {
+          ...record.student.hostel,
+          createdAt: record.student.hostel.createdAt ? new Date(record.student.hostel.createdAt).toISOString() : null,
+          updatedAt: record.student.hostel.updatedAt ? new Date(record.student.hostel.updatedAt).toISOString() : null,
+        } : null,
       } : null,
     }))
 

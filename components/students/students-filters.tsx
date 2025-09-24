@@ -140,20 +140,7 @@ export function StudentsFilters({ onFiltersChange }: StudentsFiltersProps) {
           </Select>
         </div>
 
-        {/* Mando Filter */}
-        <div className="space-y-2">
-          <Label className="text-sm font-medium text-slate-700">Mando Filter</Label>
-          <Select value={filters.mandoFilter} onValueChange={(value) => handleFilterChange({ mandoFilter: value })}>
-            <SelectTrigger className="bg-white">
-              <SelectValue placeholder="Select mando filter" />
-            </SelectTrigger>
-            <SelectContent className="bg-white">
-              <SelectItem value="all">All Students</SelectItem>
-              <SelectItem value="mando">Mando Students Only</SelectItem>
-              <SelectItem value="regular">Regular Students Only</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+        
       </div>
     </Card>
   )

@@ -45,6 +45,12 @@ interface ReportData {
       dinner: boolean
       student: { name: string; rollNo: string }
     }>
+    byGender?: {
+      [genderName: string]: {
+        meals: number
+        cost: number
+      }
+    }
   }
 }
 
@@ -91,8 +97,23 @@ export default function ReportsPage() {
       const outsidersMeals = outsidersData.reduce((sum: number, record: any) =>
         sum + (record.breakfast ? 1 : 0) + (record.lunch ? 1 : 0) + (record.dinner ? 1 : 0), 0)
 
-      const mandoMeals = mandoData.reduce((sum: number, record: any) =>
-        sum + (record.breakfast ? 1 : 0) + (record.lunch ? 1 : 0) + (record.dinner ? 1 : 0), 0)
+      // Calculate mando meals by gender (boys/girls)
+      const mandoMealsByGender = mandoData.reduce((acc: any, record: any) => {
+        const gender = record.student?.gender
+        const genderName = gender === 'M' ? 'Boys' : gender === 'G' ? 'Girls' : 'Unknown'
+        const meals = (record.breakfast ? 1 : 0) + (record.lunch ? 1 : 0) + (record.dinner ? 1 : 0)
+
+        if (!acc[genderName]) {
+          acc[genderName] = { meals: 0, cost: 0 }
+        }
+        acc[genderName].meals += meals
+        acc[genderName].cost += meals * mealRates.mando
+
+        return acc
+      }, {})
+
+      const totalMandoMeals = Object.values(mandoMealsByGender).reduce((sum: number, gender: any) => sum + gender.meals, 0)
+      const totalMandoCost = Object.values(mandoMealsByGender).reduce((sum: number, gender: any) => sum + gender.cost, 0)
 
       setReportData({
         provisions: {
@@ -106,10 +127,11 @@ export default function ReportsPage() {
           records: outsidersData
         },
         mando: {
-          totalMeals: mandoMeals,
-          totalCost: mandoMeals * mealRates.mando,
+          totalMeals: totalMandoMeals,
+          totalCost: totalMandoCost,
           mealRate: mealRates.mando,
-          records: mandoData
+          records: mandoData,
+          byGender: mandoMealsByGender
         }
       })
     } catch (error) {
@@ -259,15 +281,7 @@ export default function ReportsPage() {
                   ₹{reportData.provisions.totalCost.toLocaleString()}
                 </div>
                 <div className="text-sm text-muted-foreground">
-                  {reportData.provisions.purchases.length} purchases
-                </div>
-                <div className="space-y-2">
-                  {reportData.provisions.purchases.slice(0, 3).map((purchase: any) => (
-                    <div key={purchase.id} className="flex justify-between text-sm">
-                      <span className="truncate">{purchase.vendor}</span>
-                      <span>₹{parseFloat(purchase.totalAmount).toLocaleString()}</span>
-                    </div>
-                  ))}
+                  Total provision purchases for {monthNames[parseInt(selectedMonth) - 1]} {selectedYear}
                 </div>
               </div>
             </CardContent>
@@ -289,14 +303,6 @@ export default function ReportsPage() {
                 <div className="text-sm text-muted-foreground">
                   {reportData.outsiders.totalMeals} meals × ₹{reportData.outsiders.mealRate}
                 </div>
-                <div className="space-y-2">
-                  {reportData.outsiders.records.slice(0, 3).map((record: any) => (
-                    <div key={record.id} className="flex justify-between text-sm">
-                      <span className="truncate">{record.outsider?.name}</span>
-                      <span>{(record.breakfast ? 1 : 0) + (record.lunch ? 1 : 0) + (record.dinner ? 1 : 0)} meals</span>
-                    </div>
-                  ))}
-                </div>
               </div>
             </CardContent>
           </Card>
@@ -317,14 +323,16 @@ export default function ReportsPage() {
                 <div className="text-sm text-muted-foreground">
                   {reportData.mando.totalMeals} meals × ₹{reportData.mando.mealRate}
                 </div>
-                <div className="space-y-2">
-                  {reportData.mando.records.slice(0, 3).map((record: any) => (
-                    <div key={record.id} className="flex justify-between text-sm">
-                      <span className="truncate">{record.student?.name}</span>
-                      <span>{(record.breakfast ? 1 : 0) + (record.lunch ? 1 : 0) + (record.dinner ? 1 : 0)} meals</span>
-                    </div>
-                  ))}
-                </div>
+                {reportData.mando.byGender && (
+                  <div className="space-y-2 pt-2 border-t border-slate-200">
+                    {Object.entries(reportData.mando.byGender).map(([genderName, data]: [string, any]) => (
+                      <div key={genderName} className="flex justify-between text-sm">
+                        <span className="text-slate-600">{genderName}:</span>
+                        <span>{data.meals} meals (₹{data.cost.toLocaleString()})</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
