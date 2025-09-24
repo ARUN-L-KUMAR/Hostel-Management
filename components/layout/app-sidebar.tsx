@@ -25,7 +25,7 @@ const menuItems = [
   { icon: Calendar, label: "Attendance", href: "/dashboard/attendance" },
   { icon: Users, label: "Students", href: "/dashboard/students" },
   { icon: Package, label: "Provisions", href: "/dashboard/provisions" },
-  { icon: TrendingUp, label: "Provision Usage", href: "/dashboard/provision-usage" },
+  { icon: TrendingUp, label: "Provision Tracker", href: "/dashboard/provision-tracker" },
   { icon: Receipt, label: "Billing", href: "/dashboard/billing" },
   { icon: FileText, label: "Reports", href: "/dashboard/reports" },
   { icon: Settings, label: "Admin", href: "/dashboard/admin" },
