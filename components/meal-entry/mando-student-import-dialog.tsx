@@ -11,11 +11,11 @@ import { CheckCircle, AlertTriangle, Upload, FileSpreadsheet } from "lucide-reac
 import * as XLSX from "xlsx"
 import { generateUniqueRollNumber, ensureUniqueRollNumber } from "@/lib/utils"
 
-interface ExcelImportDialogProps {
+interface MandoStudentImportDialogProps {
   onClose: () => void
 }
 
-export function ExcelImportDialog({ onClose }: ExcelImportDialogProps) {
+export function MandoStudentImportDialog({ onClose }: MandoStudentImportDialogProps) {
   const [file, setFile] = useState<File | null>(null)
   const [importing, setImporting] = useState(false)
   const [importResult, setImportResult] = useState<{
@@ -151,11 +151,11 @@ export function ExcelImportDialog({ onClose }: ExcelImportDialogProps) {
             year,
             gender,
             hostelId: finalHostelId,
-            isMando: false, // Default to false, can be updated later
+            isMando: true, // Set to true for mando students
           })
         }
 
-        console.log(`Sheet "${sheetName}": Processed ${jsonData.length - headerRowIndex - 1} rows, added ${allStudents.length} students so far`)
+        console.log(`Sheet "${sheetName}": Processed ${jsonData.length - headerRowIndex - 1} rows, added ${allStudents.length} mando students so far`)
       })
 
       if (allStudents.length === 0) {
@@ -187,7 +187,7 @@ export function ExcelImportDialog({ onClose }: ExcelImportDialogProps) {
       if (response.ok) {
         setImportResult({
           success: true,
-          message: result.message || "Students imported successfully",
+          message: result.message || "Mando students imported successfully",
           stats: {
             totalRows: allStudents.length,
             successfulRows: result.successfulCount || allStudents.length,
@@ -233,7 +233,7 @@ export function ExcelImportDialog({ onClose }: ExcelImportDialogProps) {
           <FileSpreadsheet className="w-12 h-12 text-slate-400 mx-auto mb-4" />
           <div className="space-y-2">
             <h3 className="font-medium text-slate-900">Upload Excel File</h3>
-            <p className="text-sm text-slate-600">Select the Students Excel file with student data across multiple sheets</p>
+            <p className="text-sm text-slate-600">Select the Mando Students Excel file with student data across multiple sheets</p>
             <input type="file" accept=".xlsx,.xls" onChange={handleFileSelect} className="hidden" id="excel-file" />
             <label htmlFor="excel-file">
               <Button variant="outline" className="cursor-pointer bg-transparent" asChild>
@@ -259,7 +259,7 @@ export function ExcelImportDialog({ onClose }: ExcelImportDialogProps) {
             <li>• Headers can be in any row; data starts from the next row</li>
             <li>• Hostel and gender detected from filename: "girls" → Girls hostel + Female gender, otherwise Boys hostel + Male gender</li>
             <li>• Roll numbers auto-generated as 12-digit unique strings (3 letters from name + 3 letters from dept + 6 random chars)</li>
-            <li>• Room No column is ignored, Dept column is processed and saved</li>
+            <li>• All imported students will be marked as Mando students (isMando = true)</li>
           </ul>
         </AlertDescription>
       </Alert>
@@ -270,7 +270,7 @@ export function ExcelImportDialog({ onClose }: ExcelImportDialogProps) {
           <div className="space-y-3">
             <div className="flex items-center space-x-2">
               <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-              <span className="text-sm font-medium">Importing student data...</span>
+              <span className="text-sm font-medium">Importing mando student data...</span>
             </div>
             <Progress value={65} className="w-full" />
             <p className="text-xs text-slate-600">Processing sheets and validating data...</p>
@@ -332,7 +332,7 @@ export function ExcelImportDialog({ onClose }: ExcelImportDialogProps) {
           Cancel
         </Button>
         <Button onClick={handleImport} disabled={!file || importing}>
-          {importing ? "Importing..." : "Import Students"}
+          {importing ? "Importing..." : "Import Mando Students"}
         </Button>
       </div>
     </div>

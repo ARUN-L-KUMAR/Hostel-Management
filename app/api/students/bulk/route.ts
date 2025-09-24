@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
 
       for (const studentData of batch) {
         try {
-          const { name, rollNo, dept, year, hostelId, isMando } = studentData
+          const { name, rollNo, dept, year, gender, hostelId, isMando } = studentData
 
           // Validate required fields
           if (!name || !rollNo || !year || !hostelId) {
@@ -68,6 +68,7 @@ export async function POST(request: NextRequest) {
               rollNo: rollNo.trim(),
               dept: dept ? dept.trim() : null,
               year: parseInt(year),
+              gender: gender || null,
               hostelId: hostelId.trim(),
               isMando: isMando || false
             }

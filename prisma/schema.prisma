@@ -39,20 +39,22 @@ model Student {
   rollNo   String  @unique
   dept     String? // Department field
   year     Int
+  gender   String? // Gender: 'M' for Male, 'F' for Female
   isMando  Boolean @default(false)
   company  String? // For mando students
   status   StudentStatus @default(ACTIVE)
-  
+
   hostelId String
   hostel   Hostel @relation(fields: [hostelId], references: [id])
-  
+
   joinDate  DateTime @default(now())
   leaveDate DateTime?
-  
+
   attendance         Attendance[]
   monthSummaries     InmateMonthlySummary[]
   studentBills       StudentBill[]
-  
+  meals              MealRecord[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -295,4 +297,45 @@ enum StudentBillStatus {
 enum LeavePolicy {
   CHARGED     // Leave days are charged
   NOT_CHARGED // Leave days are not charged
+}
+
+model MealRecord {
+  id          Int      @id @default(autoincrement())
+  studentId   String   // Reference to Student.id (String)
+  date        DateTime
+  breakfast   Boolean  @default(false)
+  lunch       Boolean  @default(false)
+  dinner      Boolean  @default(false)
+  mealRate    Float    // can be set from config when inserting
+
+  student     Student @relation(fields: [studentId], references: [id])
+
+  @@unique([studentId, date])
+  @@map("meal_records")
+}
+
+model Outsider {
+  id        Int      @id @default(autoincrement())
+  name      String
+  phone     String?
+  company   String?
+  createdAt DateTime @default(now())
+
+  meals     OutsiderMealRecord[]
+
+  @@map("outsiders")
+}
+
+model OutsiderMealRecord {
+  id          Int      @id @default(autoincrement())
+  outsiderId  Int
+  date        DateTime
+  breakfast   Boolean  @default(false)
+  lunch       Boolean  @default(false)
+  dinner      Boolean  @default(false)
+  mealRate    Float
+
+  outsider    Outsider @relation(fields: [outsiderId], references: [id])
+
+  @@map("outsider_meal_records")
 }

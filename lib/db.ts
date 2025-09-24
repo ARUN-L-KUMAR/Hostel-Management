@@ -184,13 +184,13 @@ export const prisma = {
     },
 
     create: async (options: any) => {
-      const { name, rollNo, dept, year, hostelId, isMando } = options.data
+      const { name, rollNo, dept, year, gender, hostelId, isMando } = options.data
       // Generate a simple ID since cuid() default might not be working
       const id = `std_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
       const now = new Date()
       const result = await sql`
-        INSERT INTO students (id, name, "rollNo", "dept", "hostelId", year, "isMando", status, "createdAt", "updatedAt")
-        VALUES (${id}, ${name}, ${rollNo}, ${dept || null}, ${hostelId}, ${year}, ${isMando}, 'ACTIVE', ${now}, ${now})
+        INSERT INTO students (id, name, "rollNo", "dept", "hostelId", year, gender, "isMando", status, "createdAt", "updatedAt")
+        VALUES (${id}, ${name}, ${rollNo}, ${dept || null}, ${hostelId}, ${year}, ${gender || null}, ${isMando}, 'ACTIVE', ${now}, ${now})
         RETURNING *
       `
       return result[0]
@@ -845,6 +845,283 @@ export const prisma = {
       results.push(await operation)
     }
     return results
+  },
+
+
+  outsider: {
+    findMany: async (options?: any) => {
+      try {
+        let query = sql`SELECT * FROM outsiders`
+        const whereConditions = []
+
+        if (options?.where) {
+          if (options.where.OR) {
+            const orConditions = options.where.OR.map((condition: any) => {
+              if (condition.name?.contains) {
+                return sql`LOWER(name) LIKE LOWER(${`%${condition.name.contains}%`})`
+              } else if (condition.phone?.contains) {
+                return sql`LOWER(phone) LIKE LOWER(${`%${condition.phone.contains}%`})`
+              } else if (condition.company?.contains) {
+                return sql`LOWER(company) LIKE LOWER(${`%${condition.company.contains}%`})`
+              }
+              return null
+            }).filter(Boolean)
+
+            if (orConditions.length > 0) {
+              whereConditions.push(sql`(${orConditions[0]})`)
+              for (let i = 1; i < orConditions.length; i++) {
+                whereConditions.push(sql`OR ${orConditions[i]}`)
+              }
+            }
+          }
+        }
+
+        if (whereConditions.length > 0) {
+          query = sql`${query} WHERE ${whereConditions[0]}`
+          for (let i = 1; i < whereConditions.length; i++) {
+            query = sql`${query} AND ${whereConditions[i]}`
+          }
+        }
+
+        query = sql`${query} ORDER BY name ASC`
+
+        const result = await query
+
+        // Add meals if include is specified
+        if (options?.include?.meals) {
+          for (const outsider of result) {
+            const meals = await sql`
+              SELECT * FROM outsider_meal_records
+              WHERE "outsiderId" = ${outsider.id}
+              ORDER BY date DESC
+              ${options.include.meals.take ? sql`LIMIT ${options.include.meals.take}` : sql``}
+            `
+            outsider.meals = meals
+          }
+        }
+
+        return result
+      } catch (error) {
+        console.error("[v0] Error finding outsiders:", error)
+        return []
+      }
+    },
+
+    findUnique: async (options: any) => {
+      try {
+        const result = await sql`SELECT * FROM outsiders WHERE id = ${options.where.id}`
+        if (result.length === 0) return null
+
+        const outsider = result[0]
+
+        // Add meals if include is specified
+        if (options?.include?.meals) {
+          const meals = await sql`
+            SELECT * FROM outsider_meal_records
+            WHERE "outsiderId" = ${outsider.id}
+            ORDER BY date DESC
+          `
+          outsider.meals = meals
+        }
+
+        return outsider
+      } catch (error) {
+        console.error("[v0] Error finding outsider:", error)
+        return null
+      }
+    },
+
+    create: async (options: any) => {
+      try {
+        const { name, phone, company } = options.data
+        const now = new Date()
+        const result = await sql`
+          INSERT INTO outsiders (name, phone, company, "createdAt")
+          VALUES (${name}, ${phone || null}, ${company || null}, ${now})
+          RETURNING *
+        `
+        return result[0]
+      } catch (error) {
+        console.error("[v0] Error creating outsider:", error)
+        throw error
+      }
+    },
+
+    update: async (options: any) => {
+      try {
+        const { name, phone, company } = options.data
+        const now = new Date()
+        const result = await sql`
+          UPDATE outsiders SET
+            name = ${name},
+            phone = ${phone || null},
+            company = ${company || null},
+            "updatedAt" = ${now}
+          WHERE id = ${options.where.id}
+          RETURNING *
+        `
+        return result[0]
+      } catch (error) {
+        console.error("[v0] Error updating outsider:", error)
+        throw error
+      }
+    },
+
+    delete: async (options: any) => {
+      try {
+        await sql`DELETE FROM outsiders WHERE id = ${options.where.id}`
+        return { id: options.where.id }
+      } catch (error) {
+        console.error("[v0] Error deleting outsider:", error)
+        throw error
+      }
+    },
+  },
+
+  mealRecord: {
+    findMany: async (options?: any) => {
+      try {
+        let query = sql`SELECT * FROM meal_records`
+        const whereConditions = []
+
+        if (options?.where) {
+          if (options.where.studentId) {
+            whereConditions.push(sql`"studentId" = ${options.where.studentId}`)
+          }
+          if (options.where.date?.gte) {
+            whereConditions.push(sql`date >= ${options.where.date.gte}`)
+          }
+          if (options.where.date?.lte) {
+            whereConditions.push(sql`date <= ${options.where.date.lte}`)
+          }
+        }
+
+        if (whereConditions.length > 0) {
+          query = sql`${query} WHERE ${whereConditions[0]}`
+          for (let i = 1; i < whereConditions.length; i++) {
+            query = sql`${query} AND ${whereConditions[i]}`
+          }
+        }
+
+        query = sql`${query} ORDER BY date ASC`
+
+        const result = await query
+
+        // Add student relation if include is specified
+        if (options?.include?.student) {
+          for (const record of result) {
+            const student = await sql`SELECT * FROM students WHERE id = ${record.studentId}`
+            record.student = student[0] || null
+          }
+        }
+
+        return result
+      } catch (error) {
+        console.error("[v0] Error finding meal records:", error)
+        return []
+      }
+    },
+
+    create: async (options: any) => {
+      try {
+        const { studentId, date, breakfast, lunch, dinner, mealRate } = options.data
+        const result = await sql`
+          INSERT INTO meal_records ("studentId", date, breakfast, lunch, dinner, "mealRate")
+          VALUES (${studentId}, ${date}, ${breakfast || false}, ${lunch || false}, ${dinner || false}, ${mealRate || 50})
+          RETURNING *
+        `
+        return result[0]
+      } catch (error) {
+        console.error("[v0] Error creating meal record:", error)
+        throw error
+      }
+    },
+
+    update: async (options: any) => {
+      try {
+        const { id } = options.where
+        const setParts = []
+        const params = []
+
+        if (options.data.breakfast !== undefined) {
+          setParts.push('breakfast = ?')
+          params.push(options.data.breakfast)
+        }
+        if (options.data.lunch !== undefined) {
+          setParts.push('lunch = ?')
+          params.push(options.data.lunch)
+        }
+        if (options.data.dinner !== undefined) {
+          setParts.push('dinner = ?')
+          params.push(options.data.dinner)
+        }
+
+        if (setParts.length === 0) return null
+
+        const query = `UPDATE meal_records SET ${setParts.join(", ")} WHERE id = '${id}' RETURNING *`
+
+        const result = await sql.unsafe(query)
+        return (result as any)[0]
+      } catch (error) {
+        console.error("[v0] Error updating meal record:", error)
+        throw error
+      }
+    },
+
+    upsert: async (options: any) => {
+      try {
+        const { studentId, date } = options.where.studentId_date || options.where
+        const createData = options.create
+        const updateData = options.update
+
+        // First try to find existing record
+        const existing = await sql`SELECT * FROM meal_records WHERE "studentId" = ${studentId} AND date = ${date}`
+
+        if (existing.length > 0) {
+          // Update existing
+          const result = await sql`
+            UPDATE meal_records SET
+              breakfast = ${updateData.breakfast !== undefined ? updateData.breakfast : existing[0].breakfast},
+              lunch = ${updateData.lunch !== undefined ? updateData.lunch : existing[0].lunch},
+              dinner = ${updateData.dinner !== undefined ? updateData.dinner : existing[0].dinner}
+            WHERE "studentId" = ${studentId} AND date = ${date}
+            RETURNING *
+          `
+          return result[0]
+        } else {
+          // Create new
+          const result = await sql`
+            INSERT INTO meal_records ("studentId", date, breakfast, lunch, dinner, "mealRate")
+            VALUES (${studentId}, ${date}, ${createData.breakfast || false}, ${createData.lunch || false}, ${createData.dinner || false}, ${createData.mealRate || 50})
+            RETURNING *
+          `
+          return result[0]
+        }
+      } catch (error) {
+        console.error("[v0] Error upserting meal record:", error)
+        throw error
+      }
+    },
+  },
+
+  mandoSettings: {
+    findFirst: async (options?: any) => {
+      try {
+        let query = sql`SELECT * FROM mando_settings`
+
+        if (options?.where?.isActive) {
+          query = sql`${query} WHERE "isActive" = ${options.where.isActive}`
+        }
+
+        query = sql`${query} ORDER BY "createdAt" DESC LIMIT 1`
+
+        const result = await query
+        return result[0] || null
+      } catch (error) {
+        console.error("[v0] Error finding mando settings:", error)
+        return null
+      }
+    },
   },
 
   // Raw query support

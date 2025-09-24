@@ -89,4 +89,20 @@ export class ApiClient {
     monthly: (month: number, year: number) =>
       this.get("/reports/monthly", { month: month.toString(), year: year.toString() }),
   }
+
+  static mandoStudents = {
+    getAll: (filters?: { search?: string }) => this.get("/mando-students", filters),
+    getById: (id: string) => this.get(`/mando-students/${id}`),
+    create: (data: any) => this.post("/mando-students", data),
+    update: (id: string, data: any) => this.put(`/mando-students/${id}`, data),
+    delete: (id: string) => this.delete(`/mando-students/${id}`),
+  }
+
+  static outsiders = {
+    getAll: (filters?: { search?: string }) => this.get("/outsiders", filters),
+    getById: (id: string) => this.get(`/outsiders/${id}`),
+    create: (data: any) => this.post("/outsiders", data),
+    update: (id: string, data: any) => this.put(`/outsiders/${id}`, data),
+    delete: (id: string) => this.delete(`/outsiders/${id}`),
+  }
 }
