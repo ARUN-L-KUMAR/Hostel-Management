@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Switch } from "@/components/ui/switch"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Card, CardContent } from "@/components/ui/card"
 
 interface AddStudentDialogProps {
@@ -22,7 +22,6 @@ export function AddStudentDialog({ onClose }: AddStudentDialogProps) {
     year: "",
     hostel: "",
     isMando: false,
-    company: "",
     status: "ACTIVE",
   })
 
@@ -32,12 +31,37 @@ export function AddStudentDialog({ onClose }: AddStudentDialogProps) {
     e.preventDefault()
     setIsSubmitting(true)
 
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1000))
+    try {
+      const response = await fetch('/api/students', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: formData.name,
+          rollNumber: formData.rollNo,
+          dept: formData.dept,
+          hostel: formData.hostel,
+          year: formData.year,
+          isMando: formData.isMando,
+        }),
+      })
 
-    console.log("[v0] Adding new student:", formData)
-    setIsSubmitting(false)
-    onClose()
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to create student')
+      }
+
+      const newStudent = await response.json()
+      console.log("[v0] Student created successfully:", newStudent)
+      onClose()
+    } catch (error) {
+      console.error("Error creating student:", error)
+      // You could add a toast notification here
+      alert(`Failed to create student: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   const isFormValid = formData.name && formData.rollNo && formData.year && formData.hostel
@@ -60,7 +84,7 @@ export function AddStudentDialog({ onClose }: AddStudentDialogProps) {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="rollNo">Roll Number *</Label>
+              <Label htmlFor="rollNo">Reg Number *</Label>
               <Input
                 id="rollNo"
                 value={formData.rollNo}
@@ -81,7 +105,7 @@ export function AddStudentDialog({ onClose }: AddStudentDialogProps) {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="year">Academic Year *</Label>
+              <Label htmlFor="year">Year *</Label>
               <Select
                 value={formData.year}
                 onValueChange={(value) => setFormData((prev) => ({ ...prev, year: value }))}
@@ -90,10 +114,10 @@ export function AddStudentDialog({ onClose }: AddStudentDialogProps) {
                   <SelectValue placeholder="Select year" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="2021">2021</SelectItem>
-                  <SelectItem value="2022">2022</SelectItem>
-                  <SelectItem value="2023">2023</SelectItem>
-                  <SelectItem value="2024">2024</SelectItem>
+                  <SelectItem value="1">1st Year</SelectItem>
+                  <SelectItem value="2">2nd Year</SelectItem>
+                  <SelectItem value="3">3rd Year</SelectItem>
+                  <SelectItem value="4">4th Year</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -118,35 +142,16 @@ export function AddStudentDialog({ onClose }: AddStudentDialogProps) {
           {/* Mando Information */}
           <div className="space-y-4">
             <div className="flex items-center space-x-2">
-              <Switch
+              <Checkbox
                 id="isMando"
                 checked={formData.isMando}
-                onCheckedChange={(checked) => setFormData((prev) => ({ ...prev, isMando: checked }))}
+                onCheckedChange={(checked) => setFormData((prev) => ({ ...prev, isMando: checked === true }))}
               />
               <Label htmlFor="isMando">This is a Mando student</Label>
             </div>
-
-            {formData.isMando && (
-              <div className="space-y-2">
-                <Label htmlFor="company">Company</Label>
-                <Input
-                  id="company"
-                  value={formData.company}
-                  onChange={(e) => setFormData((prev) => ({ ...prev, company: e.target.value }))}
-                  placeholder="Enter company name"
-                />
-              </div>
-            )}
           </div>
 
-          {formData.isMando && (
-            <div className="p-4 bg-orange-50 border border-orange-200 rounded-lg">
-              <div className="text-sm text-orange-800">
-                <strong>Note:</strong> Mando students will have their mess bills covered by the Mando budget and will
-                not be charged individually.
-              </div>
-            </div>
-          )}
+          
         </CardContent>
       </Card>
 

@@ -10,7 +10,7 @@ export default function StudentsPage() {
     hostel: "all",
     year: "all",
     status: "all",
-    mandoFilter: "all",
+    mandoFilter: "regular",
     dept: "all",
     search: "",
   })

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
@@ -24,10 +24,29 @@ export function StudentsFilters({ onFiltersChange }: StudentsFiltersProps) {
     hostel: "all",
     year: "all",
     status: "all",
-    mandoFilter: "all",
+    mandoFilter: "regular",
     dept: "all",
     search: "",
   })
+
+  const [departments, setDepartments] = useState<string[]>([])
+
+  useEffect(() => {
+    const fetchDepartments = async () => {
+      try {
+        const response = await fetch('/api/students/departments')
+        if (response.ok) {
+          const data = await response.json()
+          setDepartments(data)
+        }
+      } catch (error) {
+        console.error('Failed to fetch departments:', error)
+      }
+    }
+
+    fetchDepartments()
+  }, [])
+
 
   const handleFilterChange = (newFilters: Partial<typeof filters>) => {
     const updatedFilters = { ...filters, ...newFilters }
@@ -40,7 +59,7 @@ export function StudentsFilters({ onFiltersChange }: StudentsFiltersProps) {
       hostel: "all",
       year: "all",
       status: "all",
-      mandoFilter: "all",
+      mandoFilter: "regular",
       dept: "all",
       search: "",
     }
@@ -61,7 +80,7 @@ export function StudentsFilters({ onFiltersChange }: StudentsFiltersProps) {
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
         {/* Search */}
         <div className="space-y-2">
           <Label className="text-sm font-medium text-slate-700">Search</Label>
@@ -123,6 +142,7 @@ export function StudentsFilters({ onFiltersChange }: StudentsFiltersProps) {
           </Select>
         </div>
 
+
         {/* Dept Filter */}
         <div className="space-y-2">
           <Label className="text-sm font-medium text-slate-700">Dept</Label>
@@ -132,15 +152,30 @@ export function StudentsFilters({ onFiltersChange }: StudentsFiltersProps) {
             </SelectTrigger>
             <SelectContent className="bg-white">
               <SelectItem value="all">All Depts</SelectItem>
-              <SelectItem value="cse">CSE</SelectItem>
-              <SelectItem value="ece">ECE</SelectItem>
-              <SelectItem value="eee">EEE</SelectItem>
-              <SelectItem value="mech">Mech</SelectItem>
+              {departments.map((dept) => (
+                <SelectItem key={dept} value={dept}>
+                  {dept.toUpperCase()}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
 
-        
+        {/* Mando Filter */}
+        <div className="space-y-2">
+          <Label className="text-sm font-medium text-slate-700">Type</Label>
+          <Select value={filters.mandoFilter} onValueChange={(value) => handleFilterChange({ mandoFilter: value })}>
+            <SelectTrigger className="bg-white">
+              <SelectValue placeholder="All types" />
+            </SelectTrigger>
+            <SelectContent className="bg-white">
+              <SelectItem value="regular">Regular</SelectItem>
+              <SelectItem value="mando">Mando</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+
       </div>
     </Card>
   )

@@ -15,6 +15,8 @@ export async function GET(request: NextRequest) {
     const month = searchParams.get("month")
     const attendanceYear = searchParams.get("attendanceYear")
 
+    console.log(`[API DEBUG] Query params:`, { hostel, year, isMando, status, dept, search })
+
     const where: any = {}
 
     // Apply filters
@@ -30,10 +32,12 @@ export async function GET(request: NextRequest) {
       console.log(`[DEBUG] Year filter applied: ${year}`)
     }
 
-    if (isMando && isMando !== "all") {
-      where.isMando = isMando === "true"
-      console.log(`[DEBUG] Mando filter applied: ${isMando}`)
+    if (isMando === "true") {
+      where.isMando = true
+    } else if (isMando === "false") {
+      where.isMando = false
     }
+    // If isMando is null/undefined, no filter is applied (show all students)
 
     if (status && status !== "all") {
       where.status = status
@@ -114,16 +118,35 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { name, rollNumber, hostel, year, isMando, mandoMultiplier } = body
+    const { name, rollNumber, dept, hostel, year, isMando } = body
+
+    // Use predefined hostel IDs
+    const hostelId = hostel === 'boys' ? 'hostel_boys' : 'hostel_girls'
+
+    // Ensure hostel exists
+    let hostelRecord = await prisma.hostel.findUnique({
+      where: { id: hostelId }
+    })
+
+    if (!hostelRecord) {
+      hostelRecord = await prisma.hostel.create({
+        data: {
+          id: hostelId,
+          name: hostel === 'boys' ? 'Boys' : 'Girls',
+          description: `${hostel === 'boys' ? 'Boys' : 'Girls'} Hostel`
+        }
+      })
+    }
 
     const student = await prisma.student.create({
       data: {
         name,
-        rollNumber,
-        hostel,
-        year,
-        isMando,
-        mandoMultiplier: isMando ? mandoMultiplier : null,
+        rollNo: rollNumber,
+        dept: dept || null,
+        gender: hostel === 'boys' ? 'M' : 'F',
+        hostelId: hostelRecord.id,
+        year: parseInt(year),
+        isMando: isMando || false,
       },
     })
 

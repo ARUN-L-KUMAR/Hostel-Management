@@ -47,9 +47,37 @@ export function StudentsTable({ filters }: StudentsTableProps) {
     const fetchStudents = async () => {
       setLoading(true)
       try {
-        // Fetch all students without filters
-        const response = await ApiClient.students.getAll({})
+        // Apply server-side filtering based on mandoFilter
+        const apiFilters: any = {}
 
+        if (filters.hostel !== "all") {
+          apiFilters.hostel = filters.hostel
+        }
+
+        if (filters.year !== "all") {
+          apiFilters.year = filters.year
+        }
+
+        if (filters.status !== "all") {
+          apiFilters.status = filters.status
+        }
+
+        if (filters.mandoFilter) {
+          apiFilters.isMando = filters.mandoFilter === "mando" ? "true" : "false"
+        }
+
+
+        if (filters.dept !== "all") {
+          apiFilters.dept = filters.dept
+        }
+
+        if (filters.search) {
+          apiFilters.search = filters.search
+        }
+
+        const response = await ApiClient.students.getAll(apiFilters)
+
+        console.log('Frontend: API filters sent:', apiFilters)
         console.log('Frontend: API response length:', response.length)
 
         // Calculate stats for each student (simplified)
@@ -74,29 +102,9 @@ export function StudentsTable({ filters }: StudentsTableProps) {
     }
 
     fetchStudents()
-  }, []) // Only fetch once
+  }, [filters]) // Fetch when filters change
 
-  // Client-side filtering
-  const filteredStudents = students.filter((student) => {
-    const matchesSearch =
-      filters.search === "" ||
-      student.name.toLowerCase().includes(filters.search.toLowerCase()) ||
-      student.rollNo.toLowerCase().includes(filters.search.toLowerCase())
-
-    const matchesHostel = filters.hostel === "all" || student.hostel?.name === filters.hostel
-
-    const matchesYear = filters.year === "all" || student.year?.toString() === filters.year
-
-    const matchesStatus = filters.status === "all" || student.status === filters.status
-
-    const matchesDept = filters.dept === "all" || (student.dept && student.dept.toLowerCase().includes(filters.dept.toLowerCase()))
-
-    const matchesMando = filters.mandoFilter === "all" ||
-      (filters.mandoFilter === "mando" && student.isMando) ||
-      (filters.mandoFilter === "regular" && !student.isMando)
-
-    return matchesSearch && matchesHostel && matchesYear && matchesStatus && matchesDept && matchesMando
-  })
+  // Students are now filtered server-side
 
   if (loading) {
     return (
@@ -118,7 +126,7 @@ export function StudentsTable({ filters }: StudentsTableProps) {
   return (
     <Card className="border-0 shadow-md">
       <CardHeader>
-        <CardTitle>Students ({filteredStudents.length})</CardTitle>
+        <CardTitle>Students ({students.length})</CardTitle>
       </CardHeader>
       <CardContent>
         <Table>
@@ -141,7 +149,7 @@ export function StudentsTable({ filters }: StudentsTableProps) {
                 </TableCell>
               </TableRow>
             ) : (
-              filteredStudents.map((student) => (
+              students.map((student) => (
                 <TableRow key={student.id}>
                   <TableCell>
                     <div>
