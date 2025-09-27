@@ -4,8 +4,9 @@ import { prisma } from "@/lib/db"
 // Define status constants to match our database
 const StudentStatus = {
   ACTIVE: 'ACTIVE',
+  VACATE: 'VACATE',
   GRADUATED: 'GRADUATED',
-  VACATE: 'VACATE'
+  TRANSFERRED: 'TRANSFERRED'
 } as const
 
 export async function POST(request: Request) {
