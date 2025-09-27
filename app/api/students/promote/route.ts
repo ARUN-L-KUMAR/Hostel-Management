@@ -1,6 +1,12 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/db"
-import { StudentStatus } from "@prisma/client"
+
+// Define status constants to match our database
+const StudentStatus = {
+  ACTIVE: 'ACTIVE',
+  GRADUATED: 'GRADUATED',
+  VACATE: 'VACATE'
+} as const
 
 export async function POST(request: Request) {
   try {
@@ -22,14 +28,7 @@ export async function POST(request: Request) {
     // Get active students based on selection
     const students = await prisma.student.findMany({
       where,
-      select: {
-        id: true,
-        year: true,
-        status: true,
-        name: true,
-        rollNo: true,
-        isMando: true
-      }
+      // Note: Using custom db helper, so we'll get basic student objects
     })
 
     console.log(`Found ${students.length} active students to process`)
