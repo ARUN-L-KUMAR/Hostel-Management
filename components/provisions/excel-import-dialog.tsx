@@ -90,6 +90,10 @@ export function ProvisionsExcelImportDialog({ onClose }: ExcelImportDialogProps)
             columnMap.items = index
           } else if (headerStr && (headerStr === 'unit' || headerStr.includes('unit'))) {
             columnMap.unit = index
+          } else if (headerStr && (headerStr === 'quantity' || headerStr === 'qty' || headerStr.includes('quantity'))) {
+            columnMap.quantity = index
+          } else if (headerStr && (headerStr === 'cost' || headerStr === 'unit cost' || headerStr === 'unitcost' || headerStr.includes('cost'))) {
+            columnMap.cost = index
           }
         })
 
@@ -106,6 +110,14 @@ export function ProvisionsExcelImportDialog({ onClose }: ExcelImportDialogProps)
           columnMap.unit = 2
           warnings.push(`Sheet "${sheetName}": Could not find Unit column, assuming column 3`)
         }
+        if (columnMap.quantity === undefined) {
+          columnMap.quantity = 3
+          warnings.push(`Sheet "${sheetName}": Could not find Quantity column, assuming column 4`)
+        }
+        if (columnMap.cost === undefined) {
+          columnMap.cost = 4
+          warnings.push(`Sheet "${sheetName}": Could not find Cost column, assuming column 5`)
+        }
 
         // Process data rows
         for (let i = headerRowIndex + 1; i < jsonData.length; i++) {
@@ -115,6 +127,8 @@ export function ProvisionsExcelImportDialog({ onClose }: ExcelImportDialogProps)
           const sNo = row[columnMap.sNo]?.toString().trim()
           const items = row[columnMap.items]?.toString().trim()
           const unit = row[columnMap.unit]?.toString().trim() || 'kg'
+          const quantity = row[columnMap.quantity]?.toString().trim() || '1'
+          const cost = parseFloat(row[columnMap.cost]?.toString().trim()) || 0
 
           if (!items || items === '') {
             continue // Skip empty rows silently
@@ -123,8 +137,8 @@ export function ProvisionsExcelImportDialog({ onClose }: ExcelImportDialogProps)
           allProvisions.push({
             name: items,
             unit: unit.toLowerCase(),
-            unitCost: 0, // Default cost, can be updated later
-            unitMeasure: `1 ${unit.toLowerCase()}`
+            unitCost: cost,
+            unitMeasure: `${quantity} ${unit.toLowerCase()}`
           })
         }
 
@@ -227,10 +241,12 @@ export function ProvisionsExcelImportDialog({ onClose }: ExcelImportDialogProps)
         <AlertDescription>
           <strong>Excel Format Requirements:</strong>
           <ul className="mt-2 space-y-1 text-sm">
-            <li>• Header row with columns: S.No, Items, Unit</li>
+            <li>• Header row with columns: S.No, Items, Unit, Quantity, Cost</li>
             <li>• Items column can contain text (including Tamil)</li>
             <li>• Headers can be in any row; data starts from the next row</li>
             <li>• Unit column is optional (defaults to 'kg')</li>
+            <li>• Quantity column specifies the amount per unit (e.g., 1, 500, 2.5)</li>
+            <li>• Cost column specifies the unit cost (numeric value)</li>
             <li>• Duplicate items will be skipped</li>
           </ul>
         </AlertDescription>
