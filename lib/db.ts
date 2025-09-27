@@ -363,7 +363,7 @@ export const prisma = {
       try {
         if (!options?.where?.date) {
           const result = await sql`
-            SELECT * FROM expenses 
+            SELECT * FROM expenses
             ORDER BY date DESC LIMIT 100
           `
           return result.map((row: any) => ({
@@ -373,7 +373,7 @@ export const prisma = {
         }
 
         const result = await sql`
-          SELECT * FROM expenses 
+          SELECT * FROM expenses
           WHERE date >= ${options.where.date.gte} AND date <= ${options.where.date.lte}
           ORDER BY date DESC
         `
@@ -387,6 +387,23 @@ export const prisma = {
         console.error("[v0] Error finding expenses:", error)
         // If expenses table doesn't exist, return empty array
         return []
+      }
+    },
+
+    create: async (options: any) => {
+      try {
+        const { name, type, amount, date, description, billId } = options.data
+        const id = `exp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+        const now = new Date()
+        const result = await sql`
+          INSERT INTO expenses (id, name, type, amount, date, description, "billId", "createdAt", "updatedAt")
+          VALUES (${id}, ${name}, ${type}, ${amount}, ${date}, ${description}, ${billId || null}, ${now}, ${now})
+          RETURNING *
+        `
+        return result[0]
+      } catch (error) {
+        console.error("[v0] Error creating expense:", error)
+        throw error
       }
     },
   },

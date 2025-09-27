@@ -152,12 +152,12 @@ model ProvisionPurchaseItem {
 
 model Expense {
   id          String      @id @default(cuid())
+  name        String
   type        ExpenseType
   amount      Decimal     @db.Decimal(10, 2)
   date        DateTime    @db.Date
   description String
   billId      String?
-  bill        Bill?       @relation(fields: [billId], references: [id])
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
 
@@ -182,7 +182,6 @@ model Bill {
   publishedAt         DateTime?
 
   studentBills   StudentBill[]
-  expenses       Expense[]
   provisionUsage ProvisionUsage[]
 
   createdAt DateTime @default(now())
@@ -266,6 +265,7 @@ enum StudentStatus {
   VACATE
   GRADUATED
   TRANSFERRED
+  VACATE
 }
 
 enum AttendanceCode {
