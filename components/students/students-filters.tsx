@@ -152,7 +152,7 @@ export function StudentsFilters({ onFiltersChange }: StudentsFiltersProps) {
             </SelectTrigger>
             <SelectContent className="bg-white">
               <SelectItem value="all">All Depts</SelectItem>
-              {departments.map((dept) => (
+              {departments.filter(dept => dept != null).map((dept) => (
                 <SelectItem key={dept} value={dept}>
                   {dept.toUpperCase()}
                 </SelectItem>

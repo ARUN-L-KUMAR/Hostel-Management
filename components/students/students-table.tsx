@@ -6,9 +6,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Eye, Edit, MoreHorizontal } from "lucide-react"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { Eye, Edit, MoreHorizontal, UserX } from "lucide-react"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu"
 import { ApiClient } from "@/lib/api-client"
+import { RemoveStudentDialog } from "./remove-student-dialog"
 
 interface Student {
   id: string
@@ -42,6 +43,8 @@ interface StudentsTableProps {
 export function StudentsTable({ filters }: StudentsTableProps) {
   const [students, setStudents] = useState<Student[]>([])
   const [loading, setLoading] = useState(true)
+  const [selectedStudent, setSelectedStudent] = useState<Student | null>(null)
+  const [removeDialogOpen, setRemoveDialogOpen] = useState(false)
 
   useEffect(() => {
     const fetchStudents = async () => {
@@ -103,6 +106,61 @@ export function StudentsTable({ filters }: StudentsTableProps) {
 
     fetchStudents()
   }, [filters]) // Fetch when filters change
+
+  const handleRemoveStudent = (student: Student) => {
+    setSelectedStudent(student)
+    setRemoveDialogOpen(true)
+  }
+
+  const handleStudentRemoved = () => {
+    // Refresh the students list
+    const fetchStudents = async () => {
+      setLoading(true)
+      try {
+        const apiFilters: any = {}
+
+        if (filters.hostel !== "all") {
+          apiFilters.hostel = filters.hostel
+        }
+        if (filters.year !== "all") {
+          apiFilters.year = filters.year
+        }
+        if (filters.status !== "all") {
+          apiFilters.status = filters.status
+        }
+        if (filters.mandoFilter) {
+          apiFilters.isMando = filters.mandoFilter === "mando" ? "true" : "false"
+        }
+        if (filters.dept !== "all") {
+          apiFilters.dept = filters.dept
+        }
+        if (filters.search) {
+          apiFilters.search = filters.search
+        }
+
+        const response = await ApiClient.students.getAll(apiFilters)
+        const studentsWithStats = response.map((student: any) => ({
+          ...student,
+          stats: {
+            totalDays: 0,
+            presentDays: 0,
+            leaveDays: 0,
+            concessionDays: 0,
+            mandays: 0,
+          },
+        }))
+
+        setStudents(studentsWithStats)
+      } catch (error) {
+        console.error("Error fetching students:", error)
+        setStudents([])
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchStudents()
+  }
 
   // Students are now filtered server-side
 
@@ -197,6 +255,14 @@ export function StudentsTable({ filters }: StudentsTableProps) {
                           <Edit className="w-4 h-4 mr-2" />
                           Edit Student
                         </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem 
+                          onClick={() => handleRemoveStudent(student)}
+                          className="text-red-600 focus:text-red-600"
+                        >
+                          <UserX className="w-4 h-4 mr-2" />
+                          Remove Student
+                        </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>
@@ -206,6 +272,14 @@ export function StudentsTable({ filters }: StudentsTableProps) {
           </TableBody>
         </Table>
       </CardContent>
+      
+      {/* Remove Student Dialog */}
+      <RemoveStudentDialog
+        student={selectedStudent}
+        open={removeDialogOpen}
+        onOpenChange={setRemoveDialogOpen}
+        onStudentRemoved={handleStudentRemoved}
+      />
     </Card>
   )
 }

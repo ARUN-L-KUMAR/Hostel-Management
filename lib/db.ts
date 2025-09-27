@@ -204,19 +204,47 @@ export const prisma = {
     },
 
     update: async (options: any) => {
-      const { name, rollNumber, hostelId, year, isMando, mandoMultiplier } = options.data
-      const result = await sql`
-        UPDATE students SET
-          name = ${name},
-          "rollNo" = ${rollNumber},
-          "hostelId" = ${hostelId},
-          year = ${year},
-          "isMando" = ${isMando},
-          "company" = ${mandoMultiplier}
-        WHERE id = ${options.where.id}
-        RETURNING *
-      `
-      return result[0]
+      try {
+        const { id } = options.where
+        const data = options.data
+        const now = new Date()
+        
+        // Build the update fields based on what's provided
+        const updates = []
+        if (data.name !== undefined) updates.push(`name = '${data.name}'`)
+        if (data.rollNumber !== undefined) updates.push(`"rollNo" = '${data.rollNumber}'`)
+        if (data.hostelId !== undefined) updates.push(`"hostelId" = '${data.hostelId}'`)
+        if (data.year !== undefined) updates.push(`year = ${data.year}`)
+        if (data.isMando !== undefined) updates.push(`"isMando" = ${data.isMando}`)
+        if (data.company !== undefined) updates.push(`company = '${data.company || null}'`)
+        if (data.status !== undefined) updates.push(`status = '${data.status}'`)
+        if (data.leaveDate !== undefined) {
+          const leaveDate = data.leaveDate ? `'${new Date(data.leaveDate).toISOString()}'` : 'NULL'
+          updates.push(`"leaveDate" = ${leaveDate}`)
+        }
+        
+        // Always update updatedAt
+        updates.push(`"updatedAt" = '${now.toISOString()}'`)
+        
+        const result = await sql`
+          UPDATE students SET ${sql.unsafe(updates.join(', '))}
+          WHERE id = ${id}
+          RETURNING *
+        `
+        
+        if (result.length === 0) return null
+        
+        // If include hostel is requested, fetch hostel data
+        if (options.include?.hostel) {
+          const hostelResult = await sql`SELECT * FROM hostels WHERE id = ${result[0].hostelId}`
+          result[0].hostel = hostelResult[0] || null
+        }
+        
+        return result[0]
+      } catch (error) {
+        console.error("[v0] Error updating student:", error)
+        throw error
+      }
     },
 
     delete: async (options: any) => {
