@@ -21,6 +21,9 @@ interface Provision {
   }>
   stats?: {
     avgDailyUsage: number
+    inInventory: number
+    totalPurchased: number
+    totalUsed: number
   }
 }
 
@@ -45,6 +48,14 @@ export function ProvisionsTable() {
         usageData = await usageResponse.json()
       }
 
+      // Fetch all provision purchases
+      const purchasesResponse = await fetch('/api/provision-purchases')
+
+      let purchasesData: any[] = []
+      if (purchasesResponse.ok) {
+        purchasesData = await purchasesResponse.json()
+      }
+
       // Group usage by provisionItemId
       const usageByProvision = usageData.reduce((acc: Record<string, any[]>, usage: any) => {
         const provisionId = usage.provisionItemId || usage.provisionItem?.id
@@ -55,17 +66,39 @@ export function ProvisionsTable() {
         return acc
       }, {})
 
-      // Calculate average daily usage from all provision usage data
+      // Group purchases by provisionItemId
+      const purchasesByProvision = purchasesData.reduce((acc: Record<string, number>, purchase: any) => {
+        if (purchase.items && Array.isArray(purchase.items)) {
+          purchase.items.forEach((item: any) => {
+            const provisionId = item.provisionItem?.id
+            if (provisionId) {
+              if (!acc[provisionId]) {
+                acc[provisionId] = 0
+              }
+              acc[provisionId] += Number(item.quantity)
+            }
+          })
+        }
+        return acc
+      }, {})
+
+      // Calculate average daily usage and inventory from all provision usage and purchase data
       const provisionsWithStats = provisionsResponse.map((provision: Provision) => {
         const usageRecords = usageByProvision[provision.id] || []
-        const totalQuantity = usageRecords.reduce((sum: number, usageItem: any) => sum + Number(usageItem.quantity), 0)
+        const totalQuantityUsed = usageRecords.reduce((sum: number, usageItem: any) => sum + Number(usageItem.quantity), 0)
         const totalUsageCount = usageRecords.length
-        const avgDailyUsage = totalUsageCount > 0 ? totalQuantity / totalUsageCount : 0
+        const avgDailyUsage = totalUsageCount > 0 ? totalQuantityUsed / totalUsageCount : 0
+
+        const totalPurchased = purchasesByProvision[provision.id] || 0
+        const inInventory = totalPurchased - totalQuantityUsed
 
         return {
           ...provision,
           stats: {
             avgDailyUsage,
+            inInventory,
+            totalPurchased,
+            totalUsed: totalQuantityUsed,
           },
         }
       })
@@ -142,6 +175,7 @@ export function ProvisionsTable() {
               <TableHead>Item Name</TableHead>
               <TableHead>Quantity(units)</TableHead>
               <TableHead className="text-right">Unit Cost</TableHead>
+              <TableHead className="text-right">In Inventory</TableHead>
               <TableHead className="text-right">Avg Daily Usage</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
@@ -154,6 +188,11 @@ export function ProvisionsTable() {
                 </TableCell>
                 <TableCell>{provision.unitMeasure}</TableCell>
                 <TableCell className="text-right">₹{Number(provision.unitCost).toFixed(2)}</TableCell>
+                <TableCell className="text-right">
+                  <span className={`${(provision.stats?.inInventory || 0) < 0 ? 'text-red-600 font-medium' : 'text-green-600 font-medium'}`}>
+                    {(provision.stats?.inInventory || 0).toFixed(2)} {provision.unit}
+                  </span>
+                </TableCell>
                 <TableCell className="text-right">
                   {(provision.stats?.avgDailyUsage || 0).toFixed(2)} {provision.unit}
                 </TableCell>

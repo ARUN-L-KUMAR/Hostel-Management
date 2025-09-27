@@ -53,6 +53,7 @@ export default function ProvisionTrackerPage() {
   const [provisionItems, setProvisionItems] = useState<ProvisionItem[]>([])
   const [usages, setUsages] = useState<ProvisionUsage[]>([])
   const [purchases, setPurchases] = useState<ProvisionPurchase[]>([])
+  const [inventoryLevels, setInventoryLevels] = useState<Record<string, number>>({})
   const [loading, setLoading] = useState(false)
   const [usageDialogOpen, setUsageDialogOpen] = useState(false)
   const [purchaseDialogOpen, setPurchaseDialogOpen] = useState(false)
@@ -63,6 +64,7 @@ export default function ProvisionTrackerPage() {
   const [quantityUnit, setQuantityUnit] = useState("")
   const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0])
   const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0])
+  const [quantityError, setQuantityError] = useState("")
 
   // Purchase states
   const [purchaseItems, setPurchaseItems] = useState<Array<{
@@ -145,14 +147,91 @@ export default function ProvisionTrackerPage() {
     }
   }
 
+  const calculateInventoryLevels = async () => {
+    try {
+      // Fetch all provision usage
+      const usageResponse = await fetch('/api/provision-usage')
+      let usageData: any[] = []
+      if (usageResponse.ok) {
+        usageData = await usageResponse.json()
+      }
+
+      // Fetch all provision purchases
+      const purchasesResponse = await fetch('/api/provision-purchases')
+      let purchasesData: any[] = []
+      if (purchasesResponse.ok) {
+        purchasesData = await purchasesResponse.json()
+      }
+
+      // Group usage by provisionItemId
+      const usageByProvision = usageData.reduce((acc: Record<string, number>, usage: any) => {
+        const provisionId = usage.provisionItemId || usage.provisionItem?.id
+        if (!acc[provisionId]) {
+          acc[provisionId] = 0
+        }
+        acc[provisionId] += Number(usage.quantity)
+        return acc
+      }, {})
+
+      // Group purchases by provisionItemId
+      const purchasesByProvision = purchasesData.reduce((acc: Record<string, number>, purchase: any) => {
+        if (purchase.items && Array.isArray(purchase.items)) {
+          purchase.items.forEach((item: any) => {
+            const provisionId = item.provisionItem?.id
+            if (provisionId) {
+              if (!acc[provisionId]) {
+                acc[provisionId] = 0
+              }
+              acc[provisionId] += Number(item.quantity)
+            }
+          })
+        }
+        return acc
+      }, {})
+
+      // Calculate inventory for each provision item
+      const inventory: Record<string, number> = {}
+      provisionItems.forEach(item => {
+        const totalPurchased = purchasesByProvision[item.id] || 0
+        const totalUsed = usageByProvision[item.id] || 0
+        inventory[item.id] = totalPurchased - totalUsed
+      })
+
+      setInventoryLevels(inventory)
+    } catch (error) {
+      console.error("Error calculating inventory levels:", error)
+    }
+  }
+
   const saveUsage = async () => {
     if (!selectedItem || !quantity || !quantityUnit) return
+
+    // Check for quantity validation error
+    if (quantityError) {
+      toast({
+        title: "Invalid Quantity",
+        description: quantityError,
+        variant: "destructive",
+      })
+      return
+    }
 
     try {
       const item = provisionItems.find(p => p.id === selectedItem)
       if (!item) return
 
       const convertedQuantity = convertQuantity(parseFloat(quantity), quantityUnit, item.unit)
+      const availableInventory = inventoryLevels[selectedItem] || 0
+
+      // Check if usage exceeds available inventory (only for new usages, not edits)
+      if (!editingUsage && convertedQuantity > availableInventory) {
+        toast({
+          title: "Insufficient Inventory",
+          description: `Cannot use ${convertedQuantity.toFixed(2)} ${item.unit} of ${item.name}. Only ${availableInventory.toFixed(2)} ${item.unit} available.`,
+          variant: "destructive",
+        })
+        return
+      }
 
       let usageDate: string
       let fromDate: string | undefined
@@ -215,6 +294,7 @@ export default function ProvisionTrackerPage() {
       setUsageDialogOpen(false)
       resetForm()
       fetchUsages()
+      calculateInventoryLevels() // Recalculate inventory after usage change
     } catch (error) {
       console.error("Error saving usage:", error)
       toast({
@@ -264,6 +344,7 @@ export default function ProvisionTrackerPage() {
       setPurchaseDialogOpen(false)
       resetPurchaseForm()
       fetchPurchases()
+      calculateInventoryLevels() // Recalculate inventory after purchase
     } catch (error) {
       console.error("Error saving purchase:", error)
       toast({
@@ -319,12 +400,51 @@ export default function ProvisionTrackerPage() {
     setPurchaseDate(new Date().toISOString().split('T')[0])
   }
 
+  const validateQuantity = (qty: string, unit: string, itemId: string) => {
+    if (!qty || !itemId) {
+      setQuantityError("")
+      return
+    }
+
+    const item = provisionItems.find(p => p.id === itemId)
+    if (!item) return
+
+    const convertedQuantity = convertQuantity(parseFloat(qty), unit, item.unit)
+    const availableInventory = inventoryLevels[itemId] || 0
+
+    if (convertedQuantity > availableInventory && !editingUsage) {
+      setQuantityError(`Cannot use ${convertedQuantity.toFixed(2)} ${item.unit}. Only ${availableInventory.toFixed(2)} ${item.unit} available.`)
+    } else {
+      setQuantityError("")
+    }
+  }
+
+  const handleQuantityChange = (value: string) => {
+    setQuantity(value)
+    validateQuantity(value, quantityUnit, selectedItem)
+  }
+
+  const handleUnitChange = (value: string) => {
+    setQuantityUnit(value)
+    validateQuantity(quantity, value, selectedItem)
+  }
+
+  const handleItemChange = (value: string) => {
+    setSelectedItem(value)
+    const item = provisionItems.find(p => p.id === value)
+    if (item) {
+      setQuantityUnit(item.unit)
+      validateQuantity(quantity, item.unit, value)
+    }
+  }
+
   const resetForm = () => {
     setEditingUsage(null)
     setSelectedItem("")
     setUsageType("day")
     setQuantity("")
     setQuantityUnit("")
+    setQuantityError("")
     setStartDate(new Date().toISOString().split('T')[0])
     setEndDate(new Date().toISOString().split('T')[0])
   }
@@ -334,6 +454,7 @@ export default function ProvisionTrackerPage() {
     setSelectedItem(usage.provisionItem.id)
     setQuantity(usage.quantity.toString())
     setQuantityUnit(usage.provisionItem.unit)
+    setQuantityError("") // Clear any previous validation errors
     setStartDate(usage.fromDate || usage.date)
     setEndDate(usage.toDate || usage.date)
     // Determine usage type based on dates
@@ -357,6 +478,12 @@ export default function ProvisionTrackerPage() {
   useEffect(() => {
     fetchProvisionItems()
   }, [])
+
+  useEffect(() => {
+    if (provisionItems.length > 0) {
+      calculateInventoryLevels()
+    }
+  }, [provisionItems])
 
   useEffect(() => {
     fetchUsages()
@@ -683,25 +810,30 @@ export default function ProvisionTrackerPage() {
                     <Label htmlFor="item">Provision Item</Label>
                     <Select
                       value={selectedItem}
-                      onValueChange={(value) => {
-                        setSelectedItem(value)
-                        const item = provisionItems.find(p => p.id === value)
-                        if (item) {
-                          setQuantityUnit(item.unit)
-                        }
-                      }}
+                      onValueChange={handleItemChange}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Select item" />
                       </SelectTrigger>
                       <SelectContent>
-                        {provisionItems.map(item => (
-                          <SelectItem key={item.id} value={item.id}>
-                            {item.name} ({item.unit})
-                          </SelectItem>
-                        ))}
+                        {provisionItems.map(item => {
+                          const availableInventory = inventoryLevels[item.id] || 0
+                          return (
+                            <SelectItem key={item.id} value={item.id}>
+                              {item.name} ({item.unit}) - Available: {availableInventory.toFixed(2)} {item.unit}
+                            </SelectItem>
+                          )
+                        })}
                       </SelectContent>
                     </Select>
+                    {selectedItem && (
+                      <div className="mt-2 p-2 bg-blue-50 rounded text-sm">
+                        <span className="font-medium">Available Inventory: </span>
+                        <span className={inventoryLevels[selectedItem] < 0 ? 'text-red-600' : 'text-green-600'}>
+                          {(inventoryLevels[selectedItem] || 0).toFixed(2)} {provisionItems.find(p => p.id === selectedItem)?.unit}
+                        </span>
+                      </div>
+                    )}
                   </div>
                   <div>
                     <Label htmlFor="type">Usage Type</Label>
@@ -724,12 +856,13 @@ export default function ProvisionTrackerPage() {
                         type="number"
                         step="0.01"
                         value={quantity}
-                        onChange={(e) => setQuantity(e.target.value)}
+                        onChange={(e) => handleQuantityChange(e.target.value)}
+                        className={quantityError ? "border-red-500" : ""}
                       />
                     </div>
                     <div>
                       <Label htmlFor="unit">Unit</Label>
-                      <Select value={quantityUnit} onValueChange={setQuantityUnit}>
+                      <Select value={quantityUnit} onValueChange={handleUnitChange}>
                         <SelectTrigger>
                           <SelectValue />
                         </SelectTrigger>
@@ -743,6 +876,11 @@ export default function ProvisionTrackerPage() {
                       </Select>
                     </div>
                   </div>
+                  {quantityError && (
+                    <div className="text-red-600 text-sm bg-red-50 p-2 rounded border border-red-200">
+                      {quantityError}
+                    </div>
+                  )}
                   {usageType === "day" && (
                     <div>
                       <Label htmlFor="date">Date</Label>

@@ -28,7 +28,6 @@ export function AddExpenseDialog({ open, onOpenChange, onSuccess }: AddExpenseDi
 
   const expenseTypes = [
     { value: "LABOUR", label: "Labour" },
-    { value: "PROVISION", label: "Provision" },
     { value: "MAINTENANCE", label: "Maintenance" },
     { value: "UTILITY", label: "Utility" },
     { value: "OTHER", label: "Other" },
