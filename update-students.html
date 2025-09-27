@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Update Student Departments</title>
+</head>
+<body>
+    <h1>Update Student Departments</h1>
+    <button onclick="updateDepartments()">Update Sample Students with Departments</button>
+    <div id="output"></div>
+
+    <script>
+        async function updateDepartments() {
+            const output = document.getElementById('output');
+            output.innerHTML = '<p>Starting update...</p>';
+
+            try {
+                // First get some students
+                const response = await fetch('http://localhost:3000/api/students?isMando=false');
+                const students = await response.json();
+                
+                console.log('Found students:', students.length);
+                output.innerHTML += `<p>Found ${students.length} students</p>`;
+
+                const departments = ['CSE', 'ECE', 'EEE', 'MECH', 'CSE(CS)', 'CSE(TI)'];
+                
+                // Update first 30 students with departments
+                const studentsToUpdate = students.slice(0, 30);
+                
+                for (let i = 0; i < studentsToUpdate.length; i++) {
+                    const student = studentsToUpdate[i];
+                    const dept = departments[i % departments.length];
+                    
+                    console.log(`Updating ${student.name} with ${dept}`);
+                    output.innerHTML += `<p>Updating ${student.name} with ${dept}...</p>`;
+                    
+                    const updateResponse = await fetch(`http://localhost:3000/api/students/${student.id}`, {
+                        method: 'PATCH',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            dept: dept
+                        }),
+                    });
+                    
+                    if (updateResponse.ok) {
+                        console.log(`✓ Updated ${student.name}`);
+                        output.innerHTML += `<p style="color: green;">✓ Updated ${student.name}</p>`;
+                    } else {
+                        console.log(`✗ Failed to update ${student.name}`);
+                        output.innerHTML += `<p style="color: red;">✗ Failed to update ${student.name}</p>`;
+                    }
+                    
+                    // Small delay to avoid overwhelming the server
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                }
+                
+                output.innerHTML += '<p><strong>Update completed! Refresh the students page to see departments in the filter.</strong></p>';
+                
+            } catch (error) {
+                console.error('Error:', error);
+                output.innerHTML += `<p style="color: red;">Error: ${error.message}</p>`;
+            }
+        }
+    </script>
+</body>
+</html>

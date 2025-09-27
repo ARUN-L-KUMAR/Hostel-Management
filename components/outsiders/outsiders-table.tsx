@@ -74,6 +74,7 @@ export function OutsidersTable({ search }: OutsidersTableProps) {
               <TableHead>Phone</TableHead>
               <TableHead>Company</TableHead>
               <TableHead>Designation</TableHead>
+              <TableHead>Description</TableHead>
               <TableHead>Meals Count</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
@@ -81,7 +82,7 @@ export function OutsidersTable({ search }: OutsidersTableProps) {
           <TableBody>
             {outsiders.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center py-8 text-slate-500">
+                <TableCell colSpan={7} className="text-center py-8 text-slate-500">
                   No outsiders found.
                 </TableCell>
               </TableRow>
@@ -92,6 +93,7 @@ export function OutsidersTable({ search }: OutsidersTableProps) {
                   <TableCell>{outsider.phone || 'Not Set'}</TableCell>
                   <TableCell>{outsider.company || 'Not Set'}</TableCell>
                   <TableCell>{outsider.designation || 'Not Set'}</TableCell>
+                  <TableCell>{outsider.description || 'Not Set'}</TableCell>
                   <TableCell>{outsider.meals.length}</TableCell>
                   <TableCell className="text-right">
                     <DropdownMenu>

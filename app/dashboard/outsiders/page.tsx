@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Plus } from "lucide-react"
+import { Plus, Eye } from "lucide-react"
 import { AddOutsiderMealDialog } from "@/components/outsiders/add-outsider-meal-dialog"
 
 interface MealRecord {
@@ -31,6 +31,8 @@ export default function OutsidersPage() {
   const [mealRecords, setMealRecords] = useState<MealRecord[]>([])
   const [loading, setLoading] = useState(true)
   const [addDialogOpen, setAddDialogOpen] = useState(false)
+  const [viewDialogOpen, setViewDialogOpen] = useState(false)
+  const [selectedRecord, setSelectedRecord] = useState<MealRecord | null>(null)
 
   // Filter states
   const currentDate = new Date()
@@ -168,16 +170,19 @@ export default function OutsidersPage() {
               <TableRow>
                 <TableHead>Name</TableHead>
                 <TableHead>Phone</TableHead>
+                <TableHead>Designation</TableHead>
+                <TableHead>Description</TableHead>
                 <TableHead>Date</TableHead>
                 <TableHead>Meals</TableHead>
                 <TableHead>Rate</TableHead>
                 <TableHead>Total</TableHead>
+                <TableHead className="text-right">View</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {mealRecords.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8 text-slate-500">
+                  <TableCell colSpan={9} className="text-center py-8 text-slate-500">
                     No meal records found.
                   </TableCell>
                 </TableRow>
@@ -190,12 +195,26 @@ export default function OutsidersPage() {
                     <TableRow key={record.id}>
                       <TableCell className="font-medium">{record.outsider?.name || 'Unknown'}</TableCell>
                       <TableCell>{record.outsider?.phone || 'N/A'}</TableCell>
+                      <TableCell className="truncate max-w-32">{record.outsider?.designation || 'Not Set'}</TableCell>
+                      <TableCell className="truncate max-w-32">{record.outsider?.description || 'Not Set'}</TableCell>
                       <TableCell>{record.date}</TableCell>
                       <TableCell>
                         <Badge variant="outline">{getMealsText(record)}</Badge>
                       </TableCell>
                       <TableCell>₹{record.mealRate}</TableCell>
                       <TableCell className="font-medium">₹{total}</TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setSelectedRecord(record)
+                            setViewDialogOpen(true)
+                          }}
+                        >
+                          <Eye className="w-4 h-4" />
+                        </Button>
+                      </TableCell>
                     </TableRow>
                   )
                 })
@@ -204,6 +223,29 @@ export default function OutsidersPage() {
           </Table>
         </CardContent>
       </Card>
+
+      {/* View Details Dialog */}
+      <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
+        <DialogContent className="max-w-md bg-white">
+          <DialogHeader>
+            <DialogTitle>Meal Record Details</DialogTitle>
+          </DialogHeader>
+          <Card>
+            <CardContent className="pt-6">
+              <div className="space-y-4">
+                <div><strong>Name:</strong> {selectedRecord?.outsider?.name || 'Unknown'}</div>
+                <div><strong>Phone:</strong> {selectedRecord?.outsider?.phone || 'N/A'}</div>
+                <div><strong>Designation:</strong> {selectedRecord?.outsider?.designation || 'Not Set'}</div>
+                <div><strong>Description:</strong> {selectedRecord?.outsider?.description || 'Not Set'}</div>
+                <div><strong>Date:</strong> {selectedRecord?.date}</div>
+                <div><strong>Meals:</strong> {selectedRecord ? getMealsText(selectedRecord) : ''}</div>
+                <div><strong>Rate:</strong> ₹{selectedRecord?.mealRate}</div>
+                <div><strong>Total:</strong> ₹{selectedRecord ? [selectedRecord.breakfast, selectedRecord.lunch, selectedRecord.dinner].filter(Boolean).length * selectedRecord.mealRate : 0}</div>
+              </div>
+            </CardContent>
+          </Card>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
