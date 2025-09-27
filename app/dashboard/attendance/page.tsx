@@ -85,6 +85,10 @@ export default function AttendancePage({ searchParams }: { searchParams: { [key:
     document.body.removeChild(link)
   }
 
+  const handleRefresh = () => {
+    window.location.reload()
+  }
+
   return (
     <div className="space-y-6">
       {/* Page Header */}
@@ -93,7 +97,12 @@ export default function AttendancePage({ searchParams }: { searchParams: { [key:
           <h1 className="text-2xl font-bold text-slate-900">Attendance Management</h1>
           <p className="text-slate-600">Track and manage student attendance with P/L/CN/V/C codes</p>
         </div>
-        <AttendanceActions onExport={exportAttendanceToCSV} />
+        <div className="flex items-center space-x-2">
+          <Button variant="outline" onClick={handleRefresh}>
+            Refresh
+          </Button>
+          <AttendanceActions onExport={exportAttendanceToCSV} />
+        </div>
       </div>
 
       {/* Filters */}

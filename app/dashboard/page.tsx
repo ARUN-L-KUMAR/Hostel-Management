@@ -7,7 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 
 export default function DashboardPage() {
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 overflow-x-hidden">
       {/* Alerts Banner */}
       <Suspense fallback={<Skeleton className="h-16 w-full" />}>
         <AlertsBanner />
@@ -27,7 +27,7 @@ export default function DashboardPage() {
       </Suspense>
 
       {/* Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 overflow-x-auto">
         <Suspense fallback={<Skeleton className="h-80" />}>
           <ExpenseChart />
         </Suspense>

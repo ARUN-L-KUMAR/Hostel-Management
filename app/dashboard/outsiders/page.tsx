@@ -79,6 +79,10 @@ export default function OutsidersPage() {
     return meals.join(', ') || 'None'
   }
 
+  const handleRefresh = () => {
+    window.location.reload()
+  }
+
   if (loading) {
     return (
       <div className="space-y-6">
@@ -98,25 +102,30 @@ export default function OutsidersPage() {
           <h1 className="text-2xl font-bold text-slate-900">Outsiders Meal History</h1>
           <p className="text-slate-600">View and manage outsider meal records</p>
         </div>
-        <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="w-4 h-4 mr-2" />
-              Add Meal Record
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-2xl bg-white">
-            <DialogHeader>
-              <DialogTitle>Add Outsider Meal Record</DialogTitle>
-            </DialogHeader>
-            <AddOutsiderMealDialog
-              onClose={() => {
-                setAddDialogOpen(false)
-                refreshData()
-              }}
-            />
-          </DialogContent>
-        </Dialog>
+        <div className="flex items-center space-x-2">
+          <Button variant="outline" onClick={handleRefresh}>
+            Refresh
+          </Button>
+          <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="w-4 h-4 mr-2" />
+                Add Meal Record
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-2xl bg-white">
+              <DialogHeader>
+                <DialogTitle>Add Outsider Meal Record</DialogTitle>
+              </DialogHeader>
+              <AddOutsiderMealDialog
+                onClose={() => {
+                  setAddDialogOpen(false)
+                  refreshData()
+                }}
+              />
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       {/* Filters */}

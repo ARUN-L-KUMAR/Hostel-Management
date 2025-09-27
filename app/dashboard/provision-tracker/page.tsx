@@ -1,8 +1,8 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -400,6 +400,10 @@ export default function ProvisionTrackerPage() {
     setPurchaseDate(new Date().toISOString().split('T')[0])
   }
 
+  const handleRefresh = () => {
+    window.location.reload()
+  }
+
   const validateQuantity = (qty: string, unit: string, itemId: string) => {
     if (!qty || !itemId) {
       setQuantityError("")
@@ -498,6 +502,9 @@ export default function ProvisionTrackerPage() {
           <h1 className="text-2xl font-bold text-slate-900">Provision Tracker</h1>
           <p className="text-slate-600">Track provision purchases and usage</p>
         </div>
+        <Button variant="outline" onClick={handleRefresh}>
+          Refresh
+        </Button>
       </div>
 
       <Tabs defaultValue="purchase" className="w-full">

@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { Button } from "@/components/ui/button"
 import { useSearchParams } from "next/navigation"
 import { ExpensesTable } from "@/components/expenses/expenses-table"
 import { ExpensesActions } from "@/components/expenses/expenses-actions"
@@ -47,6 +48,10 @@ export default function ExpensesPage() {
   ]
 
   const handleRefresh = () => {
+    window.location.reload()
+  }
+
+  const handleTableRefresh = () => {
     setRefreshTrigger(prev => prev + 1)
   }
 
@@ -58,7 +63,12 @@ export default function ExpensesPage() {
           <h1 className="text-2xl font-bold text-slate-900">Expense Management</h1>
           <p className="text-slate-600">Track and manage mess expenses</p>
         </div>
-        <ExpensesActions onRefresh={handleRefresh} />
+        <div className="flex items-center space-x-2">
+          <Button variant="outline" onClick={handleRefresh}>
+            Refresh
+          </Button>
+          <ExpensesActions onRefresh={handleTableRefresh} />
+        </div>
       </div>
 
       {/* Filters */}

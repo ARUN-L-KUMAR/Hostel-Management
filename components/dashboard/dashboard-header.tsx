@@ -28,20 +28,22 @@ export function DashboardHeader() {
   }
 
   const getRoleBadgeVariant = (role: string) => {
-    switch (role) {
+    // Map MESS_MANAGER to MANAGER for display
+    const displayRole = role === "MESS_MANAGER" ? "MANAGER" : role
+    switch (displayRole) {
       case "ADMIN":
         return "default"
-      case "MESS_MANAGER":
+      case "MANAGER":
         return "secondary"
-      case "ACCOUNTANT":
-        return "outline"
       default:
         return "outline"
     }
   }
 
   const formatRole = (role: string) => {
-    return role.replace("_", " ").toLowerCase().replace(/\b\w/g, l => l.toUpperCase())
+    // Map MESS_MANAGER to MANAGER for display
+    const displayRole = role === "MESS_MANAGER" ? "MANAGER" : role
+    return displayRole.replace("_", " ").toLowerCase().replace(/\b\w/g, l => l.toUpperCase())
   }
 
   if (!session) return null
@@ -88,10 +90,12 @@ export function DashboardHeader() {
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={handleSettingsClick} className="hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer transition-colors">
-                <Settings className="mr-2 h-4 w-4" />
-                <span>Settings</span>
-              </DropdownMenuItem>
+              {session.user?.role === "ADMIN" && (
+                <DropdownMenuItem onClick={handleSettingsClick} className="hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer transition-colors">
+                  <Settings className="mr-2 h-4 w-4" />
+                  <span>Settings</span>
+                </DropdownMenuItem>
+              )}
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={handleSignOut}>
                 <LogOut className="mr-2 h-4 w-4" />

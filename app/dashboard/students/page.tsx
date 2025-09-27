@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { Button } from "@/components/ui/button"
 import { StudentsTable } from "@/components/students/students-table"
 import { StudentsFilters } from "@/components/students/students-filters"
 import { StudentsActions } from "@/components/students/students-actions"
@@ -15,6 +16,10 @@ export default function StudentsPage() {
     search: "",
   })
 
+  const handleRefresh = () => {
+    window.location.reload()
+  }
+
   return (
     <div className="space-y-6">
       {/* Page Header */}
@@ -23,7 +28,12 @@ export default function StudentsPage() {
           <h1 className="text-2xl font-bold text-slate-900">Student Management</h1>
           <p className="text-slate-600">Manage student profiles, Mando status, and billing information</p>
         </div>
-        <StudentsActions />
+        <div className="flex items-center space-x-2">
+          <Button variant="outline" onClick={handleRefresh}>
+            Refresh
+          </Button>
+          <StudentsActions />
+        </div>
       </div>
 
       {/* Filters */}

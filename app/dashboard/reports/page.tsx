@@ -61,12 +61,16 @@ export default function ReportsPage() {
   const [reportData, setReportData] = useState<ReportData | null>(null)
   const [loading, setLoading] = useState(false)
   const [editDialogOpen, setEditDialogOpen] = useState(false)
-  const [mealRates, setMealRates] = useState({ outsiders: 50, mando: 50 })
+  const [mealRates, setMealRates] = useState({ outsiders: 0, mando: 0 })
+  const [initialLoadComplete, setInitialLoadComplete] = useState(false)
 
   const fetchMealRates = async () => {
     try {
       console.log('Fetching meal rates...')
-      const response = await fetch('/api/meal-rates')
+      // Add a timestamp to prevent caching
+      const response = await fetch(`/api/meal-rates?t=${Date.now()}`)
+      console.log('Response status:', response.status)
+      console.log('Response headers:', [...response.headers.entries()])
       const rates = await response.json()
       console.log('Fetched meal rates from API:', rates)
       console.log('Current mealRates state before update:', mealRates)
@@ -80,9 +84,15 @@ export default function ReportsPage() {
       return null
     }
   }
+  
+  // Add a useEffect to log when mealRates changes
+  useEffect(() => {
+    console.log('mealRates updated:', mealRates)
+  }, [mealRates])
 
-  const fetchReportData = async () => {
-    console.log('fetchReportData called with mealRates:', mealRates)
+  const fetchReportData = async (rates: { outsiders: number; mando: number }) => {
+    console.log('fetchReportData called with mealRates:', rates)
+    console.log('Current mealRates state:', mealRates)
     setLoading(true)
     try {
       const params = new URLSearchParams({ year: selectedYear, month: selectedMonth })
@@ -108,7 +118,7 @@ export default function ReportsPage() {
       const outsidersMeals = outsidersData.reduce((sum: number, record: any) =>
         sum + (record.breakfast ? 1 : 0) + (record.lunch ? 1 : 0) + (record.dinner ? 1 : 0), 0)
 
-      console.log('Calculated outsidersMeals:', outsidersMeals, 'using mealRates.outsiders:', mealRates.outsiders)
+      console.log('Calculated outsidersMeals:', outsidersMeals, 'using rates.outsiders:', rates.outsiders)
 
       // Calculate mando meals by gender (boys/girls)
       const mandoMealsByGender = mandoData.reduce((acc: any, record: any) => {
@@ -120,7 +130,7 @@ export default function ReportsPage() {
           acc[genderName] = { meals: 0, cost: 0 }
         }
         acc[genderName].meals += meals
-        acc[genderName].cost += meals * mealRates.mando
+        acc[genderName].cost += meals * rates.mando
 
         return acc
       }, {})
@@ -128,7 +138,7 @@ export default function ReportsPage() {
       const totalMandoMeals = Object.values(mandoMealsByGender).reduce((sum: number, gender: any) => sum + gender.meals, 0)
       const totalMandoCost = Object.values(mandoMealsByGender).reduce((sum: number, gender: any) => sum + gender.cost, 0)
 
-      console.log('Calculated mandoMealsByGender:', mandoMealsByGender, 'using mealRates.mando:', mealRates.mando)
+      console.log('Calculated mandoMealsByGender:', mandoMealsByGender, 'using rates.mando:', rates.mando)
       console.log('Total mando cost:', totalMandoCost, 'total mando meals:', totalMandoMeals)
 
       setReportData({
@@ -138,14 +148,14 @@ export default function ReportsPage() {
         },
         outsiders: {
           totalMeals: outsidersMeals,
-          totalCost: outsidersMeals * mealRates.outsiders,
-          mealRate: mealRates.outsiders,
+          totalCost: outsidersMeals * rates.outsiders,
+          mealRate: rates.outsiders,
           records: outsidersData
         },
         mando: {
           totalMeals: totalMandoMeals,
           totalCost: totalMandoCost,
-          mealRate: mealRates.mando,
+          mealRate: rates.mando,
           records: mandoData,
           byGender: mandoMealsByGender
         }
@@ -159,19 +169,33 @@ export default function ReportsPage() {
   }
 
   useEffect(() => {
+    console.log('useEffect triggered with selectedYear:', selectedYear, 'selectedMonth:', selectedMonth)
+    let cancelled = false;
+    
     const loadData = async () => {
+      console.log('Loading data...')
       const rates = await fetchMealRates()
-      if (rates) {
+      console.log('Rates fetched:', rates)
+      if (rates && !cancelled) {
         // Now fetch report data with the loaded rates
-        await fetchReportData()
+        await fetchReportData(rates) // Use the fetched rates directly
+      }
+      if (!cancelled) {
+        setInitialLoadComplete(true)
       }
     }
+    
     loadData()
+    
+    return () => {
+      cancelled = true
+    }
   }, [selectedYear, selectedMonth])
 
   const handleEditRates = async () => {
     console.log('Saving meal rates:', mealRates)
     try {
+      console.log('Sending PUT request with body:', JSON.stringify(mealRates))
       const response = await fetch('/api/meal-rates', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -179,10 +203,13 @@ export default function ReportsPage() {
       })
 
       console.log('API response status:', response.status)
+      console.log('API response headers:', [...response.headers.entries()])
       if (response.ok) {
         const updatedRates = await response.json()
         console.log('Updated rates from API:', updatedRates)
         setMealRates(updatedRates)
+        // Refresh the report data with the new rates
+        await fetchReportData(updatedRates) // Use the updated rates directly
         toast.success("Meal rates updated successfully")
       } else {
         const errorText = await response.text()
@@ -201,6 +228,10 @@ export default function ReportsPage() {
     "July", "August", "September", "October", "November", "December"
   ]
 
+  const handleRefresh = () => {
+    window.location.reload()
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -210,6 +241,9 @@ export default function ReportsPage() {
           <p className="text-muted-foreground">Independent cost reports for each category</p>
         </div>
         <div className="flex items-center gap-3">
+          <Button variant="outline" onClick={handleRefresh}>
+            Refresh
+          </Button>
           <div className="flex items-center space-x-2">
             <Label>Year:</Label>
             <Select value={selectedYear} onValueChange={setSelectedYear}>
@@ -293,7 +327,7 @@ export default function ReportsPage() {
         </div>
       </div>
 
-      {loading ? (
+      {loading || !initialLoadComplete ? (
         <div className="flex items-center justify-center h-64">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
           <span className="ml-2 text-slate-600">Loading report data...</span>
