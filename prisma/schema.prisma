@@ -263,6 +263,7 @@ enum UserRole {
 enum StudentStatus {
   ACTIVE
   INACTIVE
+  VACATE
   GRADUATED
   TRANSFERRED
 }
