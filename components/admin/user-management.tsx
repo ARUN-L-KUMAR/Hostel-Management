@@ -15,7 +15,7 @@ interface User {
   id: string
   name: string
   email: string
-  role: "ADMIN" | "ACCOUNTANT" | "MESS_MANAGER" | "VIEWER"
+  role: "ADMIN" | "MANAGER"
   createdAt?: string
   updatedAt?: string
   created_at?: string
@@ -31,7 +31,7 @@ export function UserManagement() {
   const [newUser, setNewUser] = useState({
     name: "",
     email: "",
-    role: "" as "ADMIN" | "ACCOUNTANT" | "MESS_MANAGER" | "VIEWER" | "",
+    role: "" as "ADMIN" | "MANAGER" | "",
     password: ""
   })
 
@@ -62,12 +62,15 @@ export function UserManagement() {
 
     try {
       setAddUserLoading(true)
+      // Map frontend roles to database roles
+      // Since our type is "ADMIN" | "MANAGER" | "", we need to send the correct database values
+      const roleToSend = newUser.role === "MANAGER" ? "MANAGER" : newUser.role
       const response = await fetch("/api/users", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(newUser),
+        body: JSON.stringify({...newUser, role: roleToSend}),
       })
 
       if (!response.ok) {
@@ -113,15 +116,19 @@ export function UserManagement() {
     }
   }
 
+  // Format role display name
+  const formatRole = (role: string) => {
+    // No more mapping needed since the API now returns "MANAGER" directly
+    return role.replace("_", " ").toLowerCase().replace(/\b\w/g, l => l.toUpperCase())
+  }
+
   // Get role badge variant
   const getRoleBadgeVariant = (role: string) => {
     switch (role) {
       case "ADMIN":
         return "default"
-      case "MESS_MANAGER":
+      case "MANAGER":
         return "secondary"
-      case "ACCOUNTANT":
-        return "outline"
       default:
         return "outline"
     }
@@ -132,16 +139,11 @@ export function UserManagement() {
     switch (role) {
       case "ADMIN":
         return <Shield className="h-3 w-3" />
-      case "MESS_MANAGER":
+      case "MANAGER":
         return <Settings className="h-3 w-3" />
       default:
         return <User className="h-3 w-3" />
     }
-  }
-
-  // Format role display name
-  const formatRole = (role: string) => {
-    return role.replace("_", " ").toLowerCase().replace(/\b\w/g, l => l.toUpperCase())
   }
 
   // Load users on component mount
@@ -157,17 +159,19 @@ export function UserManagement() {
           <CardDescription>Create a new user account with appropriate permissions</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid gap-4 md:grid-cols-2 overflow-x-auto">
             <Input 
               placeholder="Full Name" 
               value={newUser.name}
               onChange={(e) => setNewUser(prev => ({ ...prev, name: e.target.value }))}
+              className="truncate"
             />
             <Input 
               placeholder="Email Address" 
               type="email"
               value={newUser.email}
               onChange={(e) => setNewUser(prev => ({ ...prev, email: e.target.value }))}
+              className="truncate"
             />
             <Input 
               placeholder="Password" 
@@ -181,9 +185,7 @@ export function UserManagement() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="ADMIN">Admin</SelectItem>
-                <SelectItem value="MESS_MANAGER">Mess Manager</SelectItem>
-                <SelectItem value="ACCOUNTANT">Accountant</SelectItem>
-                <SelectItem value="VIEWER">Viewer</SelectItem>
+                <SelectItem value="MANAGER">Manager</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -213,15 +215,15 @@ export function UserManagement() {
               <span className="ml-2">Loading users...</span>
             </div>
           ) : (
-            <div className="space-y-4">
+            <div className="space-y-4 overflow-x-auto">
               {users.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
                   No users found. Add the first user above.
                 </div>
               ) : (
                 users.map((user) => (
-                  <div key={user.id} className="flex items-center justify-between p-4 border rounded-lg">
-                    <div className="flex items-center gap-4">
+                  <div key={user.id} className="flex items-center justify-between p-4 border rounded-lg min-w-[800px]">
+                    <div className="flex items-center gap-4 min-w-0">
                       <Avatar>
                         <AvatarFallback>
                           {user.name
@@ -230,9 +232,9 @@ export function UserManagement() {
                             .join("")}
                         </AvatarFallback>
                       </Avatar>
-                      <div>
-                        <p className="font-medium">{user.name}</p>
-                        <p className="text-sm text-muted-foreground">{user.email}</p>
+                      <div className="min-w-0">
+                        <p className="font-medium truncate">{user.name}</p>
+                        <p className="text-sm text-muted-foreground truncate">{user.email}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-4">
@@ -246,7 +248,7 @@ export function UserManagement() {
                         </Badge>
                       </div>
                       <div className="text-center min-w-[100px]">
-                        <p className="text-sm text-muted-foreground">
+                        <p className="text-sm text-muted-foreground truncate">
                           {user.createdAt ? new Date(user.createdAt).toLocaleDateString() :
                            user.created_at ? new Date(user.created_at).toLocaleDateString() :
                            user.updatedAt ? new Date(user.updatedAt).toLocaleDateString() : 
@@ -255,7 +257,12 @@ export function UserManagement() {
                         </p>
                       </div>
                       <div className="flex gap-2">
-                        <EditUserDialog user={user} onUserUpdated={fetchUsers} />
+                        <EditUserDialog user={{
+                          id: user.id,
+                          name: user.name,
+                          email: user.email,
+                          role: user.role
+                        }} onUserUpdated={fetchUsers} />
                         <Button 
                           variant="outline" 
                           size="sm"
@@ -272,6 +279,7 @@ export function UserManagement() {
                     </div>
                   </div>
                 ))
+
               )}
             </div>
           )}
@@ -285,38 +293,30 @@ export function UserManagement() {
           <CardDescription>Configure permissions for different user roles</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
-            <div className="grid gap-4 md:grid-cols-5">
+          <div className="space-y-4 overflow-x-auto">
+            <div className="grid gap-4 md:grid-cols-3 min-w-[500px]">
               <div className="font-medium">Permission</div>
               <div className="font-medium text-center">Admin</div>
-              <div className="font-medium text-center">Mess Manager</div>
-              <div className="font-medium text-center">Accountant</div>
-              <div className="font-medium text-center">Viewer</div>
+              <div className="font-medium text-center">Manager</div>
             </div>
 
             {[
-              { name: "View Dashboard", admin: true, messManager: true, accountant: true, viewer: true },
-              { name: "Manage Students", admin: true, messManager: true, accountant: false, viewer: false },
-              { name: "Edit Attendance", admin: true, messManager: true, accountant: false, viewer: false },
-              { name: "Generate Bills", admin: true, messManager: true, accountant: true, viewer: false },
-              { name: "View Reports", admin: true, messManager: true, accountant: true, viewer: false },
-              { name: "Manage Provisions", admin: true, messManager: true, accountant: false, viewer: false },
-              { name: "System Settings", admin: true, messManager: false, accountant: false, viewer: false },
-              { name: "User Management", admin: true, messManager: false, accountant: false, viewer: false },
+              { name: "View Dashboard", admin: true, manager: true },
+              { name: "Manage Students", admin: true, manager: true },
+              { name: "Edit Attendance", admin: true, manager: true },
+              { name: "Generate Bills", admin: true, manager: true },
+              { name: "View Reports", admin: true, manager: true },
+              { name: "Manage Provisions", admin: true, manager: true },
+              { name: "System Settings", admin: true, manager: false },
+              { name: "User Management", admin: true, manager: false },
             ].map((permission) => (
-              <div key={permission.name} className="grid gap-4 md:grid-cols-5 py-2 border-b">
-                <div>{permission.name}</div>
+              <div key={permission.name} className="grid gap-4 md:grid-cols-3 py-2 border-b min-w-[500px]">
+                <div className="truncate">{permission.name}</div>
                 <div className="text-center">
                   <Badge variant={permission.admin ? "default" : "secondary"}>{permission.admin ? "✓" : "✗"}</Badge>
                 </div>
                 <div className="text-center">
-                  <Badge variant={permission.messManager ? "default" : "secondary"}>{permission.messManager ? "✓" : "✗"}</Badge>
-                </div>
-                <div className="text-center">
-                  <Badge variant={permission.accountant ? "default" : "secondary"}>{permission.accountant ? "✓" : "✗"}</Badge>
-                </div>
-                <div className="text-center">
-                  <Badge variant={permission.viewer ? "default" : "secondary"}>{permission.viewer ? "✓" : "✗"}</Badge>
+                  <Badge variant={permission.manager ? "default" : "secondary"}>{permission.manager ? "✓" : "✗"}</Badge>
                 </div>
               </div>
             ))}

@@ -228,6 +228,10 @@ export default function ReportsPage() {
     "July", "August", "September", "October", "November", "December"
   ]
 
+  const handleRefresh = () => {
+    window.location.reload()
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -237,6 +241,9 @@ export default function ReportsPage() {
           <p className="text-muted-foreground">Independent cost reports for each category</p>
         </div>
         <div className="flex items-center gap-3">
+          <Button variant="outline" onClick={handleRefresh}>
+            Refresh
+          </Button>
           <div className="flex items-center space-x-2">
             <Label>Year:</Label>
             <Select value={selectedYear} onValueChange={setSelectedYear}>

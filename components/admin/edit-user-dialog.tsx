@@ -14,7 +14,7 @@ interface User {
   id: string
   name: string
   email: string
-  role: "ADMIN" | "ACCOUNTANT" | "MESS_MANAGER" | "VIEWER"
+  role: string  // Changed to string to accommodate both old and new role values
 }
 
 interface EditUserDialogProps {
@@ -29,7 +29,7 @@ export function EditUserDialog({ user, onUserUpdated }: EditUserDialogProps) {
   const [formData, setFormData] = useState({
     name: "",
     email: "",
-    role: "" as "ADMIN" | "ACCOUNTANT" | "MESS_MANAGER" | "VIEWER" | "",
+    role: "",  // Changed to string
     password: ""
   })
 
@@ -138,17 +138,16 @@ export function EditUserDialog({ user, onUserUpdated }: EditUserDialogProps) {
           
           <div className="space-y-2">
             <Label htmlFor="role" className="text-sm font-medium text-gray-700 dark:text-gray-300">Role</Label>
-            <Select value={formData.role} onValueChange={(value) => setFormData(prev => ({ ...prev, role: value as any }))}>
+            <Select value={formData.role} onValueChange={(value) => setFormData(prev => ({ ...prev, role: value }))}>
               <SelectTrigger id="role" className="bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100">
                 <SelectValue placeholder="Select role" />
               </SelectTrigger>
               <SelectContent className="bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600">
                 <SelectItem value="ADMIN">Admin</SelectItem>
-                <SelectItem value="MESS_MANAGER">Mess Manager</SelectItem>
-                <SelectItem value="ACCOUNTANT">Accountant</SelectItem>
-                <SelectItem value="VIEWER">Viewer</SelectItem>
+                <SelectItem value="MANAGER">Manager</SelectItem>
               </SelectContent>
             </Select>
+
           </div>
           
           {/* Password Change Section */}

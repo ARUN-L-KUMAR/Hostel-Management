@@ -19,9 +19,11 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${GeistSans.variable} ${GeistMono.variable}`}>
-      <body className={GeistSans.className}>
+      <body className={`${GeistSans.className} overflow-x-hidden`}> {/* Added overflow-x-hidden */}
         <AuthProvider>
-          {children}
+          <div className="min-h-screen max-w-full overflow-x-hidden"> {/* Added wrapper with constraints */}
+            {children}
+          </div>
           <Toaster />
         </AuthProvider>
         <Analytics />

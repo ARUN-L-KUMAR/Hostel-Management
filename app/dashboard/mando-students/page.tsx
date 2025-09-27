@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { Button } from "@/components/ui/button"
 import { MealEntryCalendar } from "@/components/meal-entry/meal-entry-calendar"
 import { MealEntryActions } from "@/components/meal-entry/meal-entry-actions"
 
@@ -76,6 +77,10 @@ export default function MealEntryPage({ searchParams }: { searchParams: { [key: 
     document.body.removeChild(link)
   }
 
+  const handleRefresh = () => {
+    window.location.reload()
+  }
+
   return (
     <div className="space-y-6">
       {/* Page Header */}
@@ -84,7 +89,12 @@ export default function MealEntryPage({ searchParams }: { searchParams: { [key: 
           <h1 className="text-2xl font-bold text-slate-900">Meal Entry - Mando Students</h1>
           <p className="text-slate-600">Track meal consumption (B=Breakfast, L=Lunch, D=Dinner) for mando students</p>
         </div>
-        <MealEntryActions onExport={exportMealDataToCSV} />
+        <div className="flex items-center space-x-2">
+          <Button variant="outline" onClick={handleRefresh}>
+            Refresh
+          </Button>
+          <MealEntryActions onExport={exportMealDataToCSV} />
+        </div>
       </div>
 
       {/* Meal Entry Calendar */}
