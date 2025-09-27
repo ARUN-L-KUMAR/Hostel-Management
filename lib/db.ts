@@ -996,11 +996,11 @@ export const prisma = {
 
     create: async (options: any) => {
       try {
-        const { name, phone, company } = options.data
+        const { name, phone, company, designation, description } = options.data
         const now = new Date()
         const result = await sql`
-          INSERT INTO outsiders (name, phone, company, "createdAt")
-          VALUES (${name}, ${phone || null}, ${company || null}, ${now})
+          INSERT INTO outsiders (name, phone, company, designation, description, "createdAt")
+          VALUES (${name}, ${phone || null}, ${company || null}, ${designation || null}, ${description || null}, ${now})
           RETURNING *
         `
         return result[0]
@@ -1012,13 +1012,15 @@ export const prisma = {
 
     update: async (options: any) => {
       try {
-        const { name, phone, company } = options.data
+        const { name, phone, company, designation, description } = options.data
         const now = new Date()
         const result = await sql`
           UPDATE outsiders SET
             name = ${name},
             phone = ${phone || null},
             company = ${company || null},
+            designation = ${designation || null},
+            description = ${description || null},
             "updatedAt" = ${now}
           WHERE id = ${options.where.id}
           RETURNING *
