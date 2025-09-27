@@ -390,16 +390,22 @@ export default function BillingPage() {
     console.log("[DEBUG] Available semesters:", semesters.length)
     console.log("[DEBUG] Current semesters array:", semesters.map(s => ({ id: s.id, name: s.name })))
 
+    // Reset all semester-specific state first
     setSelectedSemesterId(semesterId)
+    setSelectedSemester(null)
+    setStudentsSem([]) // Clear student data immediately
+    setCalculatedProvisionCharge(0)
+    setTotalProvisionUsage(0)
+    setSemAdvanceAmount(0)
+    setLoadingProvisionCharge(false)
+    setLoadingStudentsSem(false)
+    setSelectedStudents(new Set()) // Clear selections
+    setSelectAll(false)
 
     if (semesterId === "create-new") {
       console.log("[DEBUG] Creating new semester")
       setShowCreateSemester(true)
-      setSelectedSemester(null)
-      setSemAdvanceAmount(0)
-      setCalculatedProvisionCharge(0)
-      setTotalProvisionUsage(0)
-      setLoadingProvisionCharge(false)
+      setStudentsSem([]) // Clear student data for new semester creation
     } else {
       console.log("[DEBUG] Looking for semester with ID:", semesterId, "type:", typeof semesterId)
       const semester = semesters.find(s => {
@@ -417,12 +423,10 @@ export default function BillingPage() {
           endDate: semester.endDate,
           feeStructures: semester.feeStructures
         })
-      }
 
-      setSelectedSemester(semester || null)
-      setShowCreateSemester(false)
+        setSelectedSemester(semester)
+        setShowCreateSemester(false)
 
-      if (semester) {
         // Set advance amount from semester base amount
         const baseAmount = semester.feeStructures[0]?.baseAmount || 0
         console.log("[DEBUG] Setting advance amount to semester base amount:", baseAmount)
@@ -435,10 +439,7 @@ export default function BillingPage() {
         fetchFeeRecords(semesterId)
       } else {
         console.log("[DEBUG] No semester found for ID:", semesterId, "- available IDs:", semesters.map(s => s.id))
-        setSemAdvanceAmount(0)
-        setCalculatedProvisionCharge(0)
-        setTotalProvisionUsage(0)
-        setLoadingProvisionCharge(false)
+        setShowCreateSemester(false)
       }
     }
     console.log("[DEBUG] === SEMESTER SELECTION END ===")
@@ -531,6 +532,10 @@ export default function BillingPage() {
         if (selectedSemesterId === semesterId.toString()) {
           setSelectedSemesterId("")
           setSelectedSemester(null)
+          setStudentsSem([]) // Clear student data when semester is deleted
+          setCalculatedProvisionCharge(0)
+          setTotalProvisionUsage(0)
+          setSemAdvanceAmount(0)
         }
 
         await fetchSemesters()
@@ -1107,11 +1112,9 @@ export default function BillingPage() {
       calculateProvisionChargePerDay(selectedSemester)
     } else {
       console.log("[DEBUG] selectedSemester is null")
+      // Clear student data when no semester is selected
+      setStudentsSem([])
     }
-  }, [selectedSemester])
-
-  useEffect(() => {
-    fetchSemStudentsData()
   }, [selectedSemester])
 
   return (
