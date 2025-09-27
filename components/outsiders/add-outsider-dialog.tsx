@@ -19,6 +19,8 @@ export function AddOutsiderDialog({ onClose }: AddOutsiderDialogProps) {
     name: "",
     phone: "",
     company: "",
+    designation: "",
+    description: "",
   })
 
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -45,7 +47,7 @@ export function AddOutsiderDialog({ onClose }: AddOutsiderDialogProps) {
     <form onSubmit={handleSubmit} className="space-y-6">
       <Card>
         <CardContent className="p-6 space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="name">Full Name *</Label>
               <Input
@@ -74,6 +76,26 @@ export function AddOutsiderDialog({ onClose }: AddOutsiderDialogProps) {
                 value={formData.company}
                 onChange={(e) => setFormData((prev) => ({ ...prev, company: e.target.value }))}
                 placeholder="Enter company name"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="designation">Designation</Label>
+              <Input
+                id="designation"
+                value={formData.designation}
+                onChange={(e) => setFormData((prev) => ({ ...prev, designation: e.target.value }))}
+                placeholder="Enter designation"
+              />
+            </div>
+
+            <div className="space-y-2 md:col-span-2">
+              <Label htmlFor="description">Description</Label>
+              <Input
+                id="description"
+                value={formData.description}
+                onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))}
+                placeholder="Enter description"
               />
             </div>
           </div>

@@ -22,6 +22,8 @@ interface MealRecord {
     id: number
     name: string
     phone: string | null
+    designation: string | null
+    description: string | null
   }
 }
 

@@ -45,13 +45,15 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { name, phone, company } = body
+    const { name, phone, company, designation, description } = body
 
     const outsider = await prisma.outsider.create({
       data: {
         name,
         phone,
         company,
+        designation,
+        description,
       },
     })
 

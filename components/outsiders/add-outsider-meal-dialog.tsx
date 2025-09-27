@@ -19,6 +19,8 @@ export function AddOutsiderMealDialog({ onClose }: AddOutsiderMealDialogProps) {
   const [formData, setFormData] = useState({
     name: "",
     phone: "",
+    designation: "",
+    description: "",
     date: new Date().toISOString().split('T')[0], // Today's date
     breakfast: false,
     lunch: false,
@@ -43,6 +45,8 @@ export function AddOutsiderMealDialog({ onClose }: AddOutsiderMealDialogProps) {
           name: formData.name,
           phone: formData.phone,
           company: null, // No company needed
+          designation: formData.designation,
+          description: formData.description,
         })
       }
 
@@ -98,6 +102,16 @@ export function AddOutsiderMealDialog({ onClose }: AddOutsiderMealDialogProps) {
             </div>
 
             <div className="space-y-2">
+              <Label htmlFor="designation">Designation</Label>
+              <Input
+                id="designation"
+                value={formData.designation}
+                onChange={(e) => setFormData((prev) => ({ ...prev, designation: e.target.value }))}
+                placeholder="Enter designation"
+              />
+            </div>
+
+            <div className="space-y-2">
               <Label htmlFor="date">Date *</Label>
               <Input
                 id="date"
@@ -105,6 +119,16 @@ export function AddOutsiderMealDialog({ onClose }: AddOutsiderMealDialogProps) {
                 value={formData.date}
                 onChange={(e) => setFormData((prev) => ({ ...prev, date: e.target.value }))}
                 required
+              />
+            </div>
+
+            <div className="space-y-2 md:col-span-2">
+              <Label htmlFor="description">Description</Label>
+              <Input
+                id="description"
+                value={formData.description}
+                onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))}
+                placeholder="Enter description"
               />
             </div>
           </div>

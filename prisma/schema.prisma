@@ -316,11 +316,13 @@ model MealRecord {
 }
 
 model Outsider {
-  id        Int      @id @default(autoincrement())
-  name      String
-  phone     String?
-  company   String?
-  createdAt DateTime @default(now())
+  id          Int      @id @default(autoincrement())
+  name        String
+  phone       String?
+  company     String?
+  designation String?
+  description String?
+  createdAt   DateTime @default(now())
 
   meals     OutsiderMealRecord[]
 
