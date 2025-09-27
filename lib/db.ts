@@ -1362,6 +1362,376 @@ export const prisma = {
     },
   },
 
+  semester: {
+    findMany: async (options?: any) => {
+      try {
+        let query = sql`SELECT * FROM semesters`
+        const whereConditions: any[] = []
+
+        if (options?.where) {
+          // Add where conditions as needed
+        }
+
+        if (whereConditions.length > 0) {
+          query = sql`${query} WHERE ${whereConditions[0]}`
+          for (let i = 1; i < whereConditions.length; i++) {
+            query = sql`${query} AND ${whereConditions[i]}`
+          }
+        }
+
+        query = sql`${query} ORDER BY "startDate" DESC`
+
+        const result = await query
+
+        // Include related data if requested
+        if (options?.include?.feeStructures) {
+          for (const semester of result) {
+            const feeStructures = await sql`SELECT * FROM fee_structures WHERE "semesterId" = ${semester.id}`
+            semester.feeStructures = feeStructures
+          }
+        }
+
+        if (options?.include?.feeRecords) {
+          for (const semester of result) {
+            const feeRecords = await sql`SELECT COUNT(*) as count FROM fee_records WHERE "semesterId" = ${semester.id}`
+            semester._count = { feeRecords: Number(feeRecords[0].count) }
+          }
+        }
+
+        return result
+      } catch (error) {
+        console.error("[v0] Error finding semesters:", error)
+        return []
+      }
+    },
+
+    create: async (options: any) => {
+      try {
+        const { name, startDate, endDate } = options.data
+        const now = new Date()
+        const result = await sql`
+          INSERT INTO semesters (name, "startDate", "endDate", "createdAt", "updatedAt")
+          VALUES (${name}, ${startDate}, ${endDate}, ${now}, ${now})
+          RETURNING *
+        `
+        return result[0]
+      } catch (error) {
+        console.error("[v0] Error creating semester:", error)
+        throw error
+      }
+    },
+
+    update: async (options: any) => {
+      try {
+        const { id } = options.where
+        const { name, startDate, endDate } = options.data
+        const now = new Date()
+
+        const result = await sql`
+          UPDATE semesters SET
+            name = ${name},
+            "startDate" = ${startDate},
+            "endDate" = ${endDate},
+            "updatedAt" = ${now}
+          WHERE id = ${id}
+          RETURNING *
+        `
+        return result[0]
+      } catch (error) {
+        console.error("[v0] Error updating semester:", error)
+        throw error
+      }
+    },
+
+    delete: async (options: any) => {
+      try {
+        const { id } = options.where
+        const result = await sql`
+          DELETE FROM semesters
+          WHERE id = ${id}
+          RETURNING *
+        `
+        return result[0]
+      } catch (error) {
+        console.error("[v0] Error deleting semester:", error)
+        throw error
+      }
+    },
+  },
+
+  feeStructure: {
+    findFirst: async (options?: any) => {
+      try {
+        let query = sql`SELECT * FROM fee_structures`
+        const whereConditions = []
+
+        if (options?.where?.semesterId) {
+          whereConditions.push(sql`"semesterId" = ${options.where.semesterId}`)
+        }
+
+        if (whereConditions.length > 0) {
+          query = sql`${query} WHERE ${whereConditions[0]}`
+          for (let i = 1; i < whereConditions.length; i++) {
+            query = sql`${query} AND ${whereConditions[i]}`
+          }
+        }
+
+        query = sql`${query} ORDER BY "createdAt" DESC LIMIT 1`
+
+        const result = await query
+
+        // Include semester relation if requested
+        if (options?.include?.semester && result.length > 0) {
+          const semester = await sql`SELECT * FROM semesters WHERE id = ${result[0].semesterId}`
+          result[0].semester = semester[0] || null
+        }
+
+        return result[0] || null
+      } catch (error) {
+        console.error("[v0] Error finding fee structure:", error)
+        return null
+      }
+    },
+
+    create: async (options: any) => {
+      try {
+        const { semesterId, baseAmount, adjustment, finalAmount } = options.data
+        const now = new Date()
+        const result = await sql`
+          INSERT INTO fee_structures ("semesterId", "baseAmount", adjustment, "finalAmount", "createdAt")
+          VALUES (${semesterId}, ${baseAmount}, ${adjustment || 0}, ${finalAmount}, ${now})
+          RETURNING *
+        `
+        return result[0]
+      } catch (error) {
+        console.error("[v0] Error creating fee structure:", error)
+        throw error
+      }
+    },
+
+    updateMany: async (options: any) => {
+      try {
+        const { semesterId } = options.where
+        const data = options.data
+        const now = new Date()
+
+        const result = await sql`
+          UPDATE fee_structures SET
+            "baseAmount" = ${data.baseAmount},
+            adjustment = ${data.adjustment || 0},
+            "finalAmount" = ${data.finalAmount}
+          WHERE "semesterId" = ${semesterId}
+          RETURNING *
+        `
+        return result
+      } catch (error) {
+        console.error("[v0] Error updating fee structures:", error)
+        throw error
+      }
+    },
+
+    deleteMany: async (options: any) => {
+      try {
+        const { semesterId } = options.where
+        const result = await sql`
+          DELETE FROM fee_structures
+          WHERE "semesterId" = ${semesterId}
+          RETURNING *
+        `
+        return result
+      } catch (error) {
+        console.error("[v0] Error deleting fee structures:", error)
+        throw error
+      }
+    },
+  },
+
+  feeRecord: {
+    findMany: async (options?: any) => {
+      try {
+        let query = sql`
+          SELECT fr.*, s.name as student_name, s."rollNo", s.dept, s.year, h.name as hostel_name,
+            sem.name as semester_name
+          FROM fee_records fr
+          LEFT JOIN students s ON fr."studentId" = s.id
+          LEFT JOIN hostels h ON s."hostelId" = h.id
+          LEFT JOIN semesters sem ON fr."semesterId" = sem.id
+        `
+        const whereConditions = []
+
+        if (options?.where?.studentId) {
+          whereConditions.push(sql`fr."studentId" = ${options.where.studentId}`)
+        }
+
+        if (options?.where?.semesterId) {
+          whereConditions.push(sql`fr."semesterId" = ${options.where.semesterId}`)
+        }
+
+        if (whereConditions.length > 0) {
+          query = sql`${query} WHERE ${whereConditions[0]}`
+          for (let i = 1; i < whereConditions.length; i++) {
+            query = sql`${query} AND ${whereConditions[i]}`
+          }
+        }
+
+        query = sql`${query} ORDER BY s.name ASC`
+
+        const result = await query
+
+        // Transform to include nested objects
+        return result.map((row: any) => ({
+          ...row,
+          student: {
+            id: row.studentId,
+            name: row.student_name,
+            rollNo: row.rollNo,
+            dept: row.dept,
+            year: row.year,
+            hostel: row.hostel_name ? { name: row.hostel_name } : null,
+          },
+          semester: {
+            id: row.semesterId,
+            name: row.semester_name,
+          },
+        }))
+      } catch (error) {
+        console.error("[v0] Error finding fee records:", error)
+        return []
+      }
+    },
+
+    findUnique: async (options: any) => {
+      try {
+        const result = await sql`
+          SELECT fr.*, s.name as student_name, s."rollNo", s.dept, s.year, h.name as hostel_name,
+                 sem.name as semester_name, sem."startDate", sem."endDate"
+          FROM fee_records fr
+          LEFT JOIN students s ON fr."studentId" = s.id
+          LEFT JOIN hostels h ON s."hostelId" = h.id
+          LEFT JOIN semesters sem ON fr."semesterId" = sem.id
+          WHERE fr."studentId" = ${options.where.studentId} AND fr."semesterId" = ${options.where.semesterId}
+        `
+
+        if (result.length === 0) return null
+
+        const row = result[0]
+        return {
+          ...row,
+          student: {
+            id: row.studentId,
+            name: row.student_name,
+            rollNo: row.rollNo,
+            dept: row.dept,
+            year: row.year,
+            hostel: row.hostel_name ? { name: row.hostel_name } : null,
+          },
+          semester: {
+            id: row.semesterId,
+            name: row.semester_name,
+            startDate: row.startDate,
+            endDate: row.endDate,
+          },
+        }
+      } catch (error) {
+        console.error("[v0] Error finding fee record:", error)
+        return null
+      }
+    },
+
+    create: async (options: any) => {
+      try {
+        const { studentId, semesterId, totalDue, amountPaid, balance, paymentMode } = options.data
+        const now = new Date()
+        console.log("[v0] Creating fee record with data:", { studentId, semesterId, totalDue, amountPaid, balance, paymentMode })
+
+        const result = await sql`
+          INSERT INTO fee_records ("studentId", "semesterId", "totalDue", "amountPaid", balance, "paymentMode", "paymentDate", "createdAt", "updatedAt")
+          VALUES (${studentId}, ${semesterId}, ${totalDue}, ${amountPaid || 0}, ${balance}, ${paymentMode || null}, ${now}, ${now}, ${now})
+          RETURNING *
+        `
+
+        console.log("[v0] Fee record create result:", result)
+
+        if (!result || result.length === 0) {
+          throw new Error("Failed to create fee record - no data returned")
+        }
+
+        console.log("[v0] Returning fee record:", result[0])
+        return result[0]
+      } catch (error) {
+        console.error("[v0] Error creating fee record:", error)
+        throw error
+      }
+    },
+
+    update: async (options: any) => {
+      try {
+        const { amountPaid, balance, paymentMode } = options.data
+        const now = new Date()
+
+        let result
+
+        if (options.where.id) {
+          // Update by ID
+          result = await sql`
+            UPDATE fee_records SET
+              "amountPaid" = ${amountPaid},
+              balance = ${balance},
+              "paymentMode" = ${paymentMode || null},
+              "paymentDate" = ${now}
+            WHERE id = ${options.where.id}
+            RETURNING *
+          `
+        } else if (options.where.studentId_semesterId) {
+          // Update by Prisma composite key format
+          const { studentId, semesterId } = options.where.studentId_semesterId
+          result = await sql`
+            UPDATE fee_records SET
+              "amountPaid" = ${amountPaid},
+              balance = ${balance},
+              "paymentMode" = ${paymentMode || null},
+              "paymentDate" = ${now}
+            WHERE "studentId" = ${studentId} AND "semesterId" = ${semesterId}
+            RETURNING *
+          `
+        } else if (options.where.studentId && options.where.semesterId) {
+          // Update by direct composite key
+          result = await sql`
+            UPDATE fee_records SET
+              "amountPaid" = ${amountPaid},
+              balance = ${balance},
+              "paymentMode" = ${paymentMode || null},
+              "paymentDate" = ${now}
+            WHERE "studentId" = ${options.where.studentId} AND "semesterId" = ${options.where.semesterId}
+            RETURNING *
+          `
+        } else {
+          throw new Error("Invalid where clause for fee record update")
+        }
+
+        return result[0]
+      } catch (error) {
+        console.error("[v0] Error updating fee record:", error)
+        throw error
+      }
+    },
+
+    deleteMany: async (options: any) => {
+      try {
+        const { semesterId } = options.where
+        const result = await sql`
+          DELETE FROM fee_records
+          WHERE "semesterId" = ${semesterId}
+          RETURNING *
+        `
+        return result
+      } catch (error) {
+        console.error("[v0] Error deleting fee records:", error)
+        throw error
+      }
+    },
+  },
+
   // Raw query support
   $queryRawUnsafe: async (query: string, ...params: any[]) => {
     // For Neon, we need to use template literals, so we'll interpolate the query

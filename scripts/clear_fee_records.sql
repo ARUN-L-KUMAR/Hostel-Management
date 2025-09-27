@@ -1,0 +1,1 @@
+DELETE FROM fee_records;

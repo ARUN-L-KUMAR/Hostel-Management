@@ -34,31 +34,32 @@ model Hostel {
 }
 
 model Student {
-  id       String  @id @default(cuid())
-  name     String
-  rollNo   String  @unique
-  dept     String? // Department field
-  year     Int
-  gender   String? // Gender: 'M' for Male, 'F' for Female
-  isMando  Boolean @default(false)
-  company  String? // For mando students
-  status   StudentStatus @default(ACTIVE)
+   id       String  @id @default(cuid())
+   name     String
+   rollNo   String  @unique
+   dept     String? // Department field
+   year     Int
+   gender   String? // Gender: 'M' for Male, 'F' for Female
+   isMando  Boolean @default(false)
+   company  String? // For mando students
+   status   StudentStatus @default(ACTIVE)
 
-  hostelId String
-  hostel   Hostel @relation(fields: [hostelId], references: [id])
+   hostelId String
+   hostel   Hostel @relation(fields: [hostelId], references: [id])
 
-  joinDate  DateTime @default(now())
-  leaveDate DateTime?
+   joinDate  DateTime @default(now())
+   leaveDate DateTime?
 
-  attendance         Attendance[]
-  monthSummaries     InmateMonthlySummary[]
-  studentBills       StudentBill[]
-  meals              MealRecord[]
+   attendance         Attendance[]
+   monthSummaries     InmateMonthlySummary[]
+   studentBills       StudentBill[]
+   meals              MealRecord[]
+   fees               FeeRecord[]
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+   createdAt DateTime @default(now())
+   updatedAt DateTime @updatedAt
 
-  @@map("students")
+   @@map("students")
 }
 
 model Attendance {
@@ -265,7 +266,6 @@ enum StudentStatus {
   VACATE
   GRADUATED
   TRANSFERRED
-  VACATE
 }
 
 enum AttendanceCode {
@@ -331,15 +331,63 @@ model Outsider {
 }
 
 model OutsiderMealRecord {
-  id          Int      @id @default(autoincrement())
-  outsiderId  Int
-  date        DateTime
-  breakfast   Boolean  @default(false)
-  lunch       Boolean  @default(false)
-  dinner      Boolean  @default(false)
-  mealRate    Float
+   id          Int      @id @default(autoincrement())
+   outsiderId  Int
+   date        DateTime
+   breakfast   Boolean  @default(false)
+   lunch       Boolean  @default(false)
+   dinner      Boolean  @default(false)
+   mealRate    Float
 
-  outsider    Outsider @relation(fields: [outsiderId], references: [id])
+   outsider    Outsider @relation(fields: [outsiderId], references: [id])
 
-  @@map("outsider_meal_records")
+   @@map("outsider_meal_records")
+}
+
+model Semester {
+  id        Int      @id @default(autoincrement())
+  name      String   // e.g., "Sem 1 - 2025"
+  startDate DateTime
+  endDate   DateTime
+
+  feeStructures FeeStructure[]
+  feeRecords    FeeRecord[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("semesters")
+}
+
+model FeeStructure {
+  id           Int      @id @default(autoincrement())
+  semesterId   Int
+  baseAmount   Float    // planned fee (before adjustments)
+  adjustment   Float    @default(0) // carry forward from previous month
+  finalAmount  Float    // baseAmount + adjustment
+  createdAt    DateTime @default(now())
+
+  semester     Semester @relation(fields: [semesterId], references: [id])
+
+  @@map("fee_structures")
+}
+
+model FeeRecord {
+  id           Int        @id @default(autoincrement())
+  studentId    String
+  semesterId   Int
+  totalDue     Float      // from FeeStructure.finalAmount
+  amountPaid   Float      @default(0)
+  balance      Float
+  paymentMode  String?    // UPI, cash, etc.
+  paymentDate  DateTime   @default(now())
+
+  student      Student    @relation(fields: [studentId], references: [id])
+  semester     Semester   @relation(fields: [semesterId], references: [id])
+
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  @@unique([studentId, semesterId])
+  @@map("fee_records")
 }
