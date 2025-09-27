@@ -12,12 +12,17 @@ export const prisma = {
       try {
         // For now, get all students with hostel info
         // TODO: Implement proper filtering
+        console.log('[SUCCESS] Department column fixed - using "dept" with proper quoting')
+
         const result = await sql`
-          SELECT s.*, h.name as hostel_name
+          SELECT s.id, s.name, s."rollNo", s."dept", s.year, s.gender, s."isMando", s.company, s.status, s."hostelId", s."joinDate", s."leaveDate", s."createdAt", s."updatedAt", h.name as hostel_name
           FROM students s
           LEFT JOIN hostels h ON s."hostelId" = h.id
           ORDER BY s.name ASC
         `
+
+        console.log('[v0] Sample raw student from database - all fields:', Object.keys(result[0] || {}))
+        console.log('[v0] First student raw data:', result[0])
 
         let studentsWithHostel = result.map((student: any) => ({
           ...student,
@@ -39,13 +44,33 @@ export const prisma = {
           }
           // Only filter by mando status if explicitly requested
           if (options.where.isMando !== undefined) {
-            studentsWithHostel = studentsWithHostel.filter(s => s.isMando === options.where.isMando)
+            if (options.where.isMando === 'ALL') {
+              // Special flag to include all students (don't filter by mando status)
+              console.log('[v1] Including ALL students (mando and non-mando)')
+            } else {
+              studentsWithHostel = studentsWithHostel.filter(s => s.isMando === options.where.isMando)
+            }
           } else {
             // If no mando filter specified, exclude mando students (for attendance system)
             studentsWithHostel = studentsWithHostel.filter(s => !s.isMando)
           }
           if (options.where.status) {
             studentsWithHostel = studentsWithHostel.filter(s => s.status === options.where.status)
+          }
+          // Handle department filtering - both exact match and contains search
+          if (options.where.dept) {
+            if (typeof options.where.dept === 'string') {
+              // Exact match for department
+              studentsWithHostel = studentsWithHostel.filter(s => s.dept === options.where.dept)
+              console.log(`[v0] Applied exact dept filter: ${options.where.dept}`)
+            } else if (typeof options.where.dept === 'object' && options.where.dept.contains) {
+              // Contains search for department
+              const deptFilter = options.where.dept.contains.toLowerCase()
+              studentsWithHostel = studentsWithHostel.filter(s => 
+                s.dept && s.dept.toLowerCase().includes(deptFilter)
+              )
+              console.log(`[v0] Applied contains dept filter: ${deptFilter}`)
+            }
           }
           if (options.where.OR) {
             studentsWithHostel = studentsWithHostel.filter(s => {
@@ -218,6 +243,7 @@ export const prisma = {
         if (data.isMando !== undefined) updates.push(`"isMando" = ${data.isMando}`)
         if (data.company !== undefined) updates.push(`company = '${data.company || null}'`)
         if (data.status !== undefined) updates.push(`status = '${data.status}'`)
+        if (data.dept !== undefined) updates.push(`dept = '${data.dept || null}'`)
         if (data.leaveDate !== undefined) {
           const leaveDate = data.leaveDate ? `'${new Date(data.leaveDate).toISOString()}'` : 'NULL'
           updates.push(`"leaveDate" = ${leaveDate}`)

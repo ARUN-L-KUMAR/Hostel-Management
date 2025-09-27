@@ -6,10 +6,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Eye, Edit, MoreHorizontal, UserX } from "lucide-react"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Eye, Edit, MoreHorizontal, UserX, Trash2 } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu"
 import { ApiClient } from "@/lib/api-client"
 import { RemoveStudentDialog } from "./remove-student-dialog"
+import { BulkRemoveDialog } from "./bulk-remove-dialog"
 
 interface Student {
   id: string
@@ -45,6 +47,8 @@ export function StudentsTable({ filters }: StudentsTableProps) {
   const [loading, setLoading] = useState(true)
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null)
   const [removeDialogOpen, setRemoveDialogOpen] = useState(false)
+  const [selectedStudents, setSelectedStudents] = useState<Set<string>>(new Set())
+  const [bulkRemoveDialogOpen, setBulkRemoveDialogOpen] = useState(false)
 
   useEffect(() => {
     const fetchStudents = async () => {
@@ -77,6 +81,8 @@ export function StudentsTable({ filters }: StudentsTableProps) {
         if (filters.search) {
           apiFilters.search = filters.search
         }
+
+        console.log('Frontend: Sending API filters:', apiFilters)
 
         const response = await ApiClient.students.getAll(apiFilters)
 
@@ -112,8 +118,37 @@ export function StudentsTable({ filters }: StudentsTableProps) {
     setRemoveDialogOpen(true)
   }
 
+  const handleSelectStudent = (studentId: string, checked: boolean) => {
+    const newSelected = new Set(selectedStudents)
+    if (checked) {
+      newSelected.add(studentId)
+    } else {
+      newSelected.delete(studentId)
+    }
+    setSelectedStudents(newSelected)
+  }
+
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedStudents(new Set(students.map(s => s.id)))
+    } else {
+      setSelectedStudents(new Set())
+    }
+  }
+
+  const handleBulkRemove = () => {
+    if (selectedStudents.size > 0) {
+      setBulkRemoveDialogOpen(true)
+    }
+  }
+
+  const isAllSelected = students.length > 0 && selectedStudents.size === students.length
+  const isIndeterminate = selectedStudents.size > 0 && selectedStudents.size < students.length
+
   const handleStudentRemoved = () => {
-    // Refresh the students list
+    // Clear selections and refresh the students list
+    setSelectedStudents(new Set())
+    
     const fetchStudents = async () => {
       setLoading(true)
       try {
@@ -137,6 +172,8 @@ export function StudentsTable({ filters }: StudentsTableProps) {
         if (filters.search) {
           apiFilters.search = filters.search
         }
+
+        console.log('Frontend: Refreshing with API filters:', apiFilters)
 
         const response = await ApiClient.students.getAll(apiFilters)
         const studentsWithStats = response.map((student: any) => ({
@@ -184,12 +221,32 @@ export function StudentsTable({ filters }: StudentsTableProps) {
   return (
     <Card className="border-0 shadow-md">
       <CardHeader>
-        <CardTitle>Students ({students.length})</CardTitle>
+        <div className="flex items-center justify-between">
+          <CardTitle>Students ({students.length})</CardTitle>
+          {selectedStudents.size > 0 && (
+            <Button 
+              variant="destructive" 
+              size="sm" 
+              onClick={handleBulkRemove}
+              className="flex items-center gap-2"
+            >
+              <Trash2 className="w-4 h-4" />
+              Remove Selected ({selectedStudents.size})
+            </Button>
+          )}
+        </div>
       </CardHeader>
       <CardContent>
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead className="w-12">
+                <Checkbox
+                  checked={isAllSelected}
+                  onCheckedChange={handleSelectAll}
+                  aria-label="Select all students"
+                />
+              </TableHead>
               <TableHead>Student</TableHead>
               <TableHead>Dept</TableHead>
               <TableHead>Hostel</TableHead>
@@ -202,13 +259,20 @@ export function StudentsTable({ filters }: StudentsTableProps) {
           <TableBody>
             {students.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center py-8 text-slate-500">
+                <TableCell colSpan={8} className="text-center py-8 text-slate-500">
                   No students found matching the current filters.
                 </TableCell>
               </TableRow>
             ) : (
               students.map((student) => (
                 <TableRow key={student.id}>
+                  <TableCell>
+                    <Checkbox
+                      checked={selectedStudents.has(student.id)}
+                      onCheckedChange={(checked) => handleSelectStudent(student.id, checked as boolean)}
+                      aria-label={`Select ${student.name}`}
+                    />
+                  </TableCell>
                   <TableCell>
                     <div>
                       <div className="font-medium text-slate-900">{student.name}</div>
@@ -279,6 +343,14 @@ export function StudentsTable({ filters }: StudentsTableProps) {
         open={removeDialogOpen}
         onOpenChange={setRemoveDialogOpen}
         onStudentRemoved={handleStudentRemoved}
+      />
+      
+      {/* Bulk Remove Dialog */}
+      <BulkRemoveDialog
+        students={students.filter(s => selectedStudents.has(s.id))}
+        open={bulkRemoveDialogOpen}
+        onOpenChange={setBulkRemoveDialogOpen}
+        onStudentsRemoved={handleStudentRemoved}
       />
     </Card>
   )

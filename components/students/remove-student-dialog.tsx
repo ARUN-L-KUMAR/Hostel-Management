@@ -57,7 +57,7 @@ export function RemoveStudentDialog({
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          status: "INACTIVE",
+          status: "VACATE",
           leaveDate: new Date().toISOString(),
           leaveReason: description.trim(),
         }),

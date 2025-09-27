@@ -45,11 +45,9 @@ export async function GET(request: NextRequest) {
     }
 
     if (dept && dept !== "all") {
-      where.dept = {
-        contains: dept,
-        mode: 'insensitive'
-      }
-      console.log(`[DEBUG] Dept filter applied: ${dept}`)
+      // Use exact match for department filtering
+      where.dept = dept
+      console.log(`[DEBUG] Dept filter applied (exact match): ${dept}`)
     }
 
     if (search) {

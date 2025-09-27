@@ -37,6 +37,7 @@ export function StudentsFilters({ onFiltersChange }: StudentsFiltersProps) {
         const response = await fetch('/api/students/departments')
         if (response.ok) {
           const data = await response.json()
+          console.log('Fetched departments:', data)
           setDepartments(data)
         }
       } catch (error) {
@@ -150,11 +151,11 @@ export function StudentsFilters({ onFiltersChange }: StudentsFiltersProps) {
             <SelectTrigger className="bg-white">
               <SelectValue placeholder="Select dept" />
             </SelectTrigger>
-            <SelectContent className="bg-white">
+            <SelectContent className="bg-white max-h-60 overflow-y-auto">
               <SelectItem value="all">All Depts</SelectItem>
               {departments.filter(dept => dept != null).map((dept) => (
                 <SelectItem key={dept} value={dept}>
-                  {dept.toUpperCase()}
+                  {dept}
                 </SelectItem>
               ))}
             </SelectContent>
