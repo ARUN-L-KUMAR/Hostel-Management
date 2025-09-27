@@ -28,7 +28,13 @@ export async function GET(request: NextRequest) {
     }
 
     console.log('Final result being returned:', result)
-    return NextResponse.json(result)
+    return NextResponse.json(result, {
+      headers: {
+        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0',
+      },
+    })
   } catch (error) {
     console.error("Error fetching meal rates:", error)
     return NextResponse.json({ error: "Failed to fetch meal rates" }, { status: 500 })
@@ -41,6 +47,7 @@ export async function PUT(request: NextRequest) {
     const { mando, outsiders } = body
 
     console.log('Updating meal rates - mando:', mando, 'outsiders:', outsiders)
+    console.log('Request body:', body)
 
     // First try to find existing settings
     console.log('Looking for existing settings with id: default')
@@ -56,23 +63,35 @@ export async function PUT(request: NextRequest) {
     if (existingSettings) {
       // Update existing
       console.log('Updating existing settings')
-      updatedSettings = await prisma.mandoSettings.update({
-        where: { id: existingSettings.id },
-        data: {
-          perMealRate: mando,
-          outsiderMealRate: outsiders
-        }
-      })
+      try {
+        updatedSettings = await prisma.mandoSettings.update({
+          where: { id: existingSettings.id },
+          data: {
+            perMealRate: mando,
+            outsiderMealRate: outsiders
+          }
+        })
+        console.log('Update successful, updatedSettings:', updatedSettings)
+      } catch (updateError) {
+        console.error('Error updating settings:', updateError)
+        throw updateError
+      }
     } else {
       // Create new
       console.log('Creating new settings')
-      updatedSettings = await prisma.mandoSettings.create({
-        data: {
-          id: "default",
-          perMealRate: mando,
-          outsiderMealRate: outsiders
-        }
-      })
+      try {
+        updatedSettings = await prisma.mandoSettings.create({
+          data: {
+            id: "default",
+            perMealRate: mando,
+            outsiderMealRate: outsiders
+          }
+        })
+        console.log('Create successful, updatedSettings:', updatedSettings)
+      } catch (createError) {
+        console.error('Error creating settings:', createError)
+        throw createError
+      }
     }
 
     console.log('Updated settings:', updatedSettings)
@@ -80,6 +99,12 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({
       mando: Number(updatedSettings.perMealRate),
       outsiders: Number(updatedSettings.outsiderMealRate)
+    }, {
+      headers: {
+        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0',
+      },
     })
   } catch (error) {
     console.error("Error updating meal rates:", error)

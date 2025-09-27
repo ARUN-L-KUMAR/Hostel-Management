@@ -1272,10 +1272,25 @@ export const prisma = {
         console.log('[v0] Finding mando settings with options:', options)
 
         let query = sql`SELECT * FROM mando_settings`
+        const whereConditions = []
 
+        // Handle id filter
+        if (options?.where?.id) {
+          console.log('[v0] Filtering by id:', options.where.id)
+          whereConditions.push(sql`id = ${options.where.id}`)
+        }
+
+        // Handle isActive filter
         if (options?.where?.isActive !== undefined) {
           console.log('[v0] Filtering by isActive:', options.where.isActive)
-          query = sql`${query} WHERE "isActive" = ${options.where.isActive}`
+          whereConditions.push(sql`"isActive" = ${options.where.isActive}`)
+        }
+
+        if (whereConditions.length > 0) {
+          query = sql`${query} WHERE ${whereConditions[0]}`
+          for (let i = 1; i < whereConditions.length; i++) {
+            query = sql`${query} AND ${whereConditions[i]}`
+          }
         }
 
         query = sql`${query} ORDER BY "createdAt" DESC LIMIT 1`
@@ -1330,6 +1345,8 @@ export const prisma = {
         const { id } = options.where
         const data = options.data
 
+        console.log('[v0] Updating mando settings with id:', id, 'data:', data)
+
         const result = await sql`
           UPDATE mando_settings SET
             "perMealRate" = ${data.perMealRate},
@@ -1338,6 +1355,8 @@ export const prisma = {
           WHERE id = ${id}
           RETURNING *
         `
+        
+        console.log('[v0] Update result:', result)
         return result[0]
       } catch (error) {
         console.error("[v0] Error updating mando settings:", error)
