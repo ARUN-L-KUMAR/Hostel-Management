@@ -1751,6 +1751,155 @@ export const prisma = {
     },
   },
 
+  savedReport: {
+    findMany: async (options?: any) => {
+      try {
+        let query = sql`SELECT * FROM saved_reports`
+        const whereConditions = []
+
+        if (options?.where?.month) {
+          whereConditions.push(sql`month = ${options.where.month}`)
+        }
+        if (options?.where?.year) {
+          whereConditions.push(sql`year = ${options.where.year}`)
+        }
+
+        if (whereConditions.length > 0) {
+          query = sql`${query} WHERE ${whereConditions[0]}`
+          for (let i = 1; i < whereConditions.length; i++) {
+            query = sql`${query} AND ${whereConditions[i]}`
+          }
+        }
+
+        query = sql`${query} ORDER BY "createdAt" DESC`
+
+        const result = await query
+
+        // Parse JSON fields with error handling
+        return result.map((report: any) => {
+          try {
+            if (report.settings && typeof report.settings === 'string') {
+              report.settings = JSON.parse(report.settings)
+            }
+          } catch (parseError) {
+            console.warn("[v0] Failed to parse settings JSON for report", report.id, ":", parseError)
+            report.settings = null
+          }
+          try {
+            if (report.summary && typeof report.summary === 'string') {
+              report.summary = JSON.parse(report.summary)
+            }
+          } catch (parseError) {
+            console.warn("[v0] Failed to parse summary JSON for report", report.id, ":", parseError)
+            report.summary = null
+          }
+          return report
+        })
+      } catch (error) {
+        console.error("[v0] Error finding saved reports:", error)
+        return []
+      }
+    },
+
+    findUnique: async (options: any) => {
+      try {
+        const result = await sql`SELECT * FROM saved_reports WHERE id = ${options.where.id}`
+        if (result.length > 0) {
+          // Parse JSON fields with error handling
+          const report = result[0]
+          try {
+            if (report.settings && typeof report.settings === 'string') {
+              report.settings = JSON.parse(report.settings)
+            }
+          } catch (parseError) {
+            console.warn("[v0] Failed to parse settings JSON, setting to null:", parseError)
+            report.settings = null
+          }
+          try {
+            if (report.summary && typeof report.summary === 'string') {
+              report.summary = JSON.parse(report.summary)
+            }
+          } catch (parseError) {
+            console.warn("[v0] Failed to parse summary JSON, setting to null:", parseError)
+            report.summary = null
+          }
+          return report
+        }
+        return null
+      } catch (error) {
+        console.error("[v0] Error finding saved report:", error)
+        return null
+      }
+    },
+
+    create: async (options: any) => {
+      try {
+        const {
+          month,
+          year,
+          reportName,
+          settings,
+          summary
+        } = options.data
+
+        const id = `report_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+        const now = new Date()
+
+        const result = await sql`
+          INSERT INTO saved_reports (
+            id, month, year, "reportName", "settings", "summary",
+            "createdAt", "updatedAt"
+          ) VALUES (
+            ${id}, ${month}, ${year}, ${reportName}, ${JSON.stringify(settings)}, ${JSON.stringify(summary)},
+            ${now}, ${now}
+          )
+          RETURNING *
+        `
+        return result[0]
+      } catch (error) {
+        console.error("[v0] Error creating saved report:", error)
+        throw error
+      }
+    },
+
+    update: async (options: any) => {
+      try {
+        const { id } = options.where
+        const data = options.data
+        const now = new Date()
+
+        const result = await sql`
+          UPDATE saved_reports SET
+            "reportName" = ${data.reportName},
+            "settings" = ${JSON.stringify(data.settings)},
+            "summary" = ${JSON.stringify(data.summary)},
+            "updatedAt" = ${now}
+          WHERE id = ${id}
+          RETURNING *
+        `
+        return result[0]
+      } catch (error) {
+        console.error("[v0] Error updating saved report:", error)
+        throw error
+      }
+    },
+
+    delete: async (options: any) => {
+      try {
+        const { id } = options.where
+        const result = await sql`
+          DELETE FROM saved_reports
+          WHERE id = ${id}
+          RETURNING *
+        `
+        return result[0]
+      } catch (error) {
+        console.error("[v0] Error deleting saved report:", error)
+        throw error
+      }
+    },
+  },
+
   // Raw query support
   $queryRawUnsafe: async (query: string, ...params: any[]) => {
     // For Neon, we need to use template literals, so we'll interpolate the query

@@ -7,8 +7,28 @@ import { useEffect } from "react"
 import { AppSidebar } from "@/components/layout/app-sidebar"
 import { TopNavbar } from "@/components/layout/top-navbar"
 import { DashboardHeader } from "@/components/dashboard/dashboard-header"
-import { SidebarProvider } from "@/components/ui/sidebar"
+import { SidebarProvider, useSidebar } from "@/components/ui/sidebar"
 import { Loader2 } from "lucide-react"
+import { cn } from "@/lib/utils"
+
+function DashboardContent({ children }: { children: React.ReactNode }) {
+  const { state } = useSidebar()
+
+  return (
+    <div
+      className={cn(
+        "flex flex-col min-w-0 transition-all duration-300",
+        state === "expanded" ? "ml-64" : "ml-16"
+      )}
+    >
+      <DashboardHeader />
+      <TopNavbar />
+      <main className="flex-1 p-6 bg-slate-50 overflow-x-hidden">
+        {children}
+      </main>
+    </div>
+  )
+}
 
 export default function DashboardLayout({
   children,
@@ -38,15 +58,9 @@ export default function DashboardLayout({
 
   return (
     <SidebarProvider>
-      <div className="flex min-h-screen w-full max-w-full overflow-x-hidden">
+      <div className="min-h-screen w-full max-w-full overflow-x-hidden">
         <AppSidebar />
-        <div className="flex-1 flex flex-col min-w-0">
-          <DashboardHeader />
-          <TopNavbar />
-          <main className="flex-1 p-6 bg-slate-50 overflow-x-hidden">
-            {children}
-          </main>
-        </div>
+        <DashboardContent>{children}</DashboardContent>
       </div>
     </SidebarProvider>
   )

@@ -55,7 +55,7 @@ export function AppSidebar() {
   return (
     <div
       className={cn(
-        "bg-white border-r border-slate-200 flex flex-col transition-all duration-300 sticky top-0 h-screen",
+        "bg-white border-r border-slate-200 flex flex-col transition-all duration-300 fixed left-0 top-0 h-screen z-40",
         isCollapsed ? "w-16" : "w-64",
       )}
     >
