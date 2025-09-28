@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { YearPicker } from "@/components/ui/year-picker"
 import { Plus, Eye } from "lucide-react"
 import { AddOutsiderMealDialog } from "@/components/outsiders/add-outsider-meal-dialog"
 
@@ -130,19 +131,11 @@ export default function OutsidersPage() {
 
       {/* Filters */}
       <div className="flex items-center space-x-4">
-        <div className="flex items-center space-x-2">
-          <label className="text-sm font-medium">Year:</label>
-          <Select value={selectedYear} onValueChange={setSelectedYear}>
-            <SelectTrigger className="w-24">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="2024">2024</SelectItem>
-              <SelectItem value="2025">2025</SelectItem>
-              <SelectItem value="2026">2026</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+        <YearPicker
+          value={selectedYear}
+          onValueChange={setSelectedYear}
+          className="w-32"
+        />
 
         <div className="flex items-center space-x-2">
           <label className="text-sm font-medium">Month:</label>

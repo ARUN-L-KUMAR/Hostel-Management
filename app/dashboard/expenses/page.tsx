@@ -7,6 +7,7 @@ import { ExpensesTable } from "@/components/expenses/expenses-table"
 import { ExpensesActions } from "@/components/expenses/expenses-actions"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useRouter } from "next/navigation"
+import { YearPicker } from "@/components/ui/year-picker"
 
 export default function ExpensesPage() {
   const [refreshTrigger, setRefreshTrigger] = useState(0)
@@ -31,7 +32,6 @@ export default function ExpensesPage() {
     router.push(`?${params.toString()}`, { scroll: false })
   }
 
-  const years = Array.from({ length: 5 }, (_, i) => (currentYear - 2 + i).toString())
   const months = [
     { value: "1", label: "January" },
     { value: "2", label: "February" },
@@ -75,18 +75,11 @@ export default function ExpensesPage() {
       <div className="flex items-center space-x-4 p-4 bg-white border rounded-lg">
         <div className="flex items-center space-x-2">
           <span className="text-sm font-medium text-slate-700">Period:</span>
-          <Select value={year} onValueChange={handleYearChange}>
-            <SelectTrigger className="w-24">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {years.map((y) => (
-                <SelectItem key={y} value={y}>
-                  {y}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <YearPicker
+            value={year}
+            onValueChange={handleYearChange}
+            className="w-32"
+          />
 
           <Select value={month} onValueChange={handleMonthChange}>
             <SelectTrigger className="w-32">

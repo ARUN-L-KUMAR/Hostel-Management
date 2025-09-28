@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Edit, Package, Users, UserCheck, Eye, DollarSign, TrendingUp, Pencil, Plus, X, Save, FileText } from "lucide-react"
 import { toast } from "sonner"
+import { YearPicker } from "@/components/ui/year-picker"
 
 interface Semester {
   id: number
@@ -794,19 +795,11 @@ export default function ReportsPage() {
           <Button variant="outline" onClick={handleRefresh}>
             Refresh
           </Button>
-          <div className="flex items-center space-x-2">
-            <Label>Year:</Label>
-            <Select value={selectedYear} onValueChange={setSelectedYear}>
-              <SelectTrigger className="w-24">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="2024">2024</SelectItem>
-                <SelectItem value="2025">2025</SelectItem>
-                <SelectItem value="2026">2026</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          <YearPicker
+            value={selectedYear}
+            onValueChange={setSelectedYear}
+            className="w-32"
+          />
           <div className="flex items-center space-x-2">
             <Label>Month:</Label>
             <Select value={selectedMonth} onValueChange={setSelectedMonth}>
