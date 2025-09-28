@@ -159,6 +159,7 @@ export default function BillingPage() {
           console.log("[DEBUG] Auto-selecting first semester:", data[0].name)
           setSelectedSemesterId(data[0].id.toString())
           setSelectedSemester(data[0])
+          // The useEffect will handle the data fetching
         } else {
           console.log("[DEBUG] No semesters to auto-select or semester already selected")
         }
@@ -359,11 +360,8 @@ export default function BillingPage() {
         setCalculatedProvisionCharge(provisionChargePerDay)
         setSemProvisionCharge(provisionChargePerDay)
 
-        // Refresh Student Payment Overview with the new provision charge
-        if (selectedSemester) {
-          console.log("[DEBUG] Refreshing Student Payment Overview with new provision charge:", provisionChargePerDay)
-          fetchSemStudentsData(provisionChargePerDay)
-        }
+        // Note: Student data refresh is now handled by forceRefetchSemesterData in the useEffect
+        console.log("[DEBUG] Provision charge calculated, data refresh will be handled by force refresh mechanism")
       } else {
         const errorText = await response.text()
         console.error("[DEBUG] Failed to fetch provision usage. Status:", response.status, "Response:", errorText)
@@ -382,64 +380,88 @@ export default function BillingPage() {
     }
   }
 
-  // Handle semester selection
-  const handleSemesterChange = (semesterId: string) => {
-    console.log("[DEBUG] === SEMESTER SELECTION START ===")
-    console.log("[DEBUG] FUNCTION CALLED - handleSemesterChange with ID:", semesterId)
-    console.log("[DEBUG] Semester selection changed to:", semesterId)
-    console.log("[DEBUG] Available semesters:", semesters.length)
-    console.log("[DEBUG] Current semesters array:", semesters.map(s => ({ id: s.id, name: s.name })))
-
-    // Reset all semester-specific state first
-    setSelectedSemesterId(semesterId)
+  // Force reset all semester-related state
+  const forceResetSemesterState = () => {
+    console.log("[DEBUG] === FORCE RESETTING ALL SEMESTER STATE ===")
     setSelectedSemester(null)
-    setStudentsSem([]) // Clear student data immediately
+    setStudentsSem([])
     setCalculatedProvisionCharge(0)
     setTotalProvisionUsage(0)
     setSemAdvanceAmount(0)
     setLoadingProvisionCharge(false)
     setLoadingStudentsSem(false)
-    setSelectedStudents(new Set()) // Clear selections
+    setSelectedStudents(new Set())
     setSelectAll(false)
+    setFeeRecords([])
+    setLoadingFeeRecords(false)
+    console.log("[DEBUG] === FORCE RESET COMPLETED ===")
+  }
+
+  // Force refetch data for a specific semester
+  const forceRefetchSemesterData = async (semester: Semester) => {
+    console.log("[DEBUG] === FORCE REFETCHING SEMESTER DATA ===")
+    console.log("[DEBUG] Force refetching for semester:", semester.name)
+
+    try {
+      // Step 1: Calculate provision charge
+      console.log("[DEBUG] Step 1: Calculating provision charge")
+      await calculateProvisionChargePerDay(semester)
+
+      // Step 2: Wait longer for state to settle and async operations to complete
+      await new Promise(resolve => setTimeout(resolve, 300))
+
+      // Step 3: Fetch fee records
+      console.log("[DEBUG] Step 3: Fetching fee records")
+      await fetchFeeRecords(semester.id.toString())
+
+      // Step 4: Wait again for fee records to settle
+      await new Promise(resolve => setTimeout(resolve, 200))
+
+      // Step 5: Fetch student data with fresh calculations
+      console.log("[DEBUG] Step 5: Fetching student data")
+      await fetchSemStudentsData()
+
+      console.log("[DEBUG] === FORCE REFETCH COMPLETED SUCCESSFULLY ===")
+    } catch (error) {
+      console.error("[DEBUG] Error during force refetch:", error)
+      // Reset loading states on error
+      setLoadingProvisionCharge(false)
+      setLoadingStudentsSem(false)
+      setLoadingFeeRecords(false)
+    }
+  }
+
+  // Handle semester selection
+  const handleSemesterChange = (semesterId: string) => {
+    console.log("[DEBUG] === SEMESTER SELECTION START ===")
+    console.log("[DEBUG] FUNCTION CALLED - handleSemesterChange with ID:", semesterId)
+
+    // Step 1: Force reset all state immediately
+    setSelectedSemesterId(semesterId)
+    forceResetSemesterState()
 
     if (semesterId === "create-new") {
       console.log("[DEBUG] Creating new semester")
       setShowCreateSemester(true)
-      setStudentsSem([]) // Clear student data for new semester creation
+      setSelectedSemester(null)
     } else {
-      console.log("[DEBUG] Looking for semester with ID:", semesterId, "type:", typeof semesterId)
-      const semester = semesters.find(s => {
-        const match = s.id.toString() === semesterId
-        console.log("[DEBUG] Comparing", s.id.toString(), "with", semesterId, "match:", match)
-        return match
-      })
-      console.log("[DEBUG] Found semester object:", semester ? "YES" : "NO")
+      console.log("[DEBUG] Looking for semester with ID:", semesterId)
+      const semester = semesters.find(s => s.id.toString() === semesterId)
 
       if (semester) {
-        console.log("[DEBUG] Semester details:", {
-          id: semester.id,
-          name: semester.name,
-          startDate: semester.startDate,
-          endDate: semester.endDate,
-          feeStructures: semester.feeStructures
-        })
-
+        console.log("[DEBUG] Found semester:", semester.name)
         setSelectedSemester(semester)
         setShowCreateSemester(false)
 
-        // Set advance amount from semester base amount
+        // Step 2: Set basic semester data
         const baseAmount = semester.feeStructures[0]?.baseAmount || 0
-        console.log("[DEBUG] Setting advance amount to semester base amount:", baseAmount)
         setSemAdvanceAmount(baseAmount)
 
-        // Calculate provision charge per day
-        console.log("[DEBUG] About to call calculateProvisionChargePerDay")
-        calculateProvisionChargePerDay(semester)
-
-        fetchFeeRecords(semesterId)
+        // The useEffect will handle the data fetching
       } else {
-        console.log("[DEBUG] No semester found for ID:", semesterId, "- available IDs:", semesters.map(s => s.id))
+        console.log("[DEBUG] No semester found for ID:", semesterId)
         setShowCreateSemester(false)
+        setSelectedSemester(null)
       }
     }
     console.log("[DEBUG] === SEMESTER SELECTION END ===")
@@ -531,11 +553,7 @@ export default function BillingPage() {
         // Reset selection if deleted semester was selected
         if (selectedSemesterId === semesterId.toString()) {
           setSelectedSemesterId("")
-          setSelectedSemester(null)
-          setStudentsSem([]) // Clear student data when semester is deleted
-          setCalculatedProvisionCharge(0)
-          setTotalProvisionUsage(0)
-          setSemAdvanceAmount(0)
+          forceResetSemesterState()
         }
 
         await fetchSemesters()
@@ -1105,17 +1123,27 @@ export default function BillingPage() {
     fetchSemesters()
   }, [])
 
+  // Force refresh data when semester changes
   useEffect(() => {
+    console.log("[DEBUG] useEffect triggered - selectedSemester:", selectedSemester ? selectedSemester.name : "null")
     if (selectedSemester) {
-      console.log("[DEBUG] selectedSemester changed:", selectedSemester.name, selectedSemester.id)
-      // Calculate provision charge whenever semester changes
-      calculateProvisionChargePerDay(selectedSemester)
+      console.log("[DEBUG] selectedSemester changed, triggering force refresh:", selectedSemester.name, "ID:", selectedSemester.id)
+      // Use setTimeout to ensure all state updates have completed
+      const timeoutId = setTimeout(() => {
+        console.log("[DEBUG] Executing force refresh for:", selectedSemester.name)
+        forceRefetchSemesterData(selectedSemester)
+      }, 300) // Longer delay to ensure state settlement
+
+      return () => {
+        console.log("[DEBUG] Clearing timeout for previous semester change")
+        clearTimeout(timeoutId)
+      }
     } else {
-      console.log("[DEBUG] selectedSemester is null")
-      // Clear student data when no semester is selected
-      setStudentsSem([])
+      console.log("[DEBUG] No selected semester, skipping force refresh")
     }
   }, [selectedSemester])
+
+  // Removed the useEffect that was causing conflicts - now handled in handleSemesterChange
 
   return (
     <div className="space-y-6">
@@ -1441,16 +1469,29 @@ export default function BillingPage() {
                 <CardTitle>
                   Student Payment Overview - {selectedSemester ? selectedSemester.name : 'No Semester Selected'}
                 </CardTitle>
-                {selectedSemester && (
-                  <Button variant="outline" onClick={updatePayments} disabled={updatingPayments}>
-                    {updatingPayments ? (
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600 mr-2"></div>
-                    ) : (
-                      <RefreshCw className="w-4 h-4 mr-2" />
-                    )}
-                    {updatingPayments ? "Updating..." : "Update Payments"}
-                  </Button>
-                )}
+                <div className="flex gap-2">
+                  {selectedSemester && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => forceRefetchSemesterData(selectedSemester)}
+                      disabled={loadingStudentsSem || loadingProvisionCharge}
+                    >
+                      <RefreshCw className={`w-4 h-4 mr-2 ${loadingStudentsSem || loadingProvisionCharge ? 'animate-spin' : ''}`} />
+                      Force Refresh
+                    </Button>
+                  )}
+                  {selectedSemester && (
+                    <Button variant="outline" onClick={updatePayments} disabled={updatingPayments}>
+                      {updatingPayments ? (
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600 mr-2"></div>
+                      ) : (
+                        <RefreshCw className="w-4 h-4 mr-2" />
+                      )}
+                      {updatingPayments ? "Updating..." : "Update Payments"}
+                    </Button>
+                  )}
+                </div>
               </div>
             </CardHeader>
             <CardContent>
