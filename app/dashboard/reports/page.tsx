@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { Edit, Package, Users, UserCheck, Eye, DollarSign, TrendingUp, Pencil, Plus, X, Save } from "lucide-react"
+import { Edit, Package, Users, UserCheck, Eye, DollarSign, TrendingUp, Pencil, Plus, X, Save, FileText } from "lucide-react"
 import { toast } from "sonner"
 
 interface Semester {
@@ -661,9 +661,7 @@ export default function ReportsPage() {
         }
 
         // Trigger fresh data fetch with the restored settings
-        setTimeout(() => {
-          fetchReportData()
-        }, 100)
+        // fetchReportData() will be called by the useEffect when states change
 
         toast.success(`Report "${report.reportName}" loaded successfully!`)
       } else {
@@ -697,6 +695,85 @@ export default function ReportsPage() {
     }
   }
 
+  const exportToCSV = () => {
+    if (!reportData) {
+      toast.error("No report data to export")
+      return
+    }
+
+    const filename = `mess-account-statement-${selectedYear}-${selectedMonth}.csv`
+    const monthName = monthNames[parseInt(selectedMonth) - 1]
+    const daysInMonth = getDaysInMonth(selectedYear, selectedMonth)
+
+    // CSV Header
+    const csvData = [
+      ["UNIVERSITY COLLEGE OF ENGINEERING KANCHEEPURAM"],
+      ["Ponnerikarai, Kanchipuram - 631 552."],
+      ["STUDENTS DIVIDING MESS"],
+      [`ACCOUNT STATEMENT FOR THE MONTH OF ${monthName.toUpperCase()} ${selectedYear} (${daysInMonth} Days)`],
+      [""],
+      ["1. CREDITS"],
+      ["Description", "Amount"],
+      ["Advance Paid", parseFloat(String(reportData.incomes.totalAdvancePaid)).toFixed(2)],
+      ["Bank Interest Income", parseFloat(String(reportData.incomes.bankInterestIncome)).toFixed(2)],
+      ["Total External Income", parseFloat(String(reportData.incomes.totalExternalIncome)).toFixed(2)],
+      ["Total Credits", parseFloat(String(reportData.incomes.totalIncome)).toFixed(2)],
+      [""],
+      ["2. DEBITS"],
+      ["Description", "Amount"],
+      ["Provisions Purchased", parseFloat(String(reportData.provisions.totalCost)).toFixed(2)],
+      ["Provision Usage", parseFloat(String(reportData.provisions.usage.totalCost)).toFixed(2)],
+      ["Labour Charges", parseFloat(String(monthlyLabourCharge)).toFixed(2)],
+      ["Outsiders Meals", parseFloat(String(reportData.outsiders.totalCost)).toFixed(2)],
+      ["Mando Students Meals", parseFloat(String(reportData.mando.totalCost)).toFixed(2)],
+      ["Other Expenses", parseFloat(String(reportData.expenses.totalAmount)).toFixed(2)],
+      ["Total Debits", parseFloat(String(reportData.expenses.totalAmount + reportData.provisions.usage.totalCost + monthlyLabourCharge + reportData.outsiders.totalCost + reportData.mando.totalCost)).toFixed(2)],
+      [""],
+      ["3. PER DAY CHARGES"],
+      ["Description", "Rate"],
+      ["Labour Charge per Day", parseFloat(String(getPerDayLabourCharge())).toFixed(2)],
+      ["Provision Usage per Day", parseFloat(String(getPerDayProvisionUsage())).toFixed(2)],
+      ["Outsider Meal Rate", parseFloat(String(outsiderRate)).toFixed(2)],
+      ["Mando Meal Rate", parseFloat(String(mandoRate)).toFixed(2)],
+    ]
+
+    // Add expenses details if any
+    if (reportData.expenses.items.length > 0) {
+      csvData.push([""])
+      csvData.push(["EXPENSES DETAILS"])
+      csvData.push(["Description", "Amount"])
+      reportData.expenses.items.forEach((expense: any) => {
+        csvData.push([`${expense.name} (${expense.type})`, parseFloat(String(expense.amount)).toFixed(2)])
+      })
+    }
+
+    // Add external income sources if any
+    if (reportData.incomes.externalIncomes.length > 0) {
+      csvData.push([""])
+      csvData.push(["OTHER EXTERNAL INCOME SOURCES"])
+      csvData.push(["Description", "Amount"])
+      reportData.incomes.externalIncomes.forEach((income: any) => {
+        csvData.push([income.name, parseFloat(String(income.amount)).toFixed(2)])
+      })
+    }
+
+    // Convert to CSV
+    const csvContent = csvData.map(row => row.map(cell => `"${cell}"`).join(",")).join("\n")
+
+    // Download
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+    const link = document.createElement("a")
+    const url = URL.createObjectURL(blob)
+    link.setAttribute("href", url)
+    link.setAttribute("download", filename)
+    link.style.visibility = 'hidden'
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+
+    toast.success("CSV exported successfully!")
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -709,6 +786,10 @@ export default function ReportsPage() {
           <Button variant="outline" onClick={() => setShowSaveDialog(true)}>
             <Save className="w-4 h-4 mr-2" />
             Save Bill
+          </Button>
+          <Button variant="outline" onClick={exportToCSV}>
+            <FileText className="w-4 h-4 mr-2" />
+            Export CSV
           </Button>
           <Button variant="outline" onClick={handleRefresh}>
             Refresh
