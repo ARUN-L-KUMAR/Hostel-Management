@@ -57,7 +57,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { outsiderId, date, breakfast, lunch, dinner } = body
+    const { outsiderId, date, breakfast, lunch, dinner, memberCount } = body
 
     // Validate required fields
     if (!outsiderId || !date) {
@@ -83,7 +83,8 @@ export async function POST(request: NextRequest) {
       update: {
         breakfast: breakfast !== undefined ? breakfast : false,
         lunch: lunch !== undefined ? lunch : false,
-        dinner: dinner !== undefined ? dinner : false
+        dinner: dinner !== undefined ? dinner : false,
+        memberCount: memberCount !== undefined ? memberCount : 1
       },
       create: {
         outsiderId,
@@ -91,7 +92,8 @@ export async function POST(request: NextRequest) {
         breakfast: breakfast || false,
         lunch: lunch || false,
         dinner: dinner || false,
-        mealRate
+        mealRate,
+        memberCount: memberCount || 1
       }
     })
 

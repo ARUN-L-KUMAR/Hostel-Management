@@ -1245,7 +1245,8 @@ export const prisma = {
             UPDATE outsider_meal_records SET
               breakfast = ${updateData.breakfast !== undefined ? updateData.breakfast : existing[0].breakfast},
               lunch = ${updateData.lunch !== undefined ? updateData.lunch : existing[0].lunch},
-              dinner = ${updateData.dinner !== undefined ? updateData.dinner : existing[0].dinner}
+              dinner = ${updateData.dinner !== undefined ? updateData.dinner : existing[0].dinner},
+              "memberCount" = ${updateData.memberCount !== undefined ? updateData.memberCount : existing[0].memberCount}
             WHERE "outsiderId" = ${outsiderId} AND date = ${date}
             RETURNING *
           `
@@ -1253,8 +1254,8 @@ export const prisma = {
         } else {
           // Create new
           const result = await sql`
-            INSERT INTO outsider_meal_records ("outsiderId", date, breakfast, lunch, dinner, "mealRate")
-            VALUES (${outsiderId}, ${date}, ${createData.breakfast || false}, ${createData.lunch || false}, ${createData.dinner || false}, ${createData.mealRate || 50})
+            INSERT INTO outsider_meal_records ("outsiderId", date, breakfast, lunch, dinner, "mealRate", "memberCount")
+            VALUES (${outsiderId}, ${date}, ${createData.breakfast || false}, ${createData.lunch || false}, ${createData.dinner || false}, ${createData.mealRate || 50}, ${createData.memberCount || 1})
             RETURNING *
           `
           return result[0]

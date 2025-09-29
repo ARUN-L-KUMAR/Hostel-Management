@@ -19,6 +19,7 @@ interface MealRecord {
   lunch: boolean
   dinner: boolean
   mealRate: number
+  memberCount: number
   outsider: {
     id: number
     name: string
@@ -175,6 +176,7 @@ export default function OutsidersPage() {
                 <TableHead>Designation</TableHead>
                 <TableHead>Description</TableHead>
                 <TableHead>Date</TableHead>
+                <TableHead>Members</TableHead>
                 <TableHead>Meals</TableHead>
                 <TableHead>Rate</TableHead>
                 <TableHead>Total</TableHead>
@@ -191,7 +193,7 @@ export default function OutsidersPage() {
               ) : (
                 mealRecords.map((record) => {
                   const mealCount = [record.breakfast, record.lunch, record.dinner].filter(Boolean).length
-                  const total = mealCount * record.mealRate
+                  const total = mealCount * record.mealRate * (record.memberCount || 1)
 
                   return (
                     <TableRow key={record.id}>
@@ -200,6 +202,7 @@ export default function OutsidersPage() {
                       <TableCell className="truncate max-w-32">{record.outsider?.designation || 'Not Set'}</TableCell>
                       <TableCell className="truncate max-w-32">{record.outsider?.description || 'Not Set'}</TableCell>
                       <TableCell>{record.date}</TableCell>
+                      <TableCell className="text-center">{record.memberCount || 1}</TableCell>
                       <TableCell>
                         <Badge variant="outline">{getMealsText(record)}</Badge>
                       </TableCell>
@@ -240,9 +243,10 @@ export default function OutsidersPage() {
                 <div><strong>Designation:</strong> {selectedRecord?.outsider?.designation || 'Not Set'}</div>
                 <div><strong>Description:</strong> {selectedRecord?.outsider?.description || 'Not Set'}</div>
                 <div><strong>Date:</strong> {selectedRecord?.date}</div>
+                <div><strong>Members:</strong> {selectedRecord?.memberCount || 1}</div>
                 <div><strong>Meals:</strong> {selectedRecord ? getMealsText(selectedRecord) : ''}</div>
                 <div><strong>Rate:</strong> ₹{selectedRecord?.mealRate}</div>
-                <div><strong>Total:</strong> ₹{selectedRecord ? [selectedRecord.breakfast, selectedRecord.lunch, selectedRecord.dinner].filter(Boolean).length * selectedRecord.mealRate : 0}</div>
+                <div><strong>Total:</strong> ₹{selectedRecord ? [selectedRecord.breakfast, selectedRecord.lunch, selectedRecord.dinner].filter(Boolean).length * selectedRecord.mealRate * (selectedRecord.memberCount || 1) : 0}</div>
               </div>
             </CardContent>
           </Card>

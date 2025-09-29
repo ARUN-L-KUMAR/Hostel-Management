@@ -25,6 +25,7 @@ export function AddOutsiderMealDialog({ onClose }: AddOutsiderMealDialogProps) {
     breakfast: false,
     lunch: false,
     dinner: false,
+    memberCount: 1,
   })
 
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -60,6 +61,7 @@ export function AddOutsiderMealDialog({ onClose }: AddOutsiderMealDialogProps) {
           breakfast: formData.breakfast,
           lunch: formData.lunch,
           dinner: formData.dinner,
+          memberCount: formData.memberCount,
         }),
       })
 
@@ -119,6 +121,18 @@ export function AddOutsiderMealDialog({ onClose }: AddOutsiderMealDialogProps) {
                 value={formData.date}
                 onChange={(e) => setFormData((prev) => ({ ...prev, date: e.target.value }))}
                 required
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="memberCount">Number of Members</Label>
+              <Input
+                id="memberCount"
+                type="number"
+                min="1"
+                value={formData.memberCount}
+                onChange={(e) => setFormData((prev) => ({ ...prev, memberCount: parseInt(e.target.value) || 1 }))}
+                placeholder="1"
               />
             </div>
 

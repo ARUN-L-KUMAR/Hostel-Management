@@ -336,6 +336,7 @@ model OutsiderMealRecord {
    lunch       Boolean  @default(false)
    dinner      Boolean  @default(false)
    mealRate    Float
+   memberCount Int      @default(1) // Number of members for this meal record
 
    outsider    Outsider @relation(fields: [outsiderId], references: [id])
 
