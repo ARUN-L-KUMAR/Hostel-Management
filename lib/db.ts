@@ -356,6 +356,19 @@ export const prisma = {
         _count: Number.parseInt(row.count),
       }))
     },
+
+    delete: async (options: any) => {
+      const { studentId, date } = options.where.studentId_date || options.where
+      const utcDate = new Date(date)
+      utcDate.setUTCHours(0, 0, 0, 0)
+
+      const result = await sql`
+        DELETE FROM attendance
+        WHERE "studentId" = ${studentId} AND date = ${utcDate}
+        RETURNING *
+      `
+      return result[0]
+    },
   },
 
   expense: {

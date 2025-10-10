@@ -6,6 +6,7 @@ import type { AttendanceCode } from "@prisma/client"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Download } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -62,6 +63,7 @@ export function AttendanceGrid({ students, days, currentMonth, total, onExport }
     setLocalStudents(students)
   }, [students])
 
+  const [openPopover, setOpenPopover] = useState<{ studentId: string; day: number } | null>(null)
   const [selectedCells, setSelectedCells] = useState<Set<string>>(new Set())
   const [bulkCode, setBulkCode] = useState<AttendanceCode>("P")
 
@@ -106,6 +108,40 @@ export function AttendanceGrid({ students, days, currentMonth, total, onExport }
     return codes[(currentIndex + 1) % codes.length]
   }
 
+  const handleAttendanceToggle = async (studentId: string, day: number, code: AttendanceCode | null) => {
+    const dateStr = `${currentMonth}-${day.toString().padStart(2, "0")}`
+    if (code === null) {
+      // Clear attendance
+      await clearAttendance(studentId, dateStr)
+    } else {
+      await updateAttendance(studentId, dateStr, code)
+    }
+    setOpenPopover(null) // Close the popover after selection
+  }
+
+  const clearAttendance = async (studentId: string, date: string) => {
+    try {
+      const response = await fetch('/api/attendance', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ studentId, date }),
+      })
+      if (response.ok) {
+        // Update local state
+        setLocalStudents(prev => prev.map(student => {
+          if (student.id === studentId) {
+            student.attendance = student.attendance.filter(a => a.date.toISOString().split('T')[0] !== date)
+          }
+          return student
+        }))
+      } else {
+        console.error('Failed to clear attendance')
+      }
+    } catch (error) {
+      console.error('Error clearing attendance:', error)
+    }
+  }
+
   const getAttendanceForDate = (student: Student, day: number) => {
     const dateStr = `${currentMonth}-${day.toString().padStart(2, "0")}`
     return student.attendance.find((att) => {
@@ -138,13 +174,9 @@ export function AttendanceGrid({ students, days, currentMonth, total, onExport }
       }
       setSelectedCells(newSelected)
     } else {
-      // Single select or cycle through codes
+      // Open popover for attendance selection
       if (selectedCells.size === 0) {
-        // Cycle through attendance codes for single cell
-        const dateStr = `${currentMonth}-${day.toString().padStart(2, "0")}`
-        const attendance = getAttendanceForDate(paginatedStudents.find(s => s.id === studentId)!, day)
-        const nextCode = getNextCode(attendance?.code)
-        updateAttendance(studentId, dateStr, nextCode)
+        setOpenPopover({ studentId, day })
       }
     }
   }
@@ -247,23 +279,74 @@ export function AttendanceGrid({ students, days, currentMonth, total, onExport }
                     : { bg: "bg-gray-100", text: "text-gray-400" }
 
                   return (
-                    <td
-                      key={day}
-                      className="border border-slate-300 p-1 text-center cursor-pointer"
-                      onClick={(e) => handleCellClick(student.id, day, e.ctrlKey || e.metaKey)}
-                    >
-                      <div
-                        className={cn(
-                          "h-8 w-10 mx-auto text-xs font-medium rounded border-2 transition-all hover:scale-105 flex items-center justify-center",
-                          codeStyle.bg,
-                          codeStyle.text,
-                          isSelected ? "border-blue-500 ring-2 ring-blue-200" : "border-transparent",
-                          "hover:border-slate-300",
-                        )}
-                        title={`${student.name} - Day ${day}${attendance ? ` (${attendance.code})` : " (No data)"}`}
+                    <td key={day} className="border border-slate-300 p-1 text-center">
+                      <Popover
+                        open={openPopover?.studentId === student.id && openPopover?.day === day}
+                        onOpenChange={(open) => setOpenPopover(open ? { studentId: student.id, day } : null)}
                       >
-                        {attendance?.code || "-"}
-                      </div>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className={cn(
+                              "h-8 w-10 text-xs font-medium",
+                              attendance?.code ? `${getCodeStyle(attendance.code).bg} ${getCodeStyle(attendance.code).text} hover:opacity-80` : "bg-gray-50 text-gray-600 hover:bg-gray-100",
+                              isSelected ? "border-blue-500 ring-2 ring-blue-200" : "",
+                            )}
+                            onClick={(e) => handleCellClick(student.id, day, e.ctrlKey || e.metaKey)}
+                          >
+                            {attendance?.code || "None"}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-48 p-3" align="center">
+                          <div className="space-y-3">
+                            <div className="text-sm font-medium text-center">Attendance for Day {day}</div>
+                            <div className="space-y-2">
+                              <div className="flex items-center space-x-2">
+                                <input
+                                  type="radio"
+                                  id={`attendance-${student.id}-${day}-none`}
+                                  name={`attendance-${student.id}-${day}`}
+                                  checked={!attendance?.code}
+                                  onChange={() => handleAttendanceToggle(student.id, day, null)}
+                                  className="text-blue-600"
+                                />
+                                <label
+                                  htmlFor={`attendance-${student.id}-${day}-none`}
+                                  className="text-sm cursor-pointer"
+                                >
+                                  <span className="px-2 py-1 rounded text-xs font-medium bg-gray-200 text-gray-600">
+                                    None
+                                  </span>
+                                  
+                                </label>
+                              </div>
+                              {attendanceCodes.map((code) => (
+                                <div key={code.code} className="flex items-center space-x-2">
+                                  <input
+                                    type="radio"
+                                    id={`attendance-${student.id}-${day}-${code.code}`}
+                                    name={`attendance-${student.id}-${day}`}
+                                    checked={attendance?.code === code.code}
+                                    onChange={() => handleAttendanceToggle(student.id, day, code.code)}
+                                    className="text-blue-600"
+                                  />
+                                  <label
+                                    htmlFor={`attendance-${student.id}-${day}-${code.code}`}
+                                    className="text-sm cursor-pointer"
+                                  >
+                                    <span className={cn("px-2 py-1 rounded text-xs font-medium", code.color, code.textColor)}>
+                                      {code.code}
+                                    </span>
+                                    {" - "}
+                                    {code.label}
+                                  </label>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </PopoverContent>
+                      </Popover>
                     </td>
                   )
                 })}
@@ -315,7 +398,8 @@ export function AttendanceGrid({ students, days, currentMonth, total, onExport }
 
       {/* Instructions */}
       <div className="mt-4 text-xs text-slate-500 space-y-1">
-        <p>• Click a cell to cycle through attendance codes (P → L → CN → V → C)</p>
+        <p>• Click on a day cell to open the attendance selection popup</p>
+        <p>• Select the appropriate attendance code from the popup</p>
         <p>• Hold Ctrl/Cmd and click to select multiple cells for bulk actions</p>
         <p>• Use the bulk actions bar above to apply codes to selected cells</p>
       </div>

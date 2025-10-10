@@ -35,6 +35,15 @@ export async function POST(request: NextRequest) {
     const utcDate = new Date(date + 'T00:00:00.000Z')
 
     const attendance = await prisma.attendance.upsert({
+      where: {
+        studentId_date: {
+          studentId,
+          date: utcDate,
+        },
+      },
+      update: {
+        code,
+      },
       create: {
         studentId,
         date: utcDate,
@@ -52,5 +61,32 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error("Error updating attendance:", error)
     return NextResponse.json({ error: "Failed to update attendance" }, { status: 500 })
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const body = await request.json()
+    const { studentId, date } = body
+
+    const attendance = await prisma.attendance.delete({
+      where: {
+        studentId_date: {
+          studentId,
+          date,
+        },
+      },
+    })
+
+    return NextResponse.json(attendance, {
+      headers: {
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0',
+      },
+    })
+  } catch (error) {
+    console.error("Error deleting attendance:", error)
+    return NextResponse.json({ error: "Failed to delete attendance" }, { status: 500 })
   }
 }
