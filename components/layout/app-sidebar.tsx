@@ -36,7 +36,6 @@ export function AppSidebar() {
       { icon: Calendar, label: "Mando Meal Entry", href: "/dashboard/mando-students" },
       { icon: Users, label: "Outsiders", href: "/dashboard/outsiders" },
       { icon: Package, label: "Provisions", href: "/dashboard/provisions" },
-      { icon: TrendingUp, label: "Provision Tracker", href: "/dashboard/provision-tracker" },
       { icon: Receipt, label: "Billing", href: "/dashboard/billing" },
       { icon: DollarSign, label: "Expenses", href: "/dashboard/expenses" },
       { icon: FileText, label: "Reports", href: "/dashboard/reports" },
