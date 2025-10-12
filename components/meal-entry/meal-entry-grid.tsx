@@ -124,7 +124,12 @@ export function MealEntryGrid({ students, days, currentMonth, total, onExport }:
 
   const getTotalMeals = (student: Student) => {
     return student.meals.reduce((total, meal) =>
-      total + (meal.breakfast ? 1 : 0) + (meal.lunch ? 1 : 0) + (meal.dinner ? 1 : 0) + (meal.present ? 1 : 0), 0)
+      total + (meal.breakfast ? 1 : 0) + (meal.lunch ? 1 : 0) + (meal.dinner ? 1 : 0), 0)
+  }
+
+  const getTotalPresent = (student: Student) => {
+    return student.meals.reduce((total, meal) =>
+      total + ((meal.present || meal.breakfast || meal.lunch || meal.dinner) ? 1 : 0), 0)
   }
 
   const getMealSummary = (mealRecord: any) => {
@@ -170,8 +175,11 @@ export function MealEntryGrid({ students, days, currentMonth, total, onExport }:
                   </th>
                 )
               })}
-              <th className="sticky right-0 bg-slate-50 border border-slate-300 border-l-2 border-l-slate-400 p-2 w-[100px] text-center font-semibold text-sm text-slate-700">
-                Total Meals
+              <th className="sticky right-0 bg-slate-50 border border-slate-300 border-l-2 border-l-slate-400 p-2 w-[200px] text-center font-semibold text-sm text-slate-700">
+                <div className="grid grid-cols-2 gap-2">
+                  <div>Total Meals</div>
+                  <div>Total Present</div>
+                </div>
               </th>
             </tr>
           </thead>
@@ -258,9 +266,14 @@ export function MealEntryGrid({ students, days, currentMonth, total, onExport }:
                     </td>
                   )
                 })}
-                <td className="sticky right-0 bg-white border border-slate-300 border-l-2 border-l-slate-400 p-2 w-[100px] text-center">
-                  <div className="font-semibold text-slate-900">
-                    {getTotalMeals(student)}
+                <td className="sticky right-0 bg-white border border-slate-300 border-l-2 border-l-slate-400 p-2 w-[200px] text-center">
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="font-semibold text-slate-900">
+                      {getTotalMeals(student)}
+                    </div>
+                    <div className="font-semibold text-slate-900">
+                      {getTotalPresent(student)}
+                    </div>
                   </div>
                 </td>
               </tr>
