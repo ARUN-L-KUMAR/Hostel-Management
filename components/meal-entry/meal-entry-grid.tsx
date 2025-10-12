@@ -22,6 +22,7 @@ interface Student {
     breakfast: boolean
     lunch: boolean
     dinner: boolean
+    present: boolean
     mealRate: number
   }>
 }
@@ -64,22 +65,27 @@ export function MealEntryGrid({ students, days, currentMonth, total, onExport }:
     router.push(`?${params.toString()}`, { scroll: false })
   }
 
-  const updateMeal = async (studentId: string, date: string, mealType: "breakfast" | "lunch" | "dinner", value: boolean) => {
+  const updateMeal = async (studentId: string, date: string, mealType: "breakfast" | "lunch" | "dinner" | "present", value: boolean) => {
     try {
-      // First, check if a meal record exists for this date and student
-      const existingRecord = localStudents
-        .find(s => s.id === studentId)
-        ?.meals.find(m => m.date.startsWith(date))
+      // Get current meal record to preserve other values
+      const currentStudent = localStudents.find(s => s.id === studentId)
+      const currentMealRecord = currentStudent?.meals.find(m => m.date.startsWith(date))
 
-      // Use upsert - single API call handles both create and update
+      // Build complete request body with all meal values
+      const requestBody: any = {
+        studentId,
+        date,
+        breakfast: currentMealRecord?.breakfast || false,
+        lunch: currentMealRecord?.lunch || false,
+        dinner: currentMealRecord?.dinner || false,
+        present: currentMealRecord?.present || false,
+        [mealType]: value
+      }
+
       const response = await fetch('/api/mando-meal-records', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          studentId,
-          date,
-          [mealType]: value
-        }),
+        body: JSON.stringify(requestBody),
       })
 
       if (response.ok) {
@@ -118,7 +124,7 @@ export function MealEntryGrid({ students, days, currentMonth, total, onExport }:
 
   const getTotalMeals = (student: Student) => {
     return student.meals.reduce((total, meal) =>
-      total + (meal.breakfast ? 1 : 0) + (meal.lunch ? 1 : 0) + (meal.dinner ? 1 : 0), 0)
+      total + (meal.breakfast ? 1 : 0) + (meal.lunch ? 1 : 0) + (meal.dinner ? 1 : 0) + (meal.present ? 1 : 0), 0)
   }
 
   const getMealSummary = (mealRecord: any) => {
@@ -127,12 +133,14 @@ export function MealEntryGrid({ students, days, currentMonth, total, onExport }:
     if (mealRecord.breakfast) meals.push("B")
     if (mealRecord.lunch) meals.push("L")
     if (mealRecord.dinner) meals.push("D")
+    if (mealRecord.present) meals.push("P")
     return meals.join(",")
   }
 
-  const handleMealToggle = async (studentId: string, day: number, mealType: "breakfast" | "lunch" | "dinner", checked: boolean) => {
+  const handleMealToggle = async (studentId: string, day: number, mealType: "breakfast" | "lunch" | "dinner" | "present", checked: boolean | "indeterminate") => {
+    const isChecked = checked === true
     const dateStr = `${currentMonth}-${day.toString().padStart(2, "0")}`
-    await updateMeal(studentId, dateStr, mealType, checked)
+    await updateMeal(studentId, dateStr, mealType, isChecked)
   }
 
 
@@ -179,7 +187,7 @@ export function MealEntryGrid({ students, days, currentMonth, total, onExport }:
                 {days.map((day) => {
                   const mealRecord = getMealForDate(student, day)
                   const mealSummary = getMealSummary(mealRecord)
-                  const mealCount = mealRecord ? (mealRecord.breakfast ? 1 : 0) + (mealRecord.lunch ? 1 : 0) + (mealRecord.dinner ? 1 : 0) : 0
+                  const mealCount = mealRecord ? (mealRecord.breakfast ? 1 : 0) + (mealRecord.lunch ? 1 : 0) + (mealRecord.dinner ? 1 : 0) + (mealRecord.present ? 1 : 0) : 0
 
                   return (
                     <td key={day} className="border border-slate-300 p-1 text-center">
@@ -207,7 +215,7 @@ export function MealEntryGrid({ students, days, currentMonth, total, onExport }:
                                 <Checkbox
                                   id={`breakfast-${student.id}-${day}`}
                                   checked={mealRecord?.breakfast || false}
-                                  onCheckedChange={(checked) => handleMealToggle(student.id, day, "breakfast", checked as boolean)}
+                                  onCheckedChange={(checked) => handleMealToggle(student.id, day, "breakfast", checked)}
                                 />
                                 <label htmlFor={`breakfast-${student.id}-${day}`} className="text-sm text-green-700">
                                   Breakfast
@@ -217,7 +225,7 @@ export function MealEntryGrid({ students, days, currentMonth, total, onExport }:
                                 <Checkbox
                                   id={`lunch-${student.id}-${day}`}
                                   checked={mealRecord?.lunch || false}
-                                  onCheckedChange={(checked) => handleMealToggle(student.id, day, "lunch", checked as boolean)}
+                                  onCheckedChange={(checked) => handleMealToggle(student.id, day, "lunch", checked)}
                                 />
                                 <label htmlFor={`lunch-${student.id}-${day}`} className="text-sm text-blue-700">
                                   Lunch
@@ -227,10 +235,20 @@ export function MealEntryGrid({ students, days, currentMonth, total, onExport }:
                                 <Checkbox
                                   id={`dinner-${student.id}-${day}`}
                                   checked={mealRecord?.dinner || false}
-                                  onCheckedChange={(checked) => handleMealToggle(student.id, day, "dinner", checked as boolean)}
+                                  onCheckedChange={(checked) => handleMealToggle(student.id, day, "dinner", checked)}
                                 />
                                 <label htmlFor={`dinner-${student.id}-${day}`} className="text-sm text-orange-700">
                                   Dinner
+                                </label>
+                              </div>
+                              <div className="flex items-center space-x-2">
+                                <Checkbox
+                                  id={`present-${student.id}-${day}`}
+                                  checked={mealRecord?.present || false}
+                                  onCheckedChange={(checked) => handleMealToggle(student.id, day, "present", checked)}
+                                />
+                                <label htmlFor={`present-${student.id}-${day}`} className="text-sm text-purple-700">
+                                  Present
                                 </label>
                               </div>
                             </div>
@@ -289,8 +307,8 @@ export function MealEntryGrid({ students, days, currentMonth, total, onExport }:
       {/* Instructions */}
       <div className="mt-4 text-xs text-slate-500 space-y-1">
         <p>• Click on a day cell to open the meal selection popup</p>
-        <p>• Check/uncheck the boxes for Breakfast, Lunch, and Dinner</p>
-        <p>• The cell shows a summary of selected meals (e.g., "B,L (2)" means 2 meals eaten)</p>
+        <p>• Check/uncheck the boxes for Breakfast, Lunch, Dinner, and Present</p>
+        <p>• The cell shows a summary of selected meals (e.g., "B,L,P (3)" means 3 meals eaten)</p>
       </div>
     </Card>
   )

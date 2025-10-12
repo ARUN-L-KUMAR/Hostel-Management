@@ -19,6 +19,7 @@ interface Student {
     breakfast: boolean
     lunch: boolean
     dinner: boolean
+    present: boolean
     mealRate: number
   }>
 }

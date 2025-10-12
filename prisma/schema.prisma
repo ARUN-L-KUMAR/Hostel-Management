@@ -306,6 +306,7 @@ model MealRecord {
   breakfast   Boolean  @default(false)
   lunch       Boolean  @default(false)
   dinner      Boolean  @default(false)
+  present     Boolean  @default(false)
   mealRate    Float    // can be set from config when inserting
 
   student     Student @relation(fields: [studentId], references: [id])

@@ -1,5 +1,8 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/db"
+import { neon } from "@neondatabase/serverless"
+
+const sql = neon(process.env.DATABASE_URL!)
 
 export const dynamic = 'force-dynamic'
 
@@ -71,7 +74,9 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { studentId, date, breakfast, lunch, dinner } = body
+    const { studentId, date, breakfast, lunch, dinner, present } = body
+
+    console.log('[API] POST /api/mando-meal-records called with:', { studentId, date, breakfast, lunch, dinner, present })
 
     // Validate required fields
     if (!studentId || !date) {
@@ -87,29 +92,39 @@ export async function POST(request: NextRequest) {
     // Parse date as UTC to avoid timezone issues
     const utcDate = new Date(date + 'T00:00:00.000Z')
 
-    // Build update object with only defined values
+    // Build update object - only update fields that are explicitly sent
     const updateData: any = {}
     if (breakfast !== undefined) updateData.breakfast = breakfast
     if (lunch !== undefined) updateData.lunch = lunch
     if (dinner !== undefined) updateData.dinner = dinner
+    if (present !== undefined) updateData.present = present
 
-    const mealRecord = await prisma.mealRecord.upsert({
-      where: {
-        studentId_date: {
-          studentId,
-          date: utcDate
-        }
-      },
-      update: updateData,
-      create: {
-        studentId,
-        date: utcDate,
-        breakfast: breakfast || false,
-        lunch: lunch || false,
-        dinner: dinner || false,
-        mealRate
-      }
-    })
+    console.log('[API] Update data:', updateData)
+
+    // Use direct SQL update instead of Prisma upsert for present field
+    console.log('[API] Using direct SQL update for present field...')
+
+    // First ensure record exists
+    await sql`
+      INSERT INTO meal_records ("studentId", date, breakfast, lunch, dinner, "mealRate", present)
+      VALUES (${studentId}, ${utcDate}, ${breakfast || false}, ${lunch || false}, ${dinner || false}, ${mealRate}, ${present || false})
+      ON CONFLICT ("studentId", date)
+      DO UPDATE SET
+        breakfast = EXCLUDED.breakfast,
+        lunch = EXCLUDED.lunch,
+        dinner = EXCLUDED.dinner,
+        present = EXCLUDED.present
+    `
+
+    // Get the updated record
+    const updatedRecords = await sql`
+      SELECT * FROM meal_records
+      WHERE "studentId" = ${studentId} AND date = ${utcDate}
+    `
+    const mealRecord = updatedRecords[0]
+
+    console.log('[API] Direct SQL updated record:', mealRecord)
+    console.log('[API] Present field after direct SQL:', mealRecord.present)
 
     if (!mealRecord) {
       return NextResponse.json({ error: "Failed to create or update meal record" }, { status: 500 })
@@ -122,6 +137,8 @@ export async function POST(request: NextRequest) {
       createdAt: mealRecord.createdAt ? new Date(mealRecord.createdAt).toISOString() : null,
       updatedAt: mealRecord.updatedAt ? new Date(mealRecord.updatedAt).toISOString() : null,
     }
+
+    console.log('[API] Serialized present field:', (serializedRecord as any).present)
 
     return NextResponse.json(serializedRecord, {
       headers: {
