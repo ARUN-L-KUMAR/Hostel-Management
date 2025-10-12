@@ -121,3 +121,73 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Failed to create provision purchase" }, { status: 500 })
   }
 }
+
+export async function PUT(request: NextRequest) {
+  try {
+    const body = await request.json()
+    const { id, date, vendor, paymentType, billId, items } = body
+
+    // Calculate total amount
+    const totalAmount = items.reduce((sum: number, item: any) => sum + parseFloat(item.total), 0)
+
+    // Update purchase
+    await sql`
+      UPDATE provision_purchases
+      SET date = ${new Date(date).toISOString().split('T')[0]},
+          vendor = ${vendor},
+          "paymentType" = ${paymentType},
+          "billId" = ${billId || null},
+          "totalAmount" = ${totalAmount},
+          "updatedAt" = NOW()
+      WHERE id = ${id}
+    `
+
+    // Delete existing purchase items
+    await sql`DELETE FROM provision_purchase_items WHERE "provisionPurchaseId" = ${id}`
+
+    // Insert updated purchase items
+    for (const item of items) {
+      const itemId = `ppi_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+      await sql`
+        INSERT INTO provision_purchase_items (id, "provisionPurchaseId", "provisionItemId", quantity, "unitCost", total, "createdAt", "updatedAt")
+        VALUES (${itemId}, ${id}, ${item.provisionItemId}, ${item.quantity}, ${item.unitCost}, ${item.total}, NOW(), NOW())
+      `
+    }
+
+    // Fetch the updated purchase with items
+    const purchase = await sql`
+      SELECT
+        pp.id,
+        pp.date,
+        pp.vendor,
+        pp."paymentType",
+        pp."billId",
+        pp."totalAmount",
+        pp."createdAt",
+        json_agg(
+          json_build_object(
+            'id', ppi.id,
+            'quantity', ppi.quantity,
+            'unitCost', ppi."unitCost",
+            'total', ppi.total,
+            'provisionItem', json_build_object(
+              'id', pi.id,
+              'name', pi.name,
+              'unit', pi.unit,
+              'unitCost', pi."unitCost"
+            )
+          )
+        ) as items
+      FROM provision_purchases pp
+      LEFT JOIN provision_purchase_items ppi ON pp.id = ppi."provisionPurchaseId"
+      LEFT JOIN provision_items pi ON ppi."provisionItemId" = pi.id
+      WHERE pp.id = ${id}
+      GROUP BY pp.id, pp.date, pp.vendor, pp."paymentType", pp."billId", pp."totalAmount", pp."createdAt"
+    `
+
+    return NextResponse.json(purchase[0])
+  } catch (error) {
+    console.error("Error updating provision purchase:", error)
+    return NextResponse.json({ error: "Failed to update provision purchase" }, { status: 500 })
+  }
+}

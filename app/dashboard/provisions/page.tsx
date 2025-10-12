@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Plus, ShoppingCart, BarChart3, Package, RefreshCw } from "lucide-react"
+import { Plus, ShoppingCart, BarChart3, Package, RefreshCw, Download } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { ApiClient } from "@/lib/api-client"
 
@@ -55,11 +55,13 @@ export default function ProvisionsPage() {
   const [usages, setUsages] = useState<ProvisionUsage[]>([])
   const [purchases, setPurchases] = useState<ProvisionPurchase[]>([])
   const [inventoryLevels, setInventoryLevels] = useState<Record<string, number>>({})
+  const [averageCosts, setAverageCosts] = useState<Record<string, number>>({})
   const [loading, setLoading] = useState(false)
   const [inventoryLoading, setInventoryLoading] = useState(false)
   const [usageDialogOpen, setUsageDialogOpen] = useState(false)
   const [purchaseDialogOpen, setPurchaseDialogOpen] = useState(false)
   const [editingUsage, setEditingUsage] = useState<ProvisionUsage | null>(null)
+  const [editingPurchase, setEditingPurchase] = useState<ProvisionPurchase | null>(null)
   const [selectedItem, setSelectedItem] = useState<string>("")
   const [usageType, setUsageType] = useState<"day" | "week" | "month">("day")
   const [quantity, setQuantity] = useState("")
@@ -91,11 +93,15 @@ export default function ProvisionsPage() {
 
   // Item name suggestions from purchase history
   const [itemSuggestions, setItemSuggestions] = useState<string[]>([])
-  const [showSuggestions, setShowSuggestions] = useState(false)
+  const [showSuggestionsFor, setShowSuggestionsFor] = useState<number | null>(null)
 
   // Filter states
   const [purchaseFilter, setPurchaseFilter] = useState<string>("all")
   const [usageFilter, setUsageFilter] = useState<string>("all")
+
+  // View states
+  const [purchaseView, setPurchaseView] = useState<"date" | "item">("date")
+  const [usageView, setUsageView] = useState<"date" | "item">("date")
 
   const getAvailableUnits = (unit: string) => {
     if (unit === 'kg') return ['kg', 'gm']
@@ -213,31 +219,53 @@ export default function ProvisionsPage() {
         return acc
       }, {})
 
-      // Group purchases by provisionItemId
-      const purchasesByProvision = purchasesData.reduce((acc: Record<string, number>, purchase: any) => {
+      // Group purchases by provisionItemId and calculate average costs
+      const purchasesByProvision: Record<string, number> = {}
+      const costDataByProvision: Record<string, { totalCost: number; totalQuantity: number }> = {}
+
+      purchasesData.forEach((purchase: any) => {
         if (purchase.items && Array.isArray(purchase.items)) {
           purchase.items.forEach((item: any) => {
             const provisionId = item.provisionItem?.id
             if (provisionId) {
-              if (!acc[provisionId]) {
-                acc[provisionId] = 0
+              // Sum quantities for inventory calculation
+              if (!purchasesByProvision[provisionId]) {
+                purchasesByProvision[provisionId] = 0
               }
-              acc[provisionId] += Number(item.quantity)
+              purchasesByProvision[provisionId] += Number(item.quantity)
+
+              // Collect cost data for average calculation
+              if (!costDataByProvision[provisionId]) {
+                costDataByProvision[provisionId] = { totalCost: 0, totalQuantity: 0 }
+              }
+              costDataByProvision[provisionId].totalCost += Number(item.unitCost || 0) * Number(item.quantity)
+              costDataByProvision[provisionId].totalQuantity += Number(item.quantity)
             }
           })
         }
-        return acc
-      }, {})
+      })
 
       // Calculate inventory for each provision item
       const inventory: Record<string, number> = {}
+      const averageCosts: Record<string, number> = {}
+
       provisionItems.forEach(item => {
         const totalPurchased = purchasesByProvision[item.id] || 0
         const totalUsed = usageByProvision[item.id] || 0
         inventory[item.id] = totalPurchased - totalUsed
+
+        // Calculate average cost from purchase history
+        const costData = costDataByProvision[item.id]
+        if (costData && costData.totalQuantity > 0) {
+          averageCosts[item.id] = costData.totalCost / costData.totalQuantity
+        } else {
+          // Fallback to stored unit cost if no purchase history
+          averageCosts[item.id] = Number(item.unitCost)
+        }
       })
 
       setInventoryLevels(inventory)
+      setAverageCosts(averageCosts)
     } catch (error) {
       console.error("Error calculating inventory levels:", error)
     } finally {
@@ -392,22 +420,36 @@ export default function ProvisionsPage() {
         })
       }
 
-      // Now create the purchase
+      const method = editingPurchase ? 'PUT' : 'POST'
+      const body = editingPurchase
+        ? {
+            id: editingPurchase.id,
+            date: purchaseDate,
+            vendor,
+            paymentType,
+            billId: billId || null,
+            items: processedItems
+          }
+        : {
+            date: purchaseDate,
+            vendor,
+            paymentType,
+            billId: billId || null,
+            items: processedItems
+          }
+
+      // Create or update the purchase
       await fetch('/api/provision-purchases', {
-        method: 'POST',
+        method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          date: purchaseDate,
-          vendor,
-          paymentType,
-          billId: billId || null,
-          items: processedItems
-        })
+        body: JSON.stringify(body)
       })
 
       toast({
-        title: "Purchase Added",
-        description: `Purchase from ${vendor} added successfully`,
+        title: editingPurchase ? "Purchase Updated" : "Purchase Added",
+        description: editingPurchase
+          ? `Purchase from ${vendor} updated successfully`
+          : `Purchase from ${vendor} added successfully`,
       })
 
       setPurchaseDialogOpen(false)
@@ -419,7 +461,7 @@ export default function ProvisionsPage() {
       console.error("Error saving purchase:", error)
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to add purchase",
+        description: error instanceof Error ? error.message : `Failed to ${editingPurchase ? 'update' : 'add'} purchase`,
         variant: "destructive",
       })
     }
@@ -471,6 +513,7 @@ export default function ProvisionsPage() {
     setPaymentType("")
     setBillId("")
     setPurchaseDate(new Date().toISOString().split('T')[0])
+    setEditingPurchase(null)
   }
 
   const handleRefresh = () => {
@@ -552,6 +595,161 @@ export default function ProvisionsPage() {
     setUsageDialogOpen(true)
   }
 
+  const editPurchase = (purchase: ProvisionPurchase) => {
+    setEditingPurchase(purchase)
+    setPurchaseDate(purchase.date)
+    setVendor(purchase.vendor)
+    setPaymentType(purchase.paymentType)
+    setBillId(purchase.billId || "")
+
+    // Convert purchase items to the format expected by the form
+    const formItems = purchase.items.map(item => ({
+      provisionItemName: item.provisionItem?.name || '',
+      quantity: item.quantity.toString(),
+      unit: item.provisionItem?.unit || 'kg',
+      unitCost: item.unitCost.toString(),
+      total: item.total
+    }))
+    setPurchaseItems(formItems)
+
+    setPurchaseDialogOpen(true)
+  }
+
+  const exportInventoryToCSV = () => {
+    const filename = `inventory-${new Date().toISOString().split('T')[0]}.csv`
+
+    const periodRow = [`Period: ${new Date(startDate).toLocaleDateString('en-GB')} to ${new Date(endDate).toLocaleDateString('en-GB')}`]
+    const emptyRow = [""]
+
+    const header = ["Item Name", "Unit", "Avg. Unit Cost", "Available Stock", "Total Value"]
+    const rows = provisionItems
+      .filter(item => (inventoryLevels[item.id] || 0) > 0)
+      .map(item => {
+        const stock = inventoryLevels[item.id] || 0
+        const averageCost = averageCosts[item.id] || Number(item.unitCost)
+        const totalValue = stock * averageCost
+        return [
+          item.name,
+          item.unit,
+          `₹${averageCost.toFixed(2)}`,
+          stock.toFixed(2),
+          `₹${totalValue.toFixed(2)}`
+        ]
+      })
+
+    const csvContent = [periodRow, emptyRow, header, ...rows].map(row => row.map(cell => `"${cell}"`).join(",")).join("\n")
+
+    const BOM = '\uFEFF'
+    const csvWithBOM = BOM + csvContent
+    const blob = new Blob([csvWithBOM], { type: 'text/csv;charset=utf-8;' })
+    const link = document.createElement("a")
+    const url = URL.createObjectURL(blob)
+    link.setAttribute("href", url)
+    link.setAttribute("download", filename)
+    link.style.visibility = 'hidden'
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  }
+
+  const exportPurchasesToCSV = () => {
+    const filename = `purchases-${startDate}-to-${endDate}.csv`
+
+    const periodRow = [`Period: ${new Date(startDate).toLocaleDateString('en-GB')} to ${new Date(endDate).toLocaleDateString('en-GB')}`]
+    const emptyRow = [""]
+
+    const header = ["Provision Item", "Date", "Quantity", "Unit Cost", "Total Amount", "Vendor"]
+    const itemRecords: Array<{
+      itemName: string;
+      date: string;
+      quantity: number;
+      unitCost: number;
+      totalAmount: number;
+      vendor: string;
+    }> = []
+
+    purchases.forEach(purchase => {
+      if (Array.isArray(purchase.items)) {
+        purchase.items.forEach(item => {
+          if (purchaseFilter === "all" || item.provisionItem?.id === purchaseFilter) {
+            itemRecords.push({
+              itemName: item.provisionItem?.name || 'Unknown',
+              date: purchase.date,
+              quantity: Number(item.quantity),
+              unitCost: Number(item.unitCost || 0),
+              totalAmount: Number(item.total || 0),
+              vendor: purchase.vendor
+            })
+          }
+        })
+      }
+    })
+
+    itemRecords.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+
+    const rows = itemRecords.map(record => [
+      record.itemName,
+      new Date(record.date).toLocaleDateString('en-GB'),
+      record.quantity.toFixed(2),
+      `₹${record.unitCost.toFixed(2)}`,
+      `₹${record.totalAmount.toFixed(2)}`,
+      record.vendor
+    ])
+
+    const csvContent = [periodRow, emptyRow, header, ...rows].map(row => row.map(cell => `"${cell}"`).join(",")).join("\n")
+
+    const BOM = '\uFEFF'
+    const csvWithBOM = BOM + csvContent
+    const blob = new Blob([csvWithBOM], { type: 'text/csv;charset=utf-8;' })
+    const link = document.createElement("a")
+    const url = URL.createObjectURL(blob)
+    link.setAttribute("href", url)
+    link.setAttribute("download", filename)
+    link.style.visibility = 'hidden'
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  }
+
+  const exportUsageToCSV = () => {
+    const filename = `usage-${startDate}-to-${endDate}.csv`
+
+    const periodRow = [`Period: ${new Date(startDate).toLocaleDateString('en-GB')} to ${new Date(endDate).toLocaleDateString('en-GB')}`]
+    const emptyRow = [""]
+
+    const header = ["Provision Item", "Period", "Quantity Used", "Unit Cost", "Total Cost"]
+    const filteredUsages = usages
+      .filter(usage => usageFilter === "all" || usage.provisionItem.id === usageFilter)
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+
+    const rows = filteredUsages.map(usage => {
+      const period = usage.fromDate && usage.toDate && usage.fromDate !== usage.toDate
+        ? `${new Date(usage.fromDate).toLocaleDateString('en-GB')} - ${new Date(usage.toDate).toLocaleDateString('en-GB')}`
+        : new Date(usage.date).toLocaleDateString('en-GB')
+      return [
+        usage.provisionItem.name,
+        period,
+        `${usage.quantity} ${usage.provisionItem.unit}`,
+        `₹${(averageCosts[usage.provisionItem.id] || Number(usage.provisionItem.unitCost)).toFixed(2)}`,
+        `₹${(usage.quantity * (averageCosts[usage.provisionItem.id] || Number(usage.provisionItem.unitCost))).toFixed(2)}`
+      ]
+    })
+
+    const csvContent = [periodRow, emptyRow, header, ...rows].map(row => row.map(cell => `"${cell}"`).join(",")).join("\n")
+
+    const BOM = '\uFEFF'
+    const csvWithBOM = BOM + csvContent
+    const blob = new Blob([csvWithBOM], { type: 'text/csv;charset=utf-8;' })
+    const link = document.createElement("a")
+    const url = URL.createObjectURL(blob)
+    link.setAttribute("href", url)
+    link.setAttribute("download", filename)
+    link.style.visibility = 'hidden'
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  }
+
   useEffect(() => {
     fetchProvisionItems()
     fetchItemSuggestions()
@@ -618,7 +816,13 @@ export default function ProvisionsPage() {
         <TabsContent value="inventory" className="space-y-6">
           <Card className="border-0 shadow-md">
             <CardHeader>
-              <CardTitle>Current Inventory Levels</CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle>Current Inventory Levels</CardTitle>
+                <Button variant="outline" onClick={exportInventoryToCSV}>
+                  <Download className="w-4 h-4 mr-2" />
+                  Export CSV
+                </Button>
+              </div>
             </CardHeader>
             <CardContent>
               {inventoryLoading ? (
@@ -632,9 +836,9 @@ export default function ProvisionsPage() {
                     <TableRow>
                       <TableHead>Item Name</TableHead>
                       <TableHead>Unit</TableHead>
-                      <TableHead className="text-right">Unit Cost</TableHead>
+                      <TableHead className="text-right">Avg. Unit Cost (Approx)</TableHead>
                       <TableHead className="text-right">Available Stock</TableHead>
-                      <TableHead className="text-right">Total Value</TableHead>
+                      <TableHead className="text-right">Total Value (Approx)</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -642,12 +846,13 @@ export default function ProvisionsPage() {
                       .filter((item) => (inventoryLevels[item.id] || 0) > 0)
                       .map((item) => {
                         const stock = inventoryLevels[item.id] || 0
-                        const totalValue = stock * Number(item.unitCost)
+                        const averageCost = averageCosts[item.id] || Number(item.unitCost)
+                        const totalValue = stock * averageCost
                         return (
                           <TableRow key={item.id}>
                             <TableCell className="font-medium">{item.name}</TableCell>
                             <TableCell>{item.unit}</TableCell>
-                            <TableCell className="text-right">₹{Number(item.unitCost).toFixed(2)}</TableCell>
+                            <TableCell className="text-right">₹{averageCost.toFixed(2)}</TableCell>
                             <TableCell className={`text-right font-medium ${stock < 0 ? 'text-red-600' : stock === 0 ? 'text-yellow-600' : 'text-green-600'}`}>
                               {stock.toFixed(2)}
                             </TableCell>
@@ -670,10 +875,34 @@ export default function ProvisionsPage() {
         </TabsContent>
 
         <TabsContent value="purchase" className="space-y-6">
-          {/* Filters */}
+          {/* Filters and View Toggle */}
           <Card className="border-0 shadow-md">
             <CardHeader>
-              <CardTitle>Filters</CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle>Filters</CardTitle>
+                <div className="flex rounded-lg border border-gray-200 p-1 bg-gray-50">
+                  <button
+                    className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
+                      purchaseView === "date"
+                        ? "bg-white text-blue-600 shadow-sm border border-gray-200"
+                        : "text-gray-600 hover:text-gray-900"
+                    }`}
+                    onClick={() => setPurchaseView("date")}
+                  >
+                    Date View
+                  </button>
+                  <button
+                    className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
+                      purchaseView === "item"
+                        ? "bg-white text-blue-600 shadow-sm border border-gray-200"
+                        : "text-gray-600 hover:text-gray-900"
+                    }`}
+                    onClick={() => setPurchaseView("item")}
+                  >
+                    Item View
+                  </button>
+                </div>
+              </div>
             </CardHeader>
             <CardContent>
               <div className="flex gap-4">
@@ -729,7 +958,7 @@ export default function ProvisionsPage() {
               </DialogTrigger>
               <DialogContent className="bg-white max-w-4xl max-h-[80vh] overflow-y-auto">
                 <DialogHeader>
-                  <DialogTitle>Add Provision Purchase</DialogTitle>
+                  <DialogTitle>{editingPurchase ? "Edit Provision Purchase" : "Add Provision Purchase"}</DialogTitle>
                 </DialogHeader>
                 <div className="space-y-4">
                   <div>
@@ -765,13 +994,13 @@ export default function ProvisionsPage() {
                               value={item.provisionItemName}
                               onChange={(e) => {
                                 updatePurchaseItem(index, 'provisionItemName', e.target.value)
-                                setShowSuggestions(true)
+                                setShowSuggestionsFor(index)
                               }}
-                              onFocus={() => setShowSuggestions(true)}
-                              onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+                              onFocus={() => setShowSuggestionsFor(index)}
+                              onBlur={() => setTimeout(() => setShowSuggestionsFor(null), 200)}
                               className="w-full"
                             />
-                            {showSuggestions && itemSuggestions.filter(s => s.toLowerCase().includes(item.provisionItemName.toLowerCase())).length > 0 && (
+                            {showSuggestionsFor === index && itemSuggestions.filter(s => s.toLowerCase().includes(item.provisionItemName.toLowerCase())).length > 0 && (
                               <div className="absolute z-10 w-full bg-white border border-gray-300 rounded-b shadow-lg max-h-40 overflow-y-auto">
                                 {itemSuggestions
                                   .filter(s => s.toLowerCase().includes(item.provisionItemName.toLowerCase()))
@@ -894,49 +1123,138 @@ export default function ProvisionsPage() {
           {/* Purchase History Table */}
           <Card className="border-0 shadow-md">
             <CardHeader>
-              <CardTitle>Purchase History</CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle>Purchase History</CardTitle>
+                <Button variant="outline" onClick={exportPurchasesToCSV}>
+                  <Download className="w-4 h-4 mr-2" />
+                  Export CSV
+                </Button>
+              </div>
             </CardHeader>
             <CardContent>
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Vendor</TableHead>
-                    <TableHead>Items</TableHead>
-                    <TableHead className="text-right">Total Amount</TableHead>
-                    <TableHead>Payment Type</TableHead>
+                    {purchaseView === "date" ? (
+                      <>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Vendor</TableHead>
+                        <TableHead>Items</TableHead>
+                        <TableHead className="text-right">Total Amount</TableHead>
+                        <TableHead>Payment Type</TableHead>
+                        <TableHead>Actions</TableHead>
+                      </>
+                    ) : (
+                      <>
+                        <TableHead>Provision Item</TableHead>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Quantity</TableHead>
+                        <TableHead>Unit Cost</TableHead>
+                        <TableHead>Total Amount</TableHead>
+                        <TableHead>Vendor</TableHead>
+                        <TableHead>Actions</TableHead>
+                      </>
+                    )}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {Array.isArray(purchases) && purchases.length > 0 ? (
-                    purchases
-                      .filter(purchase => {
-                        if (purchaseFilter === "all") return true
-                        return Array.isArray(purchase.items) && purchase.items.some(item => item.provisionItem?.id === purchaseFilter)
-                      })
-                      .map((purchase) => (
-                        <TableRow key={purchase.id}>
-                          <TableCell>{new Date(purchase.date).toLocaleDateString()}</TableCell>
-                          <TableCell>{purchase.vendor}</TableCell>
-                          <TableCell>
-                            {Array.isArray(purchase.items) && purchase.items
-                              .filter(item => purchaseFilter === "all" || item.provisionItem?.id === purchaseFilter)
-                              .map((item, idx) => (
-                                <div key={idx} className="text-sm">
-                                  {item.provisionItem?.name || 'Unknown'}: {item.quantity} × ₹{parseFloat(String(item.unitCost || 0)).toFixed(2)}
-                                </div>
-                              ))}
-                          </TableCell>
-                          <TableCell className="text-right">₹{parseFloat(String(purchase.totalAmount || 0)).toFixed(2)}</TableCell>
-                          <TableCell>{purchase.paymentType}</TableCell>
-                        </TableRow>
-                      ))
+                  {purchaseView === "date" ? (
+                    Array.isArray(purchases) && purchases.length > 0 ? (
+                      purchases
+                        .filter(purchase => {
+                          if (purchaseFilter === "all") return true
+                          return Array.isArray(purchase.items) && purchase.items.some(item => item.provisionItem?.id === purchaseFilter)
+                        })
+                        .map((purchase) => (
+                          <TableRow key={purchase.id}>
+                            <TableCell>{new Date(purchase.date).toLocaleDateString('en-GB')}</TableCell>
+                            <TableCell>{purchase.vendor}</TableCell>
+                            <TableCell>
+                              {Array.isArray(purchase.items) && purchase.items
+                                .filter(item => purchaseFilter === "all" || item.provisionItem?.id === purchaseFilter)
+                                .map((item, idx) => (
+                                  <div key={idx} className="text-sm">
+                                    {item.provisionItem?.name || 'Unknown'}: {item.quantity} × ₹{parseFloat(String(item.unitCost || 0)).toFixed(2)}
+                                  </div>
+                                ))}
+                            </TableCell>
+                            <TableCell className="text-right">₹{parseFloat(String(purchase.totalAmount || 0)).toFixed(2)}</TableCell>
+                            <TableCell>{purchase.paymentType}</TableCell>
+                            <TableCell>
+                              <Button variant="outline" size="sm" onClick={() => editPurchase(purchase)}>
+                                Edit
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                    ) : (
+                      <TableRow>
+                        <TableCell colSpan={6} className="text-center text-gray-500">
+                          No purchases found for the selected filters
+                        </TableCell>
+                      </TableRow>
+                    )
                   ) : (
-                    <TableRow>
-                      <TableCell colSpan={5} className="text-center text-gray-500">
-                        No purchases found for the selected filters
-                      </TableCell>
-                    </TableRow>
+                    // Item view - show individual purchase items
+                    (() => {
+                      const itemRecords: Array<{
+                        itemName: string;
+                        date: string;
+                        quantity: number;
+                        unitCost: number;
+                        totalAmount: number;
+                        vendor: string;
+                        purchaseId: string;
+                      }> = [];
+
+                      purchases.forEach(purchase => {
+                        if (Array.isArray(purchase.items)) {
+                          purchase.items.forEach(item => {
+                            if (purchaseFilter === "all" || item.provisionItem?.id === purchaseFilter) {
+                              itemRecords.push({
+                                itemName: item.provisionItem?.name || 'Unknown',
+                                date: purchase.date,
+                                quantity: Number(item.quantity),
+                                unitCost: Number(item.unitCost || 0),
+                                totalAmount: Number(item.total || 0),
+                                vendor: purchase.vendor,
+                                purchaseId: purchase.id
+                              });
+                            }
+                          });
+                        }
+                      });
+
+                      // Sort by date descending
+                      itemRecords.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+                      return itemRecords.length > 0 ? (
+                        itemRecords.map((record, idx) => (
+                          <TableRow key={idx}>
+                            <TableCell className="font-medium">{record.itemName}</TableCell>
+                            <TableCell>{new Date(record.date).toLocaleDateString('en-GB')}</TableCell>
+                            <TableCell>{record.quantity.toFixed(2)}</TableCell>
+                            <TableCell>₹{record.unitCost.toFixed(2)}</TableCell>
+                            <TableCell>₹{record.totalAmount.toFixed(2)}</TableCell>
+                            <TableCell>{record.vendor}</TableCell>
+                            <TableCell>
+                              <Button variant="outline" size="sm" onClick={() => {
+                                const fullPurchase = purchases.find(p => p.id === record.purchaseId)
+                                if (fullPurchase) editPurchase(fullPurchase)
+                              }}>
+                                Edit
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      ) : (
+                        <TableRow>
+                          <TableCell colSpan={7} className="text-center text-gray-500">
+                            No purchases found for the selected filters
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })()
                   )}
                 </TableBody>
               </Table>
@@ -945,10 +1263,34 @@ export default function ProvisionsPage() {
         </TabsContent>
 
         <TabsContent value="usage" className="space-y-6">
-          {/* Filters */}
+          {/* Filters and View Toggle */}
           <Card className="border-0 shadow-md">
             <CardHeader>
-              <CardTitle>Filters</CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle>Filters</CardTitle>
+                <div className="flex rounded-lg border border-gray-200 p-1 bg-gray-50">
+                  <button
+                    className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
+                      usageView === "date"
+                        ? "bg-white text-blue-600 shadow-sm border border-gray-200"
+                        : "text-gray-600 hover:text-gray-900"
+                    }`}
+                    onClick={() => setUsageView("date")}
+                  >
+                    Date View
+                  </button>
+                  <button
+                    className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
+                      usageView === "item"
+                        ? "bg-white text-blue-600 shadow-sm border border-gray-200"
+                        : "text-gray-600 hover:text-gray-900"
+                    }`}
+                    onClick={() => setUsageView("item")}
+                  >
+                    Item View
+                  </button>
+                </div>
+              </div>
             </CardHeader>
             <CardContent>
               <div className="flex gap-4">
@@ -1137,50 +1479,108 @@ export default function ProvisionsPage() {
           {/* Usage Table */}
           <Card className="border-0 shadow-md">
             <CardHeader>
-              <CardTitle>Provision Usage Records</CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle>Provision Usage Records</CardTitle>
+                <Button variant="outline" onClick={exportUsageToCSV}>
+                  <Download className="w-4 h-4 mr-2" />
+                  Export CSV
+                </Button>
+              </div>
             </CardHeader>
             <CardContent>
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Period</TableHead>
-                    <TableHead>Provision Item</TableHead>
-                    <TableHead>Unit</TableHead>
-                    <TableHead className="text-right">Quantity</TableHead>
-                    <TableHead className="text-right">Cost</TableHead>
-                    <TableHead>Actions</TableHead>
+                    {usageView === "date" ? (
+                      <>
+                        <TableHead>Period</TableHead>
+                        <TableHead>Provision Item</TableHead>
+                        <TableHead>Unit</TableHead>
+                        <TableHead className="text-right">Quantity</TableHead>
+                        <TableHead className="text-right">Cost</TableHead>
+                        <TableHead>Actions</TableHead>
+                      </>
+                    ) : (
+                      <>
+                        <TableHead>Provision Item</TableHead>
+                        <TableHead>Period</TableHead>
+                        <TableHead>Quantity Used</TableHead>
+                        <TableHead>Unit Cost</TableHead>
+                        <TableHead>Total Cost</TableHead>
+                        <TableHead>Actions</TableHead>
+                      </>
+                    )}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {usages
-                    .filter(usage => usageFilter === "all" || usage.provisionItem.id === usageFilter)
-                    .map((usage) => {
-                      const period = usage.fromDate && usage.toDate && usage.fromDate !== usage.toDate
-                        ? `${new Date(usage.fromDate).toLocaleDateString()} - ${new Date(usage.toDate).toLocaleDateString()}`
-                        : new Date(usage.date).toLocaleDateString()
-                      return (
-                        <TableRow key={usage.id}>
-                          <TableCell>{period}</TableCell>
-                          <TableCell>{usage.provisionItem.name}</TableCell>
-                          <TableCell>{usage.provisionItem.unit}</TableCell>
-                          <TableCell className="text-right">{usage.quantity}</TableCell>
-                          <TableCell className="text-right">
-                            ₹{(usage.quantity * usage.provisionItem.unitCost).toFixed(2)}
-                          </TableCell>
-                          <TableCell>
-                            <Button variant="outline" size="sm" onClick={() => editUsage(usage)}>
-                              Edit
-                            </Button>
+                  {usageView === "date" ? (
+                    <>
+                      {usages
+                        .filter(usage => usageFilter === "all" || usage.provisionItem.id === usageFilter)
+                        .map((usage) => {
+                          const period = usage.fromDate && usage.toDate && usage.fromDate !== usage.toDate
+                            ? `${new Date(usage.fromDate).toLocaleDateString('en-GB')} - ${new Date(usage.toDate).toLocaleDateString('en-GB')}`
+                            : new Date(usage.date).toLocaleDateString('en-GB')
+                          return (
+                            <TableRow key={usage.id}>
+                              <TableCell>{period}</TableCell>
+                              <TableCell>{usage.provisionItem.name}</TableCell>
+                              <TableCell>{usage.provisionItem.unit}</TableCell>
+                              <TableCell className="text-right">{usage.quantity}</TableCell>
+                              <TableCell className="text-right">
+                                ₹{(usage.quantity * (averageCosts[usage.provisionItem.id] || Number(usage.provisionItem.unitCost))).toFixed(2)}
+                              </TableCell>
+                              <TableCell>
+                                <Button variant="outline" size="sm" onClick={() => editUsage(usage)}>
+                                  Edit
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          )
+                        })}
+                      {usages.filter(usage => usageFilter === "all" || usage.provisionItem.id === usageFilter).length === 0 && (
+                        <TableRow>
+                          <TableCell colSpan={6} className="text-center text-gray-500 py-8">
+                            No usage records found for the selected filters
                           </TableCell>
                         </TableRow>
-                      )
-                    })}
-                  {usages.filter(usage => usageFilter === "all" || usage.provisionItem.id === usageFilter).length === 0 && (
-                    <TableRow>
-                      <TableCell colSpan={6} className="text-center text-gray-500 py-8">
-                        No usage records found for the selected filters
-                      </TableCell>
-                    </TableRow>
+                      )}
+                    </>
+                  ) : (
+                    // Item view - show individual usage records
+                    (() => {
+                      const filteredUsages = usages
+                        .filter(usage => usageFilter === "all" || usage.provisionItem.id === usageFilter)
+                        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+                      return filteredUsages.length > 0 ? (
+                        filteredUsages.map((usage) => {
+                          const period = usage.fromDate && usage.toDate && usage.fromDate !== usage.toDate
+                            ? `${new Date(usage.fromDate).toLocaleDateString('en-GB')} - ${new Date(usage.toDate).toLocaleDateString('en-GB')}`
+                            : new Date(usage.date).toLocaleDateString('en-GB')
+                          return (
+                            <TableRow key={usage.id}>
+                              <TableCell className="font-medium">{usage.provisionItem.name}</TableCell>
+                              <TableCell>{period}</TableCell>
+                              <TableCell>{usage.quantity} {usage.provisionItem.unit}</TableCell>
+                              <TableCell>₹{(averageCosts[usage.provisionItem.id] || Number(usage.provisionItem.unitCost)).toFixed(2)}</TableCell>
+                              <TableCell>₹{(usage.quantity * (averageCosts[usage.provisionItem.id] || Number(usage.provisionItem.unitCost))).toFixed(2)}</TableCell>
+                              <TableCell>
+                                <Button variant="outline" size="sm" onClick={() => editUsage(usage)}>
+                                  Edit
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          )
+                        })
+                      ) : (
+                        <TableRow>
+                          <TableCell colSpan={6} className="text-center text-gray-500 py-8">
+                            No usage records found for the selected filters
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })()
                   )}
                 </TableBody>
               </Table>
