@@ -7,7 +7,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { Edit, Package, Users, UserCheck, Eye, DollarSign, TrendingUp, Pencil, Plus, X, Save, FileText } from "lucide-react"
+import { Edit, Package, Users, UserCheck, Eye, DollarSign, TrendingUp, Pencil, Plus, X, Save, FileText, Calendar } from "lucide-react"
+import { computeMandays, AttendanceCode } from "@/lib/calculations"
 import { toast } from "sonner"
 import { YearPicker } from "@/components/ui/year-picker"
 
@@ -147,12 +148,17 @@ export default function ReportsPage() {
     provisionPerStudent: number
     totalPerStudent: number
     totalStudents: number
+    totalLabourMandays: number
+    totalProvisionMandays: number
   } | null>(null)
   const [savedReports, setSavedReports] = useState<any[]>([])
   const [showSaveDialog, setShowSaveDialog] = useState(false)
   const [reportName, setReportName] = useState('')
   const [savingReport, setSavingReport] = useState(false)
   const [loadingSavedReports, setLoadingSavedReports] = useState(false)
+  const [showOverwriteDialog, setShowOverwriteDialog] = useState(false)
+  const [existingReport, setExistingReport] = useState<any>(null)
+  const [saveMode, setSaveMode] = useState<'new' | 'overwrite'>('new')
 
 
   // Fetch semesters
@@ -531,16 +537,112 @@ export default function ReportsPage() {
     const labourPerDay = getPerDayLabourCharge()
     const provisionPerDay = getPerDayProvisionUsage()
 
+    // Calculate separate labour and provision mandays using billing page logic
+    let totalLabourMandays = 0
+    let totalProvisionMandays = 0
+
+    try {
+      const startDate = `${selectedYear}-${selectedMonth.padStart(2, '0')}-01`
+      const endDate = new Date(parseInt(selectedYear), parseInt(selectedMonth), 0)
+      const endDateStr = endDate.toISOString().split('T')[0]
+
+      // Get all students
+      const studentsResponse = await fetch('/api/students')
+      if (!studentsResponse.ok) {
+        throw new Error("Failed to fetch students")
+      }
+      const students = await studentsResponse.json()
+
+      // Get all attendance records for the month
+      const attendanceResponse = await fetch(`/api/attendance?startDate=${startDate}&endDate=${endDateStr}`)
+      if (!attendanceResponse.ok) {
+        throw new Error("Failed to fetch attendance")
+      }
+      const allAttendance = await attendanceResponse.json()
+
+      // Calculate mandays for each student and sum them up
+      for (const student of students) {
+        const studentAttendance = allAttendance.filter((att: any) =>
+          att.studentId === student.id &&
+          new Date(att.date) >= new Date(startDate) &&
+          new Date(att.date) <= new Date(endDateStr)
+        )
+
+        // Convert attendance records to proper format
+        const attendanceRecords = studentAttendance.map((att: any) => ({
+          code: att.code as AttendanceCode,
+          date: new Date(att.date),
+        }))
+
+        // Calculate labour mandays (P + L + CN) - same as billing page
+        const studentLabourMandays = attendanceRecords.filter((att: { code: AttendanceCode; date: Date }) =>
+          att.code === AttendanceCode.P ||
+          att.code === AttendanceCode.L ||
+          att.code === AttendanceCode.CN
+        ).length
+
+        // Calculate provision mandays (P + L) - same as billing page
+        const studentProvisionMandays = attendanceRecords.filter((att: { code: AttendanceCode; date: Date }) =>
+          att.code === AttendanceCode.P ||
+          att.code === AttendanceCode.L
+        ).length
+
+        totalLabourMandays += studentLabourMandays
+        totalProvisionMandays += studentProvisionMandays
+      }
+    } catch (error) {
+      console.error("Error calculating mandays:", error)
+      totalLabourMandays = 0
+      totalProvisionMandays = 0
+    }
+
     return {
       labourPerStudent: totalStudents > 0 ? labourPerDay / totalStudents : 0,
       provisionPerStudent: totalStudents > 0 ? provisionPerDay / totalStudents : 0,
       totalPerStudent: totalStudents > 0 ? (labourPerDay + provisionPerDay) / totalStudents : 0,
-      totalStudents
+      totalStudents,
+      totalLabourMandays,
+      totalProvisionMandays
     }
   }
 
-  const saveReport = async () => {
-    if (!reportName.trim()) {
+  const checkExistingReport = async () => {
+    try {
+      const response = await fetch('/api/saved-reports')
+      if (response.ok) {
+        const reports = await response.json()
+        // Find report for current month/year
+        const existing = reports.find((report: any) =>
+          report.month === parseInt(selectedMonth) && report.year === parseInt(selectedYear)
+        )
+        return existing
+      }
+    } catch (error) {
+      console.error('Error checking existing reports:', error)
+    }
+    return null
+  }
+
+  const handleSaveClick = async () => {
+    if (!reportData) {
+      toast.error("No report data to save")
+      return
+    }
+
+    // Check if report already exists for this month/year
+    const existing = await checkExistingReport()
+    if (existing) {
+      setExistingReport(existing)
+      setShowOverwriteDialog(true)
+      return
+    }
+
+    // No existing report, show normal save dialog
+    setShowSaveDialog(true)
+  }
+
+  const saveReport = async (mode: 'new' | 'overwrite' = 'new') => {
+    if (!reportName.trim() && mode === 'new') {
       toast.error("Please enter a report name")
       return
     }
@@ -572,6 +674,12 @@ export default function ReportsPage() {
         externalIncomes,
         selectedSemesterId,
         selectedSemester,
+        // Include the new mandays breakdown in saved settings
+        mandaysBreakdown: perStudentCosts ? {
+          totalLabourMandays: perStudentCosts.totalLabourMandays,
+          totalProvisionMandays: perStudentCosts.totalProvisionMandays,
+          totalStudents: perStudentCosts.totalStudents,
+        } : null,
       }
 
       const summary = {
@@ -580,28 +688,56 @@ export default function ReportsPage() {
         netProfit,
       }
 
-      const response = await fetch('/api/saved-reports', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          month: parseInt(selectedMonth),
-          year: parseInt(selectedYear),
-          reportName: reportName.trim(),
-          settings,
-          summary,
-        }),
-      })
+      const finalReportName = mode === 'overwrite' && existingReport
+        ? existingReport.reportName
+        : reportName.trim()
+
+      let response
+
+      if (mode === 'overwrite' && existingReport) {
+        // Use PUT to update existing report
+        response = await fetch(`/api/saved-reports/${existingReport.id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            reportName: finalReportName,
+            settings,
+            summary,
+          }),
+        })
+      } else {
+        // Use POST to create new report
+        response = await fetch('/api/saved-reports', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            month: parseInt(selectedMonth),
+            year: parseInt(selectedYear),
+            reportName: finalReportName,
+            settings,
+            summary,
+          }),
+        })
+      }
 
       if (response.ok) {
         const savedReport = await response.json()
-        toast.success("Report saved successfully!")
+        toast.success(mode === 'overwrite'
+          ? "Report updated successfully!"
+          : "Report saved successfully!"
+        )
         setShowSaveDialog(false)
+        setShowOverwriteDialog(false)
         setReportName('')
+        setExistingReport(null)
         loadSavedReports()
       } else {
-        throw new Error('Failed to save report')
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to save report')
       }
     } catch (error) {
       console.error('Error saving report:', error)
@@ -659,6 +795,18 @@ export default function ReportsPage() {
           if (matchingSemester) {
             setSelectedSemester(matchingSemester)
           }
+        }
+
+        // Restore mandays breakdown if available (for backward compatibility)
+        if (report.settings?.mandaysBreakdown) {
+          setPerStudentCosts({
+            labourPerStudent: 0, // Will be recalculated
+            provisionPerStudent: 0, // Will be recalculated
+            totalPerStudent: 0, // Will be recalculated
+            totalStudents: report.settings.mandaysBreakdown.totalStudents,
+            totalLabourMandays: report.settings.mandaysBreakdown.totalLabourMandays,
+            totalProvisionMandays: report.settings.mandaysBreakdown.totalProvisionMandays,
+          })
         }
 
         // Trigger fresh data fetch with the restored settings
@@ -784,7 +932,7 @@ export default function ReportsPage() {
           <p className="text-muted-foreground">Independent cost reports for each category</p>
         </div>
         <div className="flex items-center gap-3">
-          <Button variant="outline" onClick={() => setShowSaveDialog(true)}>
+          <Button variant="outline" onClick={handleSaveClick}>
             <Save className="w-4 h-4 mr-2" />
             Save Bill
           </Button>
@@ -1395,8 +1543,67 @@ export default function ReportsPage() {
                 {perStudentCosts ? (
                   <>
                     <div className="text-sm text-gray-600 mb-4">
-                      Based on {perStudentCosts.totalStudents} students for {monthNames[parseInt(selectedMonth) - 1]} {selectedYear}
-                    </div>
+                       Based on {perStudentCosts.totalStudents} students for {monthNames[parseInt(selectedMonth) - 1]} {selectedYear}
+                     </div>
+
+                     {/* Total Mandays Display */}
+                     <div className="mb-6 p-4 bg-slate-50 border border-slate-200 rounded-lg">
+                       <div className="space-y-3">
+                         <div className="flex items-center justify-between">
+                           <div className="flex items-center space-x-2">
+                             <Calendar className="h-5 w-5 text-slate-600" />
+                             <div>
+                               <div className="text-lg font-semibold text-slate-800">
+                                 Total Mandays Breakdown
+                               </div>
+                               <div className="text-xs text-slate-600">
+                                 Separate calculations for labour and provision charges
+                               </div>
+                             </div>
+                           </div>
+                         </div>
+
+                         <div className="grid grid-cols-2 gap-4">
+                           {/* Labour Mandays */}
+                           <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                             <div className="flex items-center justify-between">
+                               <div>
+                                 <div className="text-sm font-medium text-blue-800">Labour Mandays</div>
+                                   <div className="text-xs text-blue-600">
+                                     <span className="font-medium">P + L + CN</span>
+                                   </div>
+                               </div>
+                               <Users className="h-4 w-4 text-blue-600" />
+                             </div>
+                             <div className="mt-2">
+                               <div className="text-xl font-bold text-blue-900">
+                                 {perStudentCosts.totalLabourMandays.toLocaleString()}
+                               </div>
+                             </div>
+                           </div>
+
+                           {/* Provision Mandays */}
+                           <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+                             <div className="flex items-center justify-between">
+                               <div>
+                                 <div className="text-sm font-medium text-green-800">Provision Mandays</div>
+                                   <div className="text-xs text-green-600">
+                                     <span className="font-medium">P + L</span>
+                                   </div>
+                               </div>
+                               <Package className="h-4 w-4 text-green-600" />
+                             </div>
+                             <div className="mt-2">
+                               <div className="text-xl font-bold text-green-900">
+                                 {perStudentCosts.totalProvisionMandays.toLocaleString()}
+                               </div>
+                             </div>
+                           </div>
+                         </div>
+
+                         
+                       </div>
+                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       {/* Labour Charge Per Student */}
@@ -1562,7 +1769,7 @@ export default function ReportsPage() {
                 onChange={(e) => setReportName(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
-                    saveReport()
+                    saveReport('new')
                   }
                 }}
               />
@@ -1575,8 +1782,69 @@ export default function ReportsPage() {
             <Button variant="outline" onClick={() => setShowSaveDialog(false)}>
               Cancel
             </Button>
-            <Button onClick={saveReport} disabled={savingReport}>
+            <Button onClick={() => saveReport('new')} disabled={savingReport}>
               {savingReport ? "Saving..." : "Save Report"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Overwrite Confirmation Dialog */}
+      <Dialog open={showOverwriteDialog} onOpenChange={setShowOverwriteDialog}>
+        <DialogContent className="sm:max-w-md bg-white">
+          <DialogHeader>
+            <DialogTitle>Report Already Exists</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="text-sm text-gray-600">
+              A report for <strong>{monthNames[parseInt(selectedMonth) - 1]} {selectedYear}</strong> already exists:
+            </div>
+            {existingReport && (
+              <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg">
+                <div className="font-medium text-gray-900">{existingReport.reportName}</div>
+                <div className="text-sm text-gray-600">
+                  Saved on {new Date(existingReport.createdAt).toLocaleDateString()}
+                </div>
+              </div>
+            )}
+            <div className="text-sm text-gray-600">
+              What would you like to do?
+            </div>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowOverwriteDialog(false)
+                setExistingReport(null)
+                // Auto-populate a unique name for the new report
+                const baseName = `Report for ${monthNames[parseInt(selectedMonth) - 1]} ${selectedYear}`
+                const timestamp = new Date().toLocaleTimeString('en-US', {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                  hour12: false
+                })
+                setReportName(`${baseName} (${timestamp})`)
+                setShowSaveDialog(true)
+              }}
+            >
+              Create New
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowOverwriteDialog(false)
+                setExistingReport(null)
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={() => saveReport('overwrite')}
+              disabled={savingReport}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              {savingReport ? "Updating..." : "Overwrite Existing"}
             </Button>
           </div>
         </DialogContent>
