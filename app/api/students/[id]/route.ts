@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/db"
+import { createAuditLog, getCurrentUserId } from "@/lib/audit"
 
 export const dynamic = 'force-dynamic'
 
@@ -32,6 +33,12 @@ export async function PATCH(
       updateData.leaveDate = new Date(leaveDate)
     }
 
+    // Get old data for audit logging
+    const oldStudentData = {
+      status: existingStudent.status,
+      leaveDate: existingStudent.leaveDate
+    }
+
     // Update the student
     const updatedStudent = await prisma.student.update({
       where: { id },
@@ -40,6 +47,20 @@ export async function PATCH(
         hostel: true,
       },
     })
+
+    // Log the update
+    const currentUserId = await getCurrentUserId()
+    await createAuditLog(
+      currentUserId,
+      "UPDATE",
+      "student",
+      id,
+      oldStudentData,
+      {
+        status: updatedStudent?.status,
+        leaveDate: updatedStudent?.leaveDate
+      }
+    )
 
     return NextResponse.json(updatedStudent, {
       headers: {

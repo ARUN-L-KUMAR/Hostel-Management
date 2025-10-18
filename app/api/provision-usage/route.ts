@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/db"
+import { createAuditLog, getCurrentUserId } from "@/lib/audit"
 
 export async function GET(request: NextRequest) {
   try {
@@ -49,6 +50,23 @@ export async function POST(request: NextRequest) {
       }
     })
 
+    // Log the creation
+    const currentUserId = await getCurrentUserId()
+    await createAuditLog(
+      currentUserId,
+      "CREATE",
+      "provisionUsage",
+      usage.id,
+      null,
+      {
+        provisionItemId,
+        date: new Date(date),
+        fromDate: fromDate ? new Date(fromDate) : null,
+        toDate: toDate ? new Date(toDate) : null,
+        quantity
+      }
+    )
+
     return NextResponse.json(usage)
   } catch (error) {
     console.error("Error creating provision usage:", error)
@@ -74,6 +92,23 @@ export async function PUT(request: NextRequest) {
         provisionItem: true
       }
     })
+
+    // Log the update
+    const currentUserId = await getCurrentUserId()
+    await createAuditLog(
+      currentUserId,
+      "UPDATE",
+      "provisionUsage",
+      id,
+      null, // Skip old data for now due to model constraints
+      {
+        provisionItemId,
+        date: new Date(date),
+        fromDate: fromDate ? new Date(fromDate) : null,
+        toDate: toDate ? new Date(toDate) : null,
+        quantity
+      }
+    )
 
     return NextResponse.json(usage)
   } catch (error) {

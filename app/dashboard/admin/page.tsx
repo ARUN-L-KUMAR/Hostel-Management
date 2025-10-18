@@ -6,8 +6,10 @@ import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Users, Shield, Loader2 } from "lucide-react"
+import { Users, Shield, Loader2, FileText } from "lucide-react"
 import { UserManagement } from "@/components/admin/user-management"
+import { AuditLogs } from "@/components/admin/audit-logs"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 interface UserStats {
   total: number
@@ -52,8 +54,11 @@ export default function AdminPage() {
       return
     }
 
-    // Check if user has admin role
-    if (session.user?.role !== "ADMIN") {
+    // Check if user has admin role or admin permission
+    const hasAdminAccess = session.user?.role === "ADMIN" ||
+      (session.user?.role === "MANAGER" && session.user?.permissions?.includes("admin"))
+
+    if (!hasAdminAccess) {
       router.push("/dashboard")
       return
     }
@@ -75,8 +80,15 @@ export default function AdminPage() {
     )
   }
 
-  // If not admin, don't render the page
-  if (!session || session.user?.role !== "ADMIN") {
+  // If not admin or manager with admin permission, don't render the page
+  if (!session) {
+    return null
+  }
+
+  const hasAdminAccess = session.user?.role === "ADMIN" ||
+    (session.user?.role === "MANAGER" && session.user?.permissions?.includes("admin"))
+
+  if (!hasAdminAccess) {
     return null
   }
 
@@ -93,7 +105,7 @@ export default function AdminPage() {
           </Button>
           <Badge variant="secondary" className="gap-1">
             <Shield className="h-3 w-3" />
-            Admin Access
+            {session.user?.role === "ADMIN" ? "Admin Access" : "Manager Access"}
           </Badge>
         </div>
       </div>
@@ -127,14 +139,44 @@ export default function AdminPage() {
             <Shield className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">Admin</div>
-            <p className="text-xs text-muted-foreground">Full system access</p>
+            <div className="text-2xl font-bold text-green-600">
+              {session.user?.role === "ADMIN" ? "Admin" : "Manager"}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {session.user?.role === "ADMIN" ? "Full system access" : "Limited admin access"}
+            </p>
           </CardContent>
         </Card>
       </div>
 
-      {/* User Management Section */}
-      <UserManagement onUserChange={fetchUserStats} />
+      <Tabs defaultValue="users" className="w-full">
+        <TabsList className="grid w-full grid-cols-2 h-12 bg-slate-100 p-1 rounded-lg">
+          <TabsTrigger
+            value="users"
+            className="flex items-center gap-2 font-medium data-[state=active]:bg-blue-600 data-[state=active]:text-white data-[state=inactive]:bg-white data-[state=inactive]:text-slate-700 data-[state=inactive]:hover:bg-slate-50 transition-colors"
+          >
+            <Users className="w-5 h-5" />
+            <span className="hidden sm:inline">User Management</span>
+            <span className="sm:hidden">Users</span>
+          </TabsTrigger>
+          <TabsTrigger
+            value="logs"
+            className="flex items-center gap-2 font-medium data-[state=active]:bg-blue-600 data-[state=active]:text-white data-[state=inactive]:bg-white data-[state=inactive]:text-slate-700 data-[state=inactive]:hover:bg-slate-50 transition-colors"
+          >
+            <FileText className="w-5 h-5" />
+            <span className="hidden sm:inline">Audit Logs</span>
+            <span className="sm:hidden">Logs</span>
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="users" className="space-y-6">
+          <UserManagement onUserChange={fetchUserStats} />
+        </TabsContent>
+
+        <TabsContent value="logs" className="space-y-6">
+          <AuditLogs />
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }

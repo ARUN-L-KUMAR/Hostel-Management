@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/db"
+import { createAuditLog, getCurrentUserId } from "@/lib/audit"
 
 export const dynamic = 'force-dynamic'
 
@@ -55,6 +56,24 @@ export async function POST(request: NextRequest) {
         isMando: true, // Mark as mando student
       },
     })
+
+    // Log the creation
+    const currentUserId = await getCurrentUserId()
+    await createAuditLog(
+      currentUserId,
+      "CREATE",
+      "student",
+      mandoStudent.id,
+      null,
+      {
+        name,
+        rollNo,
+        dept,
+        year,
+        hostelId,
+        isMando: true,
+      }
+    )
 
     return NextResponse.json(mandoStudent)
   } catch (error) {

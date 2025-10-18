@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/db"
 import { computeMandays, AttendanceCode } from "@/lib/calculations"
+import { createAuditLog, getCurrentUserId } from "@/lib/audit"
 
 export async function GET(request: NextRequest) {
   try {
@@ -121,6 +122,22 @@ export async function POST(request: NextRequest) {
         totalMandays: 800, // Estimate
       },
     })
+
+    // Log the billing settings update
+    const currentUserId = await getCurrentUserId()
+    await createAuditLog(
+      currentUserId,
+      "UPDATE",
+      "bill",
+      monthStr,
+      null,
+      {
+        month: monthStr,
+        perDayRate: parseFloat(perDayRate),
+        provisionPerDayRate: parseFloat(provisionPerDayRate),
+        advancePerDayRate: parseFloat(advancePerDayRate)
+      }
+    )
 
     return NextResponse.json({ success: true, bill })
   } catch (error) {

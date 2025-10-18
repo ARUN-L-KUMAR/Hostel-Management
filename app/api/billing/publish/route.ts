@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/db"
+import { createAuditLog, getCurrentUserId } from "@/lib/audit"
 
 export async function POST(request: NextRequest) {
   try {
@@ -56,6 +57,22 @@ export async function POST(request: NextRequest) {
     })
 
     await prisma.$transaction([...billOperations, mandoOperation])
+
+    // Log the billing publish operation
+    const currentUserId = await getCurrentUserId()
+    await createAuditLog(
+      currentUserId,
+      "CREATE",
+      "bill_publish",
+      `${month}_${year}`,
+      null,
+      {
+        month,
+        year,
+        billsCreated: studentBills.length,
+        mandoCoverage: mandoCoverage
+      }
+    )
 
     return NextResponse.json({ success: true, billsCreated: studentBills.length })
   } catch (error) {

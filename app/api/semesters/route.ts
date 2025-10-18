@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/db"
+import { createAuditLog, getCurrentUserId } from "@/lib/audit"
 
 export async function GET() {
   try {
@@ -43,6 +44,22 @@ export async function POST(request: NextRequest) {
       },
     })
 
+    // Log the creation
+    const currentUserId = await getCurrentUserId()
+    await createAuditLog(
+      currentUserId,
+      "CREATE",
+      "semester",
+      semester.id.toString(),
+      null,
+      {
+        name,
+        startDate: new Date(startDate),
+        endDate: new Date(endDate),
+        baseAmount: parseFloat(baseAmount)
+      }
+    )
+
     return NextResponse.json({
       semester,
       feeStructure
@@ -79,6 +96,22 @@ export async function PUT(request: NextRequest) {
       })
     }
 
+    // Log the update
+    const currentUserId = await getCurrentUserId()
+    await createAuditLog(
+      currentUserId,
+      "UPDATE",
+      "semester",
+      id,
+      null, // Skip old data for now due to model constraints
+      {
+        name,
+        startDate: new Date(startDate),
+        endDate: new Date(endDate),
+        baseAmount: baseAmount ? parseFloat(baseAmount) : undefined
+      }
+    )
+
     return NextResponse.json({ semester })
   } catch (error) {
     console.error("Error updating semester:", error)
@@ -109,6 +142,17 @@ export async function DELETE(request: NextRequest) {
     await prisma.semester.delete({
       where: { id: parseInt(id) }
     })
+
+    // Log the deletion
+    const currentUserId = await getCurrentUserId()
+    await createAuditLog(
+      currentUserId,
+      "DELETE",
+      "semester",
+      id,
+      null, // Skip old data for now due to model constraints
+      null
+    )
 
     return NextResponse.json({ message: "Semester deleted successfully" })
   } catch (error) {

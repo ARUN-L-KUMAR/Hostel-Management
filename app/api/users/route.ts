@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/db"
+import { createAuditLog, getCurrentUserId } from "@/lib/audit"
 import bcrypt from "bcryptjs"
 
 export async function GET(request: NextRequest) {
@@ -62,6 +63,17 @@ export async function POST(request: NextRequest) {
     })
 
     console.log("User created successfully with permissions:", user.permissions)
+
+    // Log the creation
+    const currentUserId = await getCurrentUserId()
+    await createAuditLog(
+      currentUserId,
+      "CREATE",
+      "user",
+      user.id,
+      null,
+      { name, email, role, permissions: finalPermissions }
+    )
 
     // Don't return password in response
     const { password: _, ...userWithoutPassword } = user

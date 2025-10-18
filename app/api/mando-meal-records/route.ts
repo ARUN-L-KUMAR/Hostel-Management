@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/db"
 import { neon } from "@neondatabase/serverless"
+import { createAuditLog, getCurrentUserId } from "@/lib/audit"
 
 const sql = neon(process.env.DATABASE_URL!)
 
@@ -139,6 +140,25 @@ export async function POST(request: NextRequest) {
     }
 
     console.log('[API] Serialized present field:', (serializedRecord as any).present)
+
+    // Log the meal record creation/update
+    const currentUserId = await getCurrentUserId()
+    await createAuditLog(
+      currentUserId,
+      "CREATE",
+      "mealRecord",
+      `${studentId}_${date}`,
+      null,
+      {
+        studentId,
+        date: utcDate,
+        breakfast: breakfast || false,
+        lunch: lunch || false,
+        dinner: dinner || false,
+        present: present || false,
+        mealRate
+      }
+    )
 
     return NextResponse.json(serializedRecord, {
       headers: {

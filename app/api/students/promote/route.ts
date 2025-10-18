@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/db"
+import { createAuditLog, getCurrentUserId } from "@/lib/audit"
 
 // Define status constants to match our database
 const StudentStatus = {
@@ -63,6 +64,25 @@ export async function POST(request: Request) {
     }
 
     const message = `Successfully promoted ${promotedCount} students (${mandoPromotedCount} mando) and graduated ${graduatedCount} students (${mandoGraduatedCount} mando)`
+
+    // Log the promotion operation
+    const currentUserId = await getCurrentUserId()
+    await createAuditLog(
+      currentUserId,
+      "UPDATE",
+      "student_promotion",
+      `promotion_${Date.now()}`,
+      null,
+      {
+        promoteType,
+        totalStudents: students.length,
+        promotedCount,
+        graduatedCount,
+        mandoPromotedCount,
+        mandoGraduatedCount,
+        message
+      }
+    )
 
     return NextResponse.json({
       message,

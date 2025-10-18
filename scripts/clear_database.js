@@ -16,6 +16,12 @@ async function clearDatabase() {
     console.log('Deleting student bills...')
     await prisma.studentBill.deleteMany()
 
+    console.log('Deleting fee records...')
+    await prisma.feeRecord.deleteMany()
+
+    console.log('Deleting meal records...')
+    await prisma.mealRecord.deleteMany()
+
     console.log('Deleting students...')
     await prisma.student.deleteMany()
 
@@ -24,6 +30,9 @@ async function clearDatabase() {
 
     console.log('Deleting expenses...')
     await prisma.expense.deleteMany()
+
+    console.log('Deleting provision purchases...')
+    await prisma.provisionPurchase.deleteMany()
 
     console.log('Deleting bills...')
     await prisma.bill.deleteMany()
@@ -39,6 +48,12 @@ async function clearDatabase() {
 
     console.log('Deleting billing settings...')
     await prisma.billingSettings.deleteMany()
+
+    console.log('Deleting fee records...')
+    await prisma.feeRecord.deleteMany()
+
+    console.log('Deleting meal records...')
+    await prisma.mealRecord.deleteMany()
 
     console.log('Deleting audit logs...')
     await prisma.auditLog.deleteMany()

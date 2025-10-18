@@ -125,11 +125,7 @@ export default function SignInPage() {
             </Button>
           </form>
           
-          <div className="mt-6 text-center">
-            <p className="text-sm text-gray-600 dark:text-gray-400">
-              Demo credentials: admin@hostel.edu / admin123
-            </p>
-          </div>
+          
         </CardContent>
       </Card>
     </div>

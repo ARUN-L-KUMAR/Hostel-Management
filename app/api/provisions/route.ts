@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/db"
+import { createAuditLog, getCurrentUserId } from "@/lib/audit"
 
 export async function GET() {
   try {
@@ -27,6 +28,22 @@ export async function POST(request: NextRequest) {
         unitMeasure,
       },
     })
+
+    // Log the creation
+    const currentUserId = await getCurrentUserId()
+    await createAuditLog(
+      currentUserId,
+      "CREATE",
+      "provisionItem",
+      provision.id,
+      null,
+      {
+        name,
+        unit,
+        unitCost,
+        unitMeasure,
+      }
+    )
 
     return NextResponse.json(provision)
   } catch (error) {

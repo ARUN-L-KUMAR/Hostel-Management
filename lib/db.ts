@@ -312,6 +312,24 @@ export const prisma = {
       }))
     },
 
+    findUnique: async (options: any) => {
+      try {
+        let result
+        if (options.where.studentId_date) {
+          const { studentId, date } = options.where.studentId_date
+          result = await sql`SELECT * FROM attendance WHERE "studentId" = ${studentId} AND date = ${date}`
+        } else {
+          return null
+        }
+
+        if (result.length === 0) return null
+        return result[0]
+      } catch (error) {
+        console.error("[v0] Error finding attendance:", error)
+        return null
+      }
+    },
+
     upsert: async (options: any) => {
       const { studentId, date, code, note } = options.create
       // Ensure date is treated as UTC
@@ -455,6 +473,16 @@ export const prisma = {
       }
     },
 
+    findUnique: async (options: any) => {
+      try {
+        const result = await sql`SELECT * FROM provision_items WHERE id = ${options.where.id}`
+        return result.length > 0 ? result[0] : null
+      } catch (error) {
+        console.error("[v0] Error finding provision item:", error)
+        return null
+      }
+    },
+
     create: async (options: any) => {
       try {
         const { name, unit, unitCost, unitMeasure } = options.data
@@ -478,7 +506,7 @@ export const prisma = {
         const { id } = options.where
         const { name, unit, unitCost, unitMeasure } = options.data
         const now = new Date()
-        
+
         const result = await sql`
           UPDATE provision_items SET
             name = ${name},
@@ -996,7 +1024,7 @@ export const prisma = {
             if (orConditions.length > 0) {
               whereConditions.push(sql`(${orConditions[0]})`)
               for (let i = 1; i < orConditions.length; i++) {
-                whereConditions.push(sql`OR ${orConditions[i]}`)
+                whereConditions.push(sql`OR (${orConditions[i]})`)
               }
             }
           }
@@ -1942,6 +1970,144 @@ export const prisma = {
         return result[0]
       } catch (error) {
         console.error("[v0] Error deleting saved report:", error)
+        throw error
+      }
+    },
+  },
+
+  auditLog: {
+    findMany: async (options?: any) => {
+      try {
+        let query = sql`SELECT * FROM audit_logs`
+        const whereConditions = []
+
+        if (options?.where) {
+          if (options.where.userId) {
+            whereConditions.push(sql`"userId" = ${options.where.userId}`)
+          }
+          if (options.where.entity) {
+            whereConditions.push(sql`entity = ${options.where.entity}`)
+          }
+        }
+
+        if (whereConditions.length > 0) {
+          query = sql`${query} WHERE ${whereConditions[0]}`
+          for (let i = 1; i < whereConditions.length; i++) {
+            query = sql`${query} AND ${whereConditions[i]}`
+          }
+        }
+
+        if (options?.orderBy?.timestamp === 'desc') {
+          query = sql`${query} ORDER BY timestamp DESC`
+        }
+
+        if (options?.skip) {
+          query = sql`${query} OFFSET ${options.skip}`
+        }
+
+        if (options?.take) {
+          query = sql`${query} LIMIT ${options.take}`
+        }
+
+        const result = await query
+
+        // Parse JSON fields with error handling
+        return result.map((log: any) => {
+          try {
+            return {
+              ...log,
+              oldData: log.oldData ? JSON.parse(log.oldData) : null,
+              newData: log.newData ? JSON.parse(log.newData) : null
+            }
+          } catch (parseError) {
+            console.warn("[v0] Failed to parse audit log JSON for log", log.id, ":", parseError)
+            return {
+              ...log,
+              oldData: null,
+              newData: null
+            }
+          }
+        })
+      } catch (error) {
+        console.error("[v0] Error finding audit logs:", error)
+        return []
+      }
+    },
+
+    count: async (options?: any) => {
+      try {
+        let query = sql`SELECT COUNT(*) FROM audit_logs`
+        const whereConditions = []
+
+        if (options?.where) {
+          if (options.where.userId) {
+            whereConditions.push(sql`"userId" = ${options.where.userId}`)
+          }
+          if (options.where.entity) {
+            whereConditions.push(sql`entity = ${options.where.entity}`)
+          }
+        }
+
+        if (whereConditions.length > 0) {
+          query = sql`${query} WHERE ${whereConditions[0]}`
+          for (let i = 1; i < whereConditions.length; i++) {
+            query = sql`${query} AND ${whereConditions[i]}`
+          }
+        }
+
+        const result = await query
+        return Number.parseInt(result[0].count)
+      } catch (error) {
+        console.error("[v0] Error counting audit logs:", error)
+        return 0
+      }
+    },
+
+    create: async (options: any) => {
+      try {
+        const { userId, action, entity, entityId, oldData, newData } = options.data
+        const id = `audit_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+        const now = new Date()
+
+        // Safely serialize data for storage
+        const serializeData = (data: any) => {
+          if (!data) return null
+          try {
+            // Remove any circular references and non-serializable properties
+            const cleaned = JSON.parse(JSON.stringify(data, (key, value) => {
+              // Handle Date objects
+              if (value instanceof Date) {
+                return { __type: 'Date', value: value.toISOString() }
+              }
+              // Handle other special objects
+              if (typeof value === 'object' && value !== null) {
+                // Remove functions and other non-serializable properties
+                const cleanedObj: any = {}
+                for (const [k, v] of Object.entries(value)) {
+                  if (typeof v !== 'function' && k !== '_prisma') {
+                    cleanedObj[k] = v
+                  }
+                }
+                return cleanedObj
+              }
+              return value
+            }))
+            return cleaned
+          } catch (error) {
+            console.error('Error serializing audit data:', error)
+            return { error: 'Failed to serialize data', originalType: typeof data }
+          }
+        }
+
+        const result = await sql`
+          INSERT INTO audit_logs (id, "userId", action, entity, "entityId", "oldData", "newData", timestamp)
+          VALUES (${id}, ${userId || null}, ${action}, ${entity}, ${entityId || null}, ${serializeData(oldData)}, ${serializeData(newData)}, ${now})
+          RETURNING *
+        `
+
+        return result[0]
+      } catch (error) {
+        console.error("[v0] Error creating audit log:", error)
         throw error
       }
     },

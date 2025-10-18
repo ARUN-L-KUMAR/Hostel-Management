@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/db"
+import { createAuditLog, getCurrentUserId } from "@/lib/audit"
 
 export async function POST(request: NextRequest) {
   try {
@@ -62,7 +63,7 @@ export async function POST(request: NextRequest) {
           }
 
           // Create the student
-          await prisma.student.create({
+          const student = await prisma.student.create({
             data: {
               name: name.trim(),
               rollNo: rollNo.trim(),
@@ -73,6 +74,25 @@ export async function POST(request: NextRequest) {
               isMando: isMando || false
             }
           })
+
+          // Log the creation
+          const currentUserId = await getCurrentUserId()
+          await createAuditLog(
+            currentUserId,
+            "CREATE",
+            "student",
+            student.id,
+            null,
+            {
+              name: name.trim(),
+              rollNo: rollNo.trim(),
+              dept: dept ? dept.trim() : null,
+              year: parseInt(year),
+              gender: gender || null,
+              hostelId: hostelId.trim(),
+              isMando: isMando || false
+            }
+          )
 
           results.successfulCount++
         } catch (error) {

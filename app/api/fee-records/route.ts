@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/db"
+import { createAuditLog, getCurrentUserId } from "@/lib/audit"
 
 export async function GET(request: NextRequest) {
   try {
@@ -105,6 +106,27 @@ export async function POST(request: NextRequest) {
           }
         })
 
+        // Log the fee record update
+        const currentUserId = await getCurrentUserId()
+        await createAuditLog(
+          currentUserId,
+          "UPDATE",
+          "feeRecord",
+          updatedRecord.id.toString(),
+          existingRecord ? {
+            amountPaid: (existingRecord as any).amountPaid,
+            balance: (existingRecord as any).balance,
+            paymentMode: (existingRecord as any).paymentMode
+          } : null,
+          {
+            studentId: updatedRecord.studentId,
+            semesterId: updatedRecord.semesterId,
+            amountPaid: updateBalance ? (existingRecord as any).amountPaid : newAmountPaid,
+            balance: finalBalance,
+            paymentMode: updateBalance ? (existingRecord as any).paymentMode : (paymentMode || (existingRecord as any).paymentMode)
+          }
+        )
+
         return NextResponse.json({
           id: updatedRecord.id,
           studentId: updatedRecord.studentId,
@@ -144,6 +166,24 @@ export async function POST(request: NextRequest) {
         if (!newRecord) {
           throw new Error("Failed to create fee record - returned undefined")
         }
+
+        // Log the fee record creation
+        const currentUserId = await getCurrentUserId()
+        await createAuditLog(
+          currentUserId,
+          "CREATE",
+          "feeRecord",
+          newRecord.id.toString(),
+          null,
+          {
+            studentId: newRecord.studentId,
+            semesterId: newRecord.semesterId,
+            totalDue: newRecord.totalDue,
+            amountPaid: newRecord.amountPaid,
+            balance: newRecord.balance,
+            paymentMode: newRecord.paymentMode
+          }
+        )
 
         return NextResponse.json({
           id: newRecord.id,

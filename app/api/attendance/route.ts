@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/db"
+import { createAuditLog, getCurrentUserId } from "@/lib/audit"
 
 export const dynamic = 'force-dynamic'
 
@@ -34,6 +35,16 @@ export async function POST(request: NextRequest) {
     // Parse date as UTC to avoid timezone issues
     const utcDate = new Date(date + 'T00:00:00.000Z')
 
+    // Get existing attendance for audit logging
+    const existingAttendance = await prisma.attendance.findUnique({
+      where: {
+        studentId_date: {
+          studentId,
+          date: utcDate,
+        },
+      },
+    })
+
     const attendance = await prisma.attendance.upsert({
       where: {
         studentId_date: {
@@ -50,6 +61,18 @@ export async function POST(request: NextRequest) {
         code,
       },
     })
+
+    // Log the attendance change
+    const currentUserId = await getCurrentUserId()
+    const action = existingAttendance ? "UPDATE" : "CREATE"
+    await createAuditLog(
+      currentUserId,
+      action,
+      "attendance",
+      `${studentId}_${date}`,
+      existingAttendance ? { code: existingAttendance.code } : null,
+      { studentId, date, code }
+    )
 
     return NextResponse.json(attendance, {
       headers: {
@@ -69,6 +92,16 @@ export async function DELETE(request: NextRequest) {
     const body = await request.json()
     const { studentId, date } = body
 
+    // Get attendance data before deletion for audit logging
+    const attendanceToDelete = await prisma.attendance.findUnique({
+      where: {
+        studentId_date: {
+          studentId,
+          date,
+        },
+      },
+    })
+
     const attendance = await prisma.attendance.delete({
       where: {
         studentId_date: {
@@ -77,6 +110,17 @@ export async function DELETE(request: NextRequest) {
         },
       },
     })
+
+    // Log the deletion
+    const currentUserId = await getCurrentUserId()
+    await createAuditLog(
+      currentUserId,
+      "DELETE",
+      "attendance",
+      `${studentId}_${date}`,
+      attendanceToDelete ? { studentId: attendanceToDelete.studentId, date: attendanceToDelete.date, code: attendanceToDelete.code } : null,
+      null
+    )
 
     return NextResponse.json(attendance, {
       headers: {
