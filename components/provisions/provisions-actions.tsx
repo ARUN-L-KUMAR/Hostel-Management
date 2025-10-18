@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { Plus, Download, Upload } from "lucide-react"
+import { Plus, Download, Upload, RefreshCw } from "lucide-react"
 import { ProvisionsExcelImportDialog } from "./excel-import-dialog"
 import { AddProvisionDialog } from "./add-provision-dialog"
 
@@ -25,6 +25,11 @@ export function ProvisionsActions({ onRefresh }: ProvisionsActionsProps) {
 
   return (
     <div className="flex items-center space-x-2">
+      <Button variant="outline" onClick={onRefresh}>
+        <RefreshCw className="w-4 h-4 mr-2" />
+        Refresh
+      </Button>
+
       <Button variant="outline" onClick={handleExport}>
         <Download className="w-4 h-4 mr-2" />
         Export
@@ -49,7 +54,7 @@ export function ProvisionsActions({ onRefresh }: ProvisionsActionsProps) {
         <Plus className="w-4 h-4 mr-2" />
         Add Item
       </Button>
-      
+
       <AddProvisionDialog
         open={addDialogOpen}
         onOpenChange={setAddDialogOpen}

@@ -1467,7 +1467,7 @@ export default function BillingPage() {
             <CardHeader>
               <div className="flex justify-between items-center">
                 <CardTitle>
-                  Student Payment Overview - {selectedSemester ? selectedSemester.name : 'No Semester Selected'}
+                  Student Payment Overview - {selectedSemester ? `${selectedSemester.name} (${new Date(selectedSemester.startDate).toLocaleDateString()} - ${new Date(selectedSemester.endDate).toLocaleDateString()})` : 'No Semester Selected'}
                 </CardTitle>
                 <div className="flex gap-2">
                   {selectedSemester && (
@@ -1576,7 +1576,19 @@ export default function BillingPage() {
                           />
                         </TableCell>
                         <TableCell>
-                          <div className="font-medium text-slate-900">{student.name}</div>
+                          <div className="font-medium text-slate-900 flex items-center gap-2">
+                            {student.name}
+                            <Badge
+                              variant={student.status === 'ACTIVE' ? 'default' : 'secondary'}
+                              className={`text-xs px-2 py-0 ${
+                                student.status === 'ACTIVE'
+                                  ? 'bg-green-100 text-green-800'
+                                  : 'bg-gray-100 text-gray-800'
+                              }`}
+                            >
+                              {student.status === 'ACTIVE' ? 'Active' : 'Vacated'}
+                            </Badge>
+                          </div>
                           <div className="text-xs text-slate-500 flex items-center space-x-2">
                             <span>{student.rollNo}</span>
                             <span>•</span>
