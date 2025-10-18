@@ -9,25 +9,57 @@ import { Badge } from "@/components/ui/badge"
 import { Users, Shield, Loader2 } from "lucide-react"
 import { UserManagement } from "@/components/admin/user-management"
 
+interface UserStats {
+  total: number
+  admins: number
+  managers: number
+}
+
 export default function AdminPage() {
   const { data: session, status } = useSession()
   const router = useRouter()
   const [refreshTrigger, setRefreshTrigger] = useState(0)
+  const [userStats, setUserStats] = useState<UserStats>({ total: 0, admins: 0, managers: 0 })
+  const [statsLoading, setStatsLoading] = useState(true)
 
-  // Check if user is admin
+  // Fetch user statistics
+  const fetchUserStats = async () => {
+    try {
+      setStatsLoading(true)
+      const response = await fetch("/api/users")
+      if (response.ok) {
+        const users = await response.json()
+        const stats = {
+          total: users.length,
+          admins: users.filter((u: any) => u.role === "ADMIN").length,
+          managers: users.filter((u: any) => u.role === "MANAGER").length
+        }
+        setUserStats(stats)
+      }
+    } catch (error) {
+      console.error("Error fetching user stats:", error)
+    } finally {
+      setStatsLoading(false)
+    }
+  }
+
+  // Check if user is admin and fetch stats
   useEffect(() => {
     if (status === "loading") return
-    
+
     if (!session) {
       router.push("/auth/signin")
       return
     }
-    
+
     // Check if user has admin role
     if (session.user?.role !== "ADMIN") {
       router.push("/dashboard")
       return
     }
+
+    // Fetch user statistics
+    fetchUserStats()
   }, [session, status, router])
 
   const handleRefresh = () => {
@@ -74,8 +106,19 @@ export default function AdminPage() {
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">8</div>
-            <p className="text-xs text-muted-foreground">3 admins, 5 staff</p>
+            {statsLoading ? (
+              <div className="flex items-center space-x-2">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span className="text-sm text-muted-foreground">Loading...</span>
+              </div>
+            ) : (
+              <>
+                <div className="text-2xl font-bold">{userStats.total}</div>
+                <p className="text-xs text-muted-foreground">
+                  {userStats.admins} admin{userStats.admins !== 1 ? 's' : ''}, {userStats.managers} manager{userStats.managers !== 1 ? 's' : ''}
+                </p>
+              </>
+            )}
           </CardContent>
         </Card>
         <Card>
@@ -91,7 +134,7 @@ export default function AdminPage() {
       </div>
 
       {/* User Management Section */}
-      <UserManagement />
+      <UserManagement onUserChange={fetchUserStats} />
     </div>
   )
 }

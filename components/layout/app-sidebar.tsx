@@ -27,26 +27,44 @@ export function AppSidebar() {
   const pathname = usePathname()
   const { data: session } = useSession()
 
-  // Filter menu items based on user role
+  // Filter menu items based on user permissions
   const getMenuItems = () => {
-    const baseItems = [
-      { icon: Home, label: "Dashboard", href: "/dashboard" },
-      { icon: Calendar, label: "Attendance", href: "/dashboard/attendance" },
-      { icon: Users, label: "Students", href: "/dashboard/students" },
-      { icon: Calendar, label: "Mando Meal Entry", href: "/dashboard/mando-students" },
-      { icon: Users, label: "Outsiders", href: "/dashboard/outsiders" },
-      { icon: Package, label: "Provisions", href: "/dashboard/provisions" },
-      { icon: Receipt, label: "Billing", href: "/dashboard/billing" },
-      { icon: DollarSign, label: "Expenses", href: "/dashboard/expenses" },
-      { icon: FileText, label: "Reports", href: "/dashboard/reports" },
+    const allItems = [
+      { icon: Home, label: "Dashboard", href: "/dashboard", permission: "dashboard" },
+      { icon: Calendar, label: "Attendance", href: "/dashboard/attendance", permission: "attendance" },
+      { icon: Users, label: "Students", href: "/dashboard/students", permission: "students" },
+      { icon: Calendar, label: "Mando Meal Entry", href: "/dashboard/mando-students", permission: "mando-students" },
+      { icon: Users, label: "Outsiders", href: "/dashboard/outsiders", permission: "outsiders" },
+      { icon: Package, label: "Provisions", href: "/dashboard/provisions", permission: "provisions" },
+      { icon: Receipt, label: "Billing", href: "/dashboard/billing", permission: "billing" },
+      { icon: DollarSign, label: "Expenses", href: "/dashboard/expenses", permission: "expenses" },
+      { icon: FileText, label: "Reports", href: "/dashboard/reports", permission: "reports" },
+      { icon: Settings, label: "Admin", href: "/dashboard/admin", permission: "admin" },
     ]
 
-    // Only show admin link to ADMIN users
+    // Get user permissions from session
+    const userPermissions = session?.user?.permissions as string[] || []
+
+    console.log("[SIDEBAR] User permissions from session:", {
+      role: session?.user?.role,
+      permissions: userPermissions,
+      allItems: allItems.length
+    })
+
+    // Filter items based on user permissions
+    // ADMIN role gets all permissions, MANAGER role uses specific permissions
     if (session?.user?.role === "ADMIN") {
-      return [...baseItems, { icon: Settings, label: "Admin", href: "/dashboard/admin" }]
+      console.log("[SIDEBAR] ADMIN user - showing all items")
+      return allItems
     }
 
-    return baseItems
+    // For MANAGER role, filter based on permissions array
+    return allItems.filter(item => {
+      // Always show dashboard for all users
+      if (item.permission === "dashboard") return true
+      // Show other pages only if user has specific permission
+      return userPermissions.includes(item.permission)
+    })
   }
 
   const menuItems = getMenuItems()

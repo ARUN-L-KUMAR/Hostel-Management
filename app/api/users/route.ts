@@ -18,7 +18,9 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { name, email, role, password } = body
+    const { name, email, role, password, permissions } = body
+
+    console.log("Received user creation request:", { name, email, role, permissions: permissions || 'none' })
 
     if (!name || !email || !role || !password) {
       return NextResponse.json(
@@ -42,9 +44,24 @@ export async function POST(request: NextRequest) {
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 12)
 
+    const finalPermissions = permissions || (role === "ADMIN"
+      ? ["dashboard", "attendance", "students", "mando-students", "outsiders", "provisions", "billing", "expenses", "reports", "admin"]
+      : [] // No default permissions for managers - admin must select manually
+    )
+
+    console.log("Final permissions to save:", finalPermissions)
+
     const user = await prisma.user.create({
-      data: { name, email, role, password: hashedPassword }
+      data: {
+        name,
+        email,
+        role,
+        password: hashedPassword,
+        permissions: finalPermissions
+      }
     })
+
+    console.log("User created successfully with permissions:", user.permissions)
 
     // Don't return password in response
     const { password: _, ...userWithoutPassword } = user

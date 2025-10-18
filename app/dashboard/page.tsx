@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useSearchParams } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -17,7 +18,8 @@ import {
   Eye,
   AlertTriangle,
   CheckCircle,
-  Clock
+  Clock,
+  Shield
 } from "lucide-react"
 import { toast } from "sonner"
 
@@ -101,9 +103,11 @@ interface DashboardData {
 }
 
 export default function DashboardPage() {
+  const searchParams = useSearchParams()
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null)
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
+  const [accessDeniedPage, setAccessDeniedPage] = useState<string | null>(null)
 
   const fetchDashboardData = async () => {
     try {
@@ -347,6 +351,20 @@ export default function DashboardPage() {
     fetchDashboardData()
   }, [])
 
+  // Check for access denied parameter
+  useEffect(() => {
+    const accessDenied = searchParams.get('access_denied')
+    if (accessDenied) {
+      setAccessDeniedPage(accessDenied)
+      toast.error(`Access denied to ${accessDenied} page. Contact administrator for permissions.`)
+
+      // Clear the access_denied parameter from URL after showing message
+      const newUrl = new URL(window.location.href)
+      newUrl.searchParams.delete('access_denied')
+      window.history.replaceState({}, '', newUrl.pathname + newUrl.search)
+    }
+  }, [searchParams])
+
   const handleRefresh = () => {
     fetchDashboardData()
   }
@@ -398,7 +416,25 @@ export default function DashboardPage() {
         </Button>
       </div>
 
-      {/* Alerts */}
+      {/* Access Denied Alert */}
+      {accessDeniedPage && (
+        <Card className="border-l-4 border-l-red-500 bg-red-50">
+          <CardContent className="p-4">
+            <div className="flex items-start gap-3">
+              <Shield className="h-5 w-5 text-red-600 mt-0.5" />
+              <div>
+                <h4 className="font-medium text-sm text-red-800">Access Denied</h4>
+                <p className="text-sm text-red-700 mt-1">
+                  You don't have permission to access the <strong>{accessDeniedPage}</strong> page.
+                  Contact your administrator to request access to this feature.
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* System Alerts */}
       {dashboardData.alerts.length > 0 && (
         <div className="space-y-2">
           {dashboardData.alerts.map((alert, index) => (

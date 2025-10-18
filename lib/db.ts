@@ -862,29 +862,39 @@ export const prisma = {
 
     create: async (options: any) => {
       try {
-        const { name, email, role, password } = options.data
+        const { name, email, role, password, permissions } = options.data
         const id = `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
         const now = new Date()
-        
-        // Try with password first, fallback without if column doesn't exist
+
+        console.log("[v0] Creating user with data:", { name, email, role, permissions: permissions || 'none' })
+
+        // Try with all fields including permissions
         let result
         try {
+          // Handle empty permissions array
+          const permissionsValue = permissions && permissions.length > 0 ? JSON.stringify(permissions) : null
+
           result = await sql`
-            INSERT INTO users (id, name, email, role, password, "createdAt", "updatedAt")
-            VALUES (${id}, ${name}, ${email}, ${role}, ${password || null}, ${now}, ${now})
+            INSERT INTO users (id, name, email, role, password, permissions, "createdAt", "updatedAt")
+            VALUES (${id}, ${name}, ${email}, ${role}, ${password || null}, ${permissionsValue}, ${now}, ${now})
             RETURNING *
           `
+          console.log("[v0] User created successfully with permissions")
         } catch (error: any) {
           if (error.code === '42703') { // Column doesn't exist
+            // Fallback without permissions column
             result = await sql`
-              INSERT INTO users (id, name, email, role, "createdAt", "updatedAt")
-              VALUES (${id}, ${name}, ${email}, ${role}, ${now}, ${now})
+              INSERT INTO users (id, name, email, role, password, "createdAt", "updatedAt")
+              VALUES (${id}, ${name}, ${email}, ${role}, ${password || null}, ${now}, ${now})
               RETURNING *
             `
+            console.log("[v0] User created without permissions (column doesn't exist)")
           } else {
             throw error
           }
         }
+
+        console.log("[v0] Created user result:", result[0])
         return result[0]
       } catch (error) {
         console.error("[v0] Error creating user:", error)
@@ -895,18 +905,41 @@ export const prisma = {
     update: async (options: any) => {
       try {
         const { id } = options.where
-        const { name, email, role } = options.data
+        const { name, email, role, password, permissions } = options.data
         const now = new Date()
-        
+
+        console.log("[v0] Updating user with data:", { name, email, role, permissions: permissions || 'none' })
+
+        // Build dynamic update query by interpolating values directly
+        const updates = []
+
+        if (name !== undefined) {
+          updates.push(`name = '${name}'`)
+        }
+        if (email !== undefined) {
+          updates.push(`email = '${email}'`)
+        }
+        if (role !== undefined) {
+          updates.push(`role = '${role}'`)
+        }
+        if (permissions !== undefined) {
+          const permissionsValue = permissions && permissions.length > 0 ? `'${JSON.stringify(permissions)}'` : 'NULL'
+          updates.push(`permissions = ${permissionsValue}`)
+        }
+        if (password !== undefined) {
+          updates.push(`password = '${password}'`)
+        }
+
+        // Always update updatedAt
+        updates.push(`"updatedAt" = '${now.toISOString()}'`)
+
         const result = await sql`
-          UPDATE users SET
-            name = ${name},
-            email = ${email},
-            role = ${role},
-            "updatedAt" = ${now}
+          UPDATE users SET ${sql.unsafe(updates.join(', '))}
           WHERE id = ${id}
           RETURNING *
         `
+
+        console.log("[v0] User updated successfully:", result[0]?.name)
         return result[0]
       } catch (error) {
         console.error("[v0] Error updating user:", error)

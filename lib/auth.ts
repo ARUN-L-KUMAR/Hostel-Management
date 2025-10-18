@@ -1,7 +1,27 @@
-import { NextAuthOptions } from "next-auth"
+import { NextAuthOptions, User } from "next-auth"
 import CredentialsProvider from "next-auth/providers/credentials"
 import { prisma } from "@/lib/db"
 import bcrypt from "bcryptjs"
+
+// Extend the built-in session types
+declare module "next-auth" {
+  interface User {
+    permissions?: string[]
+  }
+  interface Session {
+    user: {
+      id: string
+      role: string
+      permissions?: string[]
+    } & User
+  }
+}
+
+declare module "next-auth/jwt" {
+  interface JWT {
+    permissions?: string[]
+  }
+}
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -31,11 +51,20 @@ export const authOptions: NextAuthOptions = {
             return null
           }
 
+          console.log("[AUTH] User authenticated:", {
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            role: user.role,
+            permissions: user.permissions
+          })
+
           return {
             id: user.id,
             email: user.email,
             name: user.name,
             role: user.role,
+            permissions: user.permissions,
           }
         } catch (error) {
           console.error("Auth error:", error)
@@ -51,6 +80,7 @@ export const authOptions: NextAuthOptions = {
     async jwt({ token, user }) {
       if (user) {
         token.role = user.role
+        token.permissions = user.permissions
       }
       return token
     },
@@ -58,6 +88,7 @@ export const authOptions: NextAuthOptions = {
       if (token && session.user) {
         session.user.id = token.sub as string
         session.user.role = token.role as string
+        session.user.permissions = token.permissions as string[]
       }
       return session
     },

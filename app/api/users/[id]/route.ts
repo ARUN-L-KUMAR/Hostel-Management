@@ -34,7 +34,9 @@ export async function PUT(
 ) {
   try {
     const body = await request.json()
-    const { name, email, role, password } = body
+    const { name, email, role, password, permissions } = body
+
+    console.log("Updating user with data:", { name, email, role, permissions: permissions || 'none' })
 
     if (!name || !email || !role) {
       return NextResponse.json(
@@ -45,7 +47,12 @@ export async function PUT(
 
     // Prepare update data
     const updateData: any = { name, email, role }
-    
+
+    // Include permissions if provided
+    if (permissions !== undefined) {
+      updateData.permissions = permissions
+    }
+
     // Hash password if provided
     if (password) {
       if (password.length < 6) {
@@ -57,10 +64,14 @@ export async function PUT(
       updateData.password = await bcrypt.hash(password, 12)
     }
 
+    console.log("Final update data:", updateData)
+
     const user = await prisma.user.update({
       where: { id: params.id },
       data: updateData
     })
+
+    console.log("User updated successfully:", user.name, "with permissions:", user.permissions)
 
     // Remove password from response
     const { password: _, ...userResponse } = user
