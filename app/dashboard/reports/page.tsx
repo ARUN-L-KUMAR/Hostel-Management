@@ -159,6 +159,8 @@ export default function ReportsPage() {
   const [showOverwriteDialog, setShowOverwriteDialog] = useState(false)
   const [existingReport, setExistingReport] = useState<any>(null)
   const [saveMode, setSaveMode] = useState<'new' | 'overwrite'>('new')
+  const [loadedReport, setLoadedReport] = useState<any>(null)
+  const [autoLoadingReport, setAutoLoadingReport] = useState(false)
 
 
   // Fetch semesters
@@ -447,6 +449,39 @@ export default function ReportsPage() {
     fetchReportData()
   }, [selectedYear, selectedMonth, selectedSemester, outsiderRate, mandoRate, externalIncomes])
 
+  // Auto-load saved reports when semesters are loaded
+  useEffect(() => {
+    if (semesters.length > 0) {
+      loadSavedReports()
+    }
+  }, [semesters])
+
+  // Auto-load current month report when month/year changes
+  useEffect(() => {
+    if (semesters.length > 0 && !autoLoadingReport) {
+      // Small delay to ensure all data is loaded
+      const timeoutId = setTimeout(() => {
+        autoLoadCurrentMonthReport()
+      }, 500)
+
+      return () => clearTimeout(timeoutId)
+    }
+  }, [selectedYear, selectedMonth, semesters])
+
+  // Clear loaded report if it doesn't match current month/year
+  useEffect(() => {
+    if (loadedReport) {
+      const reportMonth = loadedReport.month
+      const reportYear = loadedReport.year
+      const currentMonth = parseInt(selectedMonth)
+      const currentYear = parseInt(selectedYear)
+
+      if (reportMonth !== currentMonth || reportYear !== currentYear) {
+        setLoadedReport(null)
+      }
+    }
+  }, [selectedMonth, selectedYear, loadedReport])
+
   // Calculate per student costs when report data changes
   useEffect(() => {
     const calculatePerStudentCosts = async () => {
@@ -734,7 +769,10 @@ export default function ReportsPage() {
         setShowOverwriteDialog(false)
         setReportName('')
         setExistingReport(null)
-        loadSavedReports()
+
+        // Refresh saved reports and auto-load current month report
+        const updatedReports = await loadSavedReports()
+        await autoLoadCurrentMonthReport()
       } else {
         const errorData = await response.json()
         throw new Error(errorData.error || 'Failed to save report')
@@ -754,12 +792,40 @@ export default function ReportsPage() {
       if (response.ok) {
         const reports = await response.json()
         setSavedReports(reports)
+        return reports
       }
     } catch (error) {
       console.error('Error loading saved reports:', error)
       toast.error("Failed to load saved reports")
     } finally {
       setLoadingSavedReports(false)
+    }
+    return []
+  }
+
+  const autoLoadCurrentMonthReport = async () => {
+    if (autoLoadingReport) return // Prevent multiple simultaneous loads
+
+    setAutoLoadingReport(true)
+    try {
+      const reports = await loadSavedReports()
+
+      // Find report for current month/year
+      const currentMonthReport = reports.find((report: any) =>
+        report.month === parseInt(selectedMonth) && report.year === parseInt(selectedYear)
+      )
+
+      if (currentMonthReport) {
+        // Load the current month's report automatically
+        await loadReport(currentMonthReport.id)
+        setLoadedReport(currentMonthReport)
+      } else {
+        setLoadedReport(null)
+      }
+    } catch (error) {
+      console.error('Error auto-loading current month report:', error)
+    } finally {
+      setAutoLoadingReport(false)
     }
   }
 
@@ -808,6 +874,9 @@ export default function ReportsPage() {
             totalProvisionMandays: report.settings.mandaysBreakdown.totalProvisionMandays,
           })
         }
+
+        // Set the loaded report for display
+        setLoadedReport(report)
 
         // Trigger fresh data fetch with the restored settings
         // fetchReportData() will be called by the useEffect when states change
@@ -884,6 +953,16 @@ export default function ReportsPage() {
       ["Provision Usage per Day", parseFloat(String(getPerDayProvisionUsage())).toFixed(2)],
       ["Outsider Meal Rate", parseFloat(String(outsiderRate)).toFixed(2)],
       ["Mando Meal Rate", parseFloat(String(mandoRate)).toFixed(2)],
+      [""],
+      ["4. MANDAYS BREAKDOWN"],
+      ["Mandays Type", "Count", "Description"],
+      ["Labour Mandays (P + L + CN)", perStudentCosts?.totalLabourMandays?.toString() || "0", "Present + Leave + Casual Leave"],
+      ["Provision Mandays (P + L)", perStudentCosts?.totalProvisionMandays?.toString() || "0", "Present + Leave only"],
+      [""],
+      ["5. MONTHLY BREAKDOWN"],
+      ["Cost Type", "Total Amount", "Per Student Per Day"],
+      ["Total Labour Cost", ((perStudentCosts?.labourPerStudent || 0) * (perStudentCosts?.totalStudents || 0) * getDaysInMonth(selectedYear, selectedMonth)).toFixed(2), (perStudentCosts?.labourPerStudent || 0).toFixed(2)],
+      ["Total Provision Cost", ((perStudentCosts?.provisionPerStudent || 0) * (perStudentCosts?.totalStudents || 0) * getDaysInMonth(selectedYear, selectedMonth)).toFixed(2), (perStudentCosts?.provisionPerStudent || 0).toFixed(2)],
     ]
 
     // Add expenses details if any
@@ -930,6 +1009,23 @@ export default function ReportsPage() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Monthly Reports</h1>
           <p className="text-muted-foreground">Independent cost reports for each category</p>
+          {loadedReport && (
+            <div className="flex items-center gap-2 mt-2">
+              <div className="flex items-center gap-2 px-3 py-1 bg-green-100 border border-green-300 rounded-full">
+                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                <span className="text-sm font-medium text-green-800">
+                  Loaded: {loadedReport.reportName}
+                </span>
+                <button
+                  onClick={() => setLoadedReport(null)}
+                  className="ml-1 text-green-600 hover:text-green-800"
+                  title="Clear loaded report"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </div>
+            </div>
+          )}
         </div>
         <div className="flex items-center gap-3">
           <Button variant="outline" onClick={handleSaveClick}>
@@ -1702,7 +1798,7 @@ export default function ReportsPage() {
               disabled={loadingSavedReports}
               className="w-full"
             >
-              {loadingSavedReports ? "Loading..." : "Load Saved Reports"}
+              {loadingSavedReports ? "Loading..." : "Refresh Saved Reports"}
             </Button>
 
             {savedReports.length > 0 ? (
