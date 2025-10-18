@@ -9,13 +9,20 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Progress } from "@/components/ui/progress"
 import { CheckCircle, AlertTriangle, Upload, FileSpreadsheet } from "lucide-react"
 import * as XLSX from "xlsx"
-import { generateUniqueRollNumber, ensureUniqueRollNumber } from "@/lib/utils"
+import { generateUniqueRollNumber, ensureUniqueRollNumber, processStudentImportData, validateStudentImportData } from "@/lib/utils"
 
 interface ExcelImportDialogProps {
   onClose: () => void
+  onImportMore?: () => void
+  importOptions?: {
+    gender: 'boys' | 'girls'
+    importType: 'batch' | 'separate'
+    year?: number
+    studentType?: 'regular' | 'mando'
+  }
 }
 
-export function ExcelImportDialog({ onClose }: ExcelImportDialogProps) {
+export function ExcelImportDialog({ onClose, onImportMore, importOptions }: ExcelImportDialogProps) {
   const [file, setFile] = useState<File | null>(null)
   const [importing, setImporting] = useState(false)
   const [importResult, setImportResult] = useState<{
@@ -38,7 +45,7 @@ export function ExcelImportDialog({ onClose }: ExcelImportDialogProps) {
   }
 
   const handleImport = async () => {
-    if (!file) return
+    if (!file || !importOptions) return
 
     setImporting(true)
 
@@ -46,117 +53,25 @@ export function ExcelImportDialog({ onClose }: ExcelImportDialogProps) {
       const data = await file.arrayBuffer()
       const workbook = XLSX.read(data, { type: 'array' })
 
-      const allStudents: any[] = []
-      const warnings: string[] = []
+      // Use the utility function to process student data
+      const { students: allStudents, warnings } = processStudentImportData(workbook, importOptions, XLSX)
 
-      // Determine hostel type and gender from filename
-      const fileName = file.name.toLowerCase()
-      const isGirlsHostel = fileName.includes('girl') || fileName.includes('g ')
-      const hostelPrefix = isGirlsHostel ? 'G' : 'B'
-      const hostelId = isGirlsHostel ? 'hostel_girls' : 'hostel_boys'
-      const gender = isGirlsHostel ? 'F' : 'M'
-
-      // Process each sheet (1st Year, 2nd Year, etc.)
-      workbook.SheetNames.forEach(sheetName => {
-        console.log(`Processing sheet: ${sheetName}`)
-        const worksheet = workbook.Sheets[sheetName]
-        const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 })
-
-        if (jsonData.length === 0) {
-          warnings.push(`Sheet "${sheetName}": No data found`)
-          return
-        }
-
-        // Determine year from sheet name
-        let year: number
-        const yearMatch = sheetName.match(/(\d+)(?:st|nd|rd|th)\s*year/i)
-        if (yearMatch) {
-          year = parseInt(yearMatch[1])
-        } else if (sheetName.match(/sheet\s*(\d+)/i)) {
-          // Handle "Sheet1", "Sheet2", etc.
-          const sheetMatch = sheetName.match(/sheet\s*(\d+)/i)
-          year = parseInt(sheetMatch![1])
-        } else {
-          warnings.push(`Sheet "${sheetName}": Cannot determine year from sheet name. Using default year 1.`)
-          year = 1 // Default fallback
-        }
-
-        // Try to find headers, but be more lenient
-        let headerRowIndex = 0 // Assume first row is headers
-        let headers: string[] = []
-
-        // Look for a row that has at least "name" in it
-        for (let i = 0; i < Math.min(jsonData.length, 5); i++) {
-          const row = jsonData[i] as string[]
-          if (row && row.length >= 2) {
-            const rowStr = row.map(h => h?.toString().toLowerCase().trim()).join(' ')
-            if (rowStr.includes('name')) {
-              headerRowIndex = i
-              headers = row
-              break
-            }
-          }
-        }
-
-        if (!headers.length) {
-          headers = jsonData[0] as string[] // Fallback to first row
-        }
-
-        // Map column indices (case-insensitive, more flexible)
-        const columnMap: { [key: string]: number } = {}
-        headers.forEach((header, index) => {
-          const headerStr = header?.toString().toLowerCase().trim()
-          if (headerStr && (headerStr.includes('s.no') || headerStr.includes('serial') || headerStr.includes('roll') || headerStr === 'sno')) {
-            columnMap.sNo = index
-          } else if (headerStr && (headerStr.includes('name') || headerStr === 'name')) {
-            columnMap.name = index
-          } else if (headerStr && (headerStr.includes('dept') || headerStr === 'dept' || headerStr === 'department')) {
-            columnMap.dept = index
+      // Validate the processed data
+      const validation = validateStudentImportData(allStudents)
+      if (!validation.isValid) {
+        setImportResult({
+          success: false,
+          message: "Data validation failed",
+          stats: {
+            totalRows: allStudents.length,
+            successfulRows: 0,
+            failedRows: allStudents.length,
+            warnings: [...warnings, ...validation.errors]
           }
         })
-
-        // If we can't find columns, assume first two columns are S.No and Name
-        if (columnMap.sNo === undefined) {
-          columnMap.sNo = 0
-          warnings.push(`Sheet "${sheetName}": Could not find S.No column, assuming column 1`)
-        }
-        if (columnMap.name === undefined) {
-          columnMap.name = 1
-          warnings.push(`Sheet "${sheetName}": Could not find Name column, assuming column 2`)
-        }
-
-        // Process data rows (start from row after header)
-        for (let i = headerRowIndex + 1; i < jsonData.length; i++) {
-          const row = jsonData[i] as any[]
-          if (!row || row.length <= Math.max(columnMap.sNo, columnMap.name)) continue
-
-          const sNo = row[columnMap.sNo]?.toString().trim()
-          const name = row[columnMap.name]?.toString().trim()
-          const dept = columnMap.dept !== undefined ? row[columnMap.dept]?.toString().trim() : 'MECH'
-
-          if (!sNo || !name || sNo === '' || name === '') {
-            continue // Skip empty rows silently
-          }
-
-          // Generate unique roll number: 3 letters from name + 3 letters from dept + 6 random chars
-          const rollNo = generateUniqueRollNumber(name, dept)
-
-          // Determine hostel from filename (not from roll number anymore)
-          const finalHostelId = hostelId
-
-          allStudents.push({
-            name,
-            rollNo,
-            dept: dept || null,
-            year,
-            gender,
-            hostelId: finalHostelId,
-            isMando: false, // Default to false, can be updated later
-          })
-        }
-
-        console.log(`Sheet "${sheetName}": Processed ${jsonData.length - headerRowIndex - 1} rows, added ${allStudents.length} students so far`)
-      })
+        setImporting(false)
+        return
+      }
 
       if (allStudents.length === 0) {
         setImportResult({
@@ -254,12 +169,12 @@ export function ExcelImportDialog({ onClose }: ExcelImportDialogProps) {
         <AlertDescription>
           <strong>Excel Format Requirements:</strong>
           <ul className="mt-2 space-y-1 text-sm">
-            <li>• Multiple sheets named "1st Year", "2nd Year", "3rd Year", "4th Year" or "Sheet1", "Sheet2", "Sheet3", "Sheet4"</li>
-            <li>• Header row with columns: "S.No", "Name", "Room No", "Dept" (case-insensitive)</li>
+            <li>• {importOptions?.importType === 'batch' ? 'Multiple sheets named "first", "second", "third", "final"' : `Single sheet for ${importOptions?.year === 1 ? 'First' : importOptions?.year === 2 ? 'Second' : importOptions?.year === 3 ? 'Third' : 'Final'} Year`}</li>
+            <li>• Header row with columns: "S.No", "Name", "Dept", "Register No" (case-insensitive)</li>
             <li>• Headers can be in any row; data starts from the next row</li>
-            <li>• Hostel and gender detected from filename: "girls" → Girls hostel + Female gender, otherwise Boys hostel + Male gender</li>
-            <li>• Roll numbers auto-generated as 12-digit unique strings (3 letters from name + 3 letters from dept + 6 random chars)</li>
-            <li>• Room No column is ignored, Dept column is processed and saved</li>
+            <li>• Gender: {importOptions?.gender === 'girls' ? 'Girls hostel + Female gender' : 'Boys hostel + Male gender'}</li>
+            <li>• Register No column will be used as roll number if present, otherwise auto-generated</li>
+            <li>• Year is determined from import selection (not from Excel column)</li>
           </ul>
         </AlertDescription>
       </Alert>
@@ -331,9 +246,22 @@ export function ExcelImportDialog({ onClose }: ExcelImportDialogProps) {
         <Button variant="outline" onClick={onClose}>
           Cancel
         </Button>
-        <Button onClick={handleImport} disabled={!file || importing}>
-          {importing ? "Importing..." : "Import Students"}
-        </Button>
+        {!importResult?.success && (
+          <Button onClick={handleImport} disabled={!file || importing}>
+            {importing ? "Importing..." : "Import Students"}
+          </Button>
+        )}
+        {importResult?.success && (
+          <Button variant="outline" onClick={onImportMore || (() => {
+            setFile(null)
+            setImportResult(null)
+            // Reset file input
+            const fileInput = document.getElementById('excel-file') as HTMLInputElement
+            if (fileInput) fileInput.value = ''
+          })}>
+            Import More Students
+          </Button>
+        )}
       </div>
     </div>
   )

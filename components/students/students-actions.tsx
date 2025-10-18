@@ -19,6 +19,7 @@ export function StudentsActions() {
   const [importTypeDialogOpen, setImportTypeDialogOpen] = useState(false)
   const [regularImportDialogOpen, setRegularImportDialogOpen] = useState(false)
   const [mandoImportDialogOpen, setMandoImportDialogOpen] = useState(false)
+  const [importOptions, setImportOptions] = useState<{ gender: 'boys' | 'girls', importType: 'batch' | 'separate', year?: number, studentType?: 'regular' | 'mando' } | null>(null)
   const [promoteDialogOpen, setPromoteDialogOpen] = useState(false)
   const [isPromoting, setIsPromoting] = useState(false)
   const [promoteProgress, setPromoteProgress] = useState({ promoted: 0, graduated: 0, mandoPromoted: 0, mandoGraduated: 0, total: 0 })
@@ -34,15 +35,16 @@ export function StudentsActions() {
     setImportTypeDialogOpen(true)
   }
 
-  const handleSelectRegular = () => {
+  const handleSelectImport = (options: { gender: 'boys' | 'girls', importType: 'batch' | 'separate', year?: number, studentType: 'regular' | 'mando' }) => {
+    setImportOptions(options)
     setImportTypeDialogOpen(false)
-    setRegularImportDialogOpen(true)
+    if (options.studentType === 'mando') {
+      setMandoImportDialogOpen(true)
+    } else {
+      setRegularImportDialogOpen(true)
+    }
   }
 
-  const handleSelectMando = () => {
-    setImportTypeDialogOpen(false)
-    setMandoImportDialogOpen(true)
-  }
 
   const handlePromoteStudents = async () => {
     setIsPromoting(true)
@@ -116,8 +118,7 @@ export function StudentsActions() {
             <DialogTitle>Select Import Type</DialogTitle>
           </DialogHeader>
           <StudentImportTypeDialog
-            onSelectRegular={handleSelectRegular}
-            onSelectMando={handleSelectMando}
+            onSelectImport={handleSelectImport}
             onClose={() => setImportTypeDialogOpen(false)}
           />
         </DialogContent>
@@ -129,7 +130,14 @@ export function StudentsActions() {
           <DialogHeader>
             <DialogTitle>Import Regular Students from Excel</DialogTitle>
           </DialogHeader>
-          <ExcelImportDialog onClose={() => setRegularImportDialogOpen(false)} />
+          <ExcelImportDialog
+            onClose={() => setRegularImportDialogOpen(false)}
+            onImportMore={() => {
+              setRegularImportDialogOpen(false)
+              setImportTypeDialogOpen(true)
+            }}
+            importOptions={importOptions || undefined}
+          />
         </DialogContent>
       </Dialog>
 

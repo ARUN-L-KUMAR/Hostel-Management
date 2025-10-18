@@ -25,21 +25,6 @@ export function MealEntryActions({ onExport }: MealEntryActionsProps) {
           Export CSV
         </Button>
       )}
-
-      <Dialog open={importDialogOpen} onOpenChange={setImportDialogOpen}>
-        <DialogTrigger asChild>
-          <Button variant="outline">
-            <Upload className="w-4 h-4 mr-2" />
-            Import Mando Students
-          </Button>
-        </DialogTrigger>
-        <DialogContent className="max-w-4xl bg-white">
-          <DialogHeader>
-            <DialogTitle>Import Mando Students from Excel</DialogTitle>
-          </DialogHeader>
-          <MandoStudentImportDialog onClose={() => setImportDialogOpen(false)} />
-        </DialogContent>
-      </Dialog>
     </div>
   )
 }

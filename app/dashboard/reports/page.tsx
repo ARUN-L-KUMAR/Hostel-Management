@@ -141,7 +141,7 @@ export default function ReportsPage() {
   const [showAddIncome, setShowAddIncome] = useState(false)
   const [newIncomeName, setNewIncomeName] = useState('')
   const [newIncomeAmount, setNewIncomeAmount] = useState('')
-  const [monthlyLabourCharge, setMonthlyLabourCharge] = useState<number>(0)
+  const [monthlyLabourCharge, setMonthlyLabourCharge] = useState<number | null>(null)
   const [perStudentCosts, setPerStudentCosts] = useState<{
     labourPerStudent: number
     provisionPerStudent: number
@@ -500,7 +500,7 @@ export default function ReportsPage() {
 
   const getPerDayLabourCharge = (): number => {
     const daysInMonth = getDaysInMonth(selectedYear, selectedMonth)
-    return daysInMonth > 0 ? monthlyLabourCharge / daysInMonth : 0
+    return daysInMonth > 0 && monthlyLabourCharge !== null ? monthlyLabourCharge / daysInMonth : 0
   }
 
   const getPerDayProvisionUsage = (): number => {
@@ -553,9 +553,9 @@ export default function ReportsPage() {
     setSavingReport(true)
     try {
       const totalExpenses = (reportData.expenses?.totalAmount || 0) +
-                          (reportData.provisions?.usage?.totalCost || 0) +
-                          (reportData.mando?.totalCost || 0) +
-                          monthlyLabourCharge
+                           (reportData.provisions?.usage?.totalCost || 0) +
+                           (reportData.mando?.totalCost || 0) +
+                           (monthlyLabourCharge || 0)
 
       const totalIncomes = (reportData.incomes?.totalAdvancePaid || 0) +
                           (reportData.incomes?.bankInterestIncome || 0) +
@@ -724,11 +724,11 @@ export default function ReportsPage() {
       ["Description", "Amount"],
       ["Provisions Purchased", parseFloat(String(reportData.provisions.totalCost)).toFixed(2)],
       ["Provision Usage", parseFloat(String(reportData.provisions.usage.totalCost)).toFixed(2)],
-      ["Labour Charges", parseFloat(String(monthlyLabourCharge)).toFixed(2)],
+      ["Labour Charges", parseFloat(String(monthlyLabourCharge || 0)).toFixed(2)],
       ["Outsiders Meals", parseFloat(String(reportData.outsiders.totalCost)).toFixed(2)],
       ["Mando Students Meals", parseFloat(String(reportData.mando.totalCost)).toFixed(2)],
       ["Other Expenses", parseFloat(String(reportData.expenses.totalAmount)).toFixed(2)],
-      ["Total Debits", parseFloat(String(reportData.expenses.totalAmount + reportData.provisions.usage.totalCost + monthlyLabourCharge + reportData.outsiders.totalCost + reportData.mando.totalCost)).toFixed(2)],
+      ["Total Debits", parseFloat(String(reportData.expenses.totalAmount + reportData.provisions.usage.totalCost + (monthlyLabourCharge || 0) + reportData.outsiders.totalCost + reportData.mando.totalCost)).toFixed(2)],
       [""],
       ["3. PER DAY CHARGES"],
       ["Description", "Rate"],
@@ -1009,10 +1009,9 @@ export default function ReportsPage() {
                     <span className="text-lg font-medium text-amber-700">₹</span>
                     <Input
                       type="number"
-                      value={monthlyLabourCharge}
-                      onChange={(e) => setMonthlyLabourCharge(parseFloat(e.target.value) || 0)}
+                      value={monthlyLabourCharge ?? ''}
+                      onChange={(e) => setMonthlyLabourCharge(e.target.value ? parseFloat(e.target.value) : null)}
                       className="flex-1 h-10 text-lg font-semibold border-amber-300 focus:border-amber-500"
-                      placeholder="Enter total labour charge for the month"
                     />
                   </div>
                 </div>
@@ -1045,7 +1044,7 @@ export default function ReportsPage() {
                     Total Monthly Labour Cost
                   </div>
                   <div className="text-xl font-bold text-amber-700">
-                    ₹{monthlyLabourCharge.toLocaleString()}
+                    ₹{monthlyLabourCharge?.toLocaleString() || '0'}
                   </div>
                 </div>
               </div>
