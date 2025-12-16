@@ -25,11 +25,9 @@ export default function MealEntryPage({ searchParams }: { searchParams: { [key: 
     const daysInMonth = new Date(parseInt(year), parseInt(month), 0).getDate()
     const days = Array.from({ length: daysInMonth }, (_, i) => i + 1)
 
-    // Header
+    // Header - one column per day (like attendance export)
     const header = ["Year", "Month", "Student", "Company ID"]
-    days.forEach(day => {
-      header.push(`${day}B`, `${day}L`, `${day}D`)
-    })
+    days.forEach(day => header.push(day.toString()))
     header.push("Total Meals")
 
     const params = [header]
@@ -49,12 +47,18 @@ export default function MealEntryPage({ searchParams }: { searchParams: { [key: 
         const mealRecord = student.meals.find((meal: any) => meal.date.startsWith(dateStr))
 
         if (mealRecord) {
-          row.push(mealRecord.breakfast ? "B" : "-")
-          row.push(mealRecord.lunch ? "L" : "-")
-          row.push(mealRecord.dinner ? "D" : "-")
+          // Combine meal codes into one cell (e.g., "B,L,D,P" or "B,L" or "P")
+          const meals: string[] = []
+          if (mealRecord.breakfast) meals.push("B")
+          if (mealRecord.lunch) meals.push("L")
+          if (mealRecord.dinner) meals.push("D")
+          if (mealRecord.present) meals.push("P")
+
+          const mealCode = meals.length > 0 ? meals.join(",") : "-"
+          row.push(mealCode)
           totalMeals += (mealRecord.breakfast ? 1 : 0) + (mealRecord.lunch ? 1 : 0) + (mealRecord.dinner ? 1 : 0)
         } else {
-          row.push("-", "-", "-")
+          row.push("-")
         }
       })
 

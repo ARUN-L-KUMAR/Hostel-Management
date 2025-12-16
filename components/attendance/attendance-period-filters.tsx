@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
+import { YearPicker } from "@/components/ui/year-picker"
 
 export function AttendancePeriodFilters() {
   const router = useRouter()
@@ -34,18 +35,11 @@ export function AttendancePeriodFilters() {
     <div className="flex items-center justify-center space-x-4 pt-10">
       <div className="flex items-center space-x-2">
         <Label className="text-sm font-medium text-slate-700">Attendance Year:</Label>
-        <Select value={selectedYear} onValueChange={(value) => { setSelectedYear(value); updateSearchParams("year", value); }}>
-          <SelectTrigger className="w-32 bg-white">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent className="bg-white">
-            {Array.from({ length: 5 }, (_, i) => currentYear - 2 + i).map((year) => (
-              <SelectItem key={year} value={year.toString()}>
-                {year}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <YearPicker
+          value={selectedYear}
+          onValueChange={(value) => { setSelectedYear(value); updateSearchParams("year", value); }}
+          className="w-32 bg-white"
+        />
       </div>
       <div className="flex items-center space-x-2">
         <Label className="text-sm font-medium text-slate-700">Attendance Month:</Label>

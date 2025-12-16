@@ -64,8 +64,12 @@ export default function OutsidersPage() {
   }, [selectedYear, selectedMonth])
 
   const refreshData = async () => {
+    const params = new URLSearchParams()
+    if (selectedMonth) params.append('month', selectedMonth)
+    if (selectedYear) params.append('year', selectedYear)
+
     try {
-      const response = await fetch('/api/outsider-meal-records')
+      const response = await fetch(`/api/outsider-meal-records?${params.toString()}`)
       const data = await response.json()
       setMealRecords(data)
     } catch (error) {

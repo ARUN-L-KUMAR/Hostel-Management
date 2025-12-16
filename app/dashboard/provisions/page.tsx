@@ -12,6 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Plus, ShoppingCart, BarChart3, Package, RefreshCw, Download } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { ApiClient } from "@/lib/api-client"
+import { DateRangePicker } from "@/components/ui/date-range-picker"
 
 interface ProvisionItem {
   id: string
@@ -335,20 +336,20 @@ export default function ProvisionsPage() {
       const method = editingUsage ? 'PUT' : 'POST'
       const body = editingUsage
         ? {
-            id: editingUsage.id,
-            provisionItemId: selectedItem,
-            date: usageDate,
-            fromDate,
-            toDate,
-            quantity: convertedQuantity
-          }
+          id: editingUsage.id,
+          provisionItemId: selectedItem,
+          date: usageDate,
+          fromDate,
+          toDate,
+          quantity: convertedQuantity
+        }
         : {
-            provisionItemId: selectedItem,
-            date: usageDate,
-            fromDate,
-            toDate,
-            quantity: convertedQuantity
-          }
+          provisionItemId: selectedItem,
+          date: usageDate,
+          fromDate,
+          toDate,
+          quantity: convertedQuantity
+        }
 
       await fetch('/api/provision-usage', {
         method,
@@ -423,20 +424,20 @@ export default function ProvisionsPage() {
       const method = editingPurchase ? 'PUT' : 'POST'
       const body = editingPurchase
         ? {
-            id: editingPurchase.id,
-            date: purchaseDate,
-            vendor,
-            paymentType,
-            billId: billId || null,
-            items: processedItems
-          }
+          id: editingPurchase.id,
+          date: purchaseDate,
+          vendor,
+          paymentType,
+          billId: billId || null,
+          items: processedItems
+        }
         : {
-            date: purchaseDate,
-            vendor,
-            paymentType,
-            billId: billId || null,
-            items: processedItems
-          }
+          date: purchaseDate,
+          vendor,
+          paymentType,
+          billId: billId || null,
+          items: processedItems
+        }
 
       // Create or update the purchase
       await fetch('/api/provision-purchases', {
@@ -454,9 +455,12 @@ export default function ProvisionsPage() {
 
       setPurchaseDialogOpen(false)
       resetPurchaseForm()
-      fetchPurchases()
-      calculateInventoryLevels() // Recalculate inventory after purchase
-      fetchItemSuggestions() // Refresh suggestions
+
+      // Fetch fresh data and recalculate inventory in order
+      await fetchProvisionItems() // Refetch provision items (includes any new ones)
+      await fetchPurchases() // Refetch purchases with latest data
+      await calculateInventoryLevels() // Recalculate inventory with fresh data
+      fetchItemSuggestions() // Refresh suggestions (no await needed)
     } catch (error) {
       console.error("Error saving purchase:", error)
       toast({
@@ -882,21 +886,19 @@ export default function ProvisionsPage() {
                 <CardTitle>Filters</CardTitle>
                 <div className="flex rounded-lg border border-gray-200 p-1 bg-gray-50">
                   <button
-                    className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
-                      purchaseView === "date"
-                        ? "bg-white text-blue-600 shadow-sm border border-gray-200"
-                        : "text-gray-600 hover:text-gray-900"
-                    }`}
+                    className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${purchaseView === "date"
+                      ? "bg-white text-blue-600 shadow-sm border border-gray-200"
+                      : "text-gray-600 hover:text-gray-900"
+                      }`}
                     onClick={() => setPurchaseView("date")}
                   >
                     Date View
                   </button>
                   <button
-                    className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
-                      purchaseView === "item"
-                        ? "bg-white text-blue-600 shadow-sm border border-gray-200"
-                        : "text-gray-600 hover:text-gray-900"
-                    }`}
+                    className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${purchaseView === "item"
+                      ? "bg-white text-blue-600 shadow-sm border border-gray-200"
+                      : "text-gray-600 hover:text-gray-900"
+                      }`}
                     onClick={() => setPurchaseView("item")}
                   >
                     Item View
@@ -905,29 +907,20 @@ export default function ProvisionsPage() {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="flex gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="startDate">Start Date</Label>
-                  <Input
-                    id="startDate"
-                    type="date"
-                    value={startDate}
-                    onChange={(e) => setStartDate(e.target.value)}
+              <div className="flex items-center gap-4 flex-wrap">
+                <div className="flex items-center gap-2">
+                  <Label className="text-sm font-medium text-slate-600 whitespace-nowrap">Date Range:</Label>
+                  <DateRangePicker
+                    startDate={startDate}
+                    endDate={endDate}
+                    onStartDateChange={setStartDate}
+                    onEndDateChange={setEndDate}
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="endDate">End Date</Label>
-                  <Input
-                    id="endDate"
-                    type="date"
-                    value={endDate}
-                    onChange={(e) => setEndDate(e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="purchaseFilter">Provision Item</Label>
+                <div className="flex items-center gap-2">
+                  <Label htmlFor="purchaseFilter" className="text-sm font-medium text-slate-600 whitespace-nowrap">Item:</Label>
                   <Select value={purchaseFilter} onValueChange={setPurchaseFilter}>
-                    <SelectTrigger className="w-48">
+                    <SelectTrigger className="w-48 bg-white">
                       <SelectValue placeholder="All items" />
                     </SelectTrigger>
                     <SelectContent>
@@ -1270,21 +1263,19 @@ export default function ProvisionsPage() {
                 <CardTitle>Filters</CardTitle>
                 <div className="flex rounded-lg border border-gray-200 p-1 bg-gray-50">
                   <button
-                    className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
-                      usageView === "date"
-                        ? "bg-white text-blue-600 shadow-sm border border-gray-200"
-                        : "text-gray-600 hover:text-gray-900"
-                    }`}
+                    className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${usageView === "date"
+                      ? "bg-white text-blue-600 shadow-sm border border-gray-200"
+                      : "text-gray-600 hover:text-gray-900"
+                      }`}
                     onClick={() => setUsageView("date")}
                   >
                     Date View
                   </button>
                   <button
-                    className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
-                      usageView === "item"
-                        ? "bg-white text-blue-600 shadow-sm border border-gray-200"
-                        : "text-gray-600 hover:text-gray-900"
-                    }`}
+                    className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${usageView === "item"
+                      ? "bg-white text-blue-600 shadow-sm border border-gray-200"
+                      : "text-gray-600 hover:text-gray-900"
+                      }`}
                     onClick={() => setUsageView("item")}
                   >
                     Item View
@@ -1293,29 +1284,20 @@ export default function ProvisionsPage() {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="flex gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="startDate">Start Date</Label>
-                  <Input
-                    id="startDate"
-                    type="date"
-                    value={startDate}
-                    onChange={(e) => setStartDate(e.target.value)}
+              <div className="flex items-center gap-4 flex-wrap">
+                <div className="flex items-center gap-2">
+                  <Label className="text-sm font-medium text-slate-600 whitespace-nowrap">Date Range:</Label>
+                  <DateRangePicker
+                    startDate={startDate}
+                    endDate={endDate}
+                    onStartDateChange={setStartDate}
+                    onEndDateChange={setEndDate}
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="endDate">End Date</Label>
-                  <Input
-                    id="endDate"
-                    type="date"
-                    value={endDate}
-                    onChange={(e) => setEndDate(e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="usageFilter">Provision Item</Label>
+                <div className="flex items-center gap-2">
+                  <Label htmlFor="usageFilter" className="text-sm font-medium text-slate-600 whitespace-nowrap">Item:</Label>
                   <Select value={usageFilter} onValueChange={setUsageFilter}>
-                    <SelectTrigger className="w-48">
+                    <SelectTrigger className="w-48 bg-white">
                       <SelectValue placeholder="All items" />
                     </SelectTrigger>
                     <SelectContent>
@@ -1354,19 +1336,26 @@ export default function ProvisionsPage() {
                     <Select
                       value={selectedItem}
                       onValueChange={handleItemChange}
+                      disabled={getItemsWithStock().length === 0}
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder="Select item" />
+                        <SelectValue placeholder={getItemsWithStock().length === 0 ? "No items available to use" : "Select item"} />
                       </SelectTrigger>
                       <SelectContent>
-                        {getItemsWithStock().map(item => {
-                          const availableInventory = inventoryLevels[item.id] || 0
-                          return (
-                            <SelectItem key={item.id} value={item.id}>
-                              {item.name} ({item.unit}) - Available: {availableInventory.toFixed(2)} {item.unit}
-                            </SelectItem>
-                          )
-                        })}
+                        {getItemsWithStock().length === 0 ? (
+                          <div className="px-2 py-4 text-center text-sm text-gray-500">
+                            No items available to use. Please add purchases first.
+                          </div>
+                        ) : (
+                          getItemsWithStock().map(item => {
+                            const availableInventory = inventoryLevels[item.id] || 0
+                            return (
+                              <SelectItem key={item.id} value={item.id}>
+                                {item.name} ({item.unit}) - Available: {availableInventory.toFixed(2)} {item.unit}
+                              </SelectItem>
+                            )
+                          })
+                        )}
                       </SelectContent>
                     </Select>
                     {selectedItem && (

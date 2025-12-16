@@ -45,17 +45,13 @@ export default function HomePage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <Button 
+          <Button
             onClick={() => router.push("/auth/signin")}
             className="w-full bg-blue-600 hover:bg-blue-700 text-white"
           >
             Sign In
           </Button>
-          <div className="text-center">
-            <p className="text-sm text-gray-600 dark:text-gray-400">
-              Demo: admin@hostel.edu / admin123
-            </p>
-          </div>
+
         </CardContent>
       </Card>
     </div>

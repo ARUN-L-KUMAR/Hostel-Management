@@ -33,41 +33,41 @@ interface StudentBillingData {
 }
 
 interface Semester {
-   id: number
-   name: string
-   startDate: string
-   endDate: string
-   feeStructures: Array<{
-     baseAmount: number
-     finalAmount: number
-   }>
+  id: number
+  name: string
+  startDate: string
+  endDate: string
+  feeStructures: Array<{
+    baseAmount: number
+    finalAmount: number
+  }>
 }
 
 interface FeeRecord {
-   id: number
-   studentId: string
-   semesterId: number
-   totalDue: number
-   amountPaid: number
-   balance: number
-   paymentMode: string | null
-   paymentDate: string
-   student: {
-     id: string
-     name: string
-     rollNo: string
-     dept: string | null
-     year?: number
-     hostel: {
-       name: string
-     } | null
-   }
-   semester: {
-     id: number
-     name: string
-     startDate: string
-     endDate: string
-   }
+  id: number
+  studentId: string
+  semesterId: number
+  totalDue: number
+  amountPaid: number
+  balance: number
+  paymentMode: string | null
+  paymentDate: string
+  student: {
+    id: string
+    name: string
+    rollNo: string
+    dept: string | null
+    year?: number
+    hostel: {
+      name: string
+    } | null
+  }
+  semester: {
+    id: number
+    name: string
+    startDate: string
+    endDate: string
+  }
 }
 
 interface BillingSettings {
@@ -77,54 +77,54 @@ interface BillingSettings {
 }
 
 export default function BillingPage() {
-    const { toast } = useToast()
+  const { toast } = useToast()
 
-    console.log("[DEBUG] === BILLING PAGE COMPONENT MOUNTED ===")
+  console.log("[DEBUG] === BILLING PAGE COMPONENT MOUNTED ===")
 
-   // Semester states
-   const [semesters, setSemesters] = useState<Semester[]>([])
-   const [selectedSemesterId, setSelectedSemesterId] = useState<string>("")
-   const [selectedSemester, setSelectedSemester] = useState<Semester | null>(null)
-   const [feeRecords, setFeeRecords] = useState<FeeRecord[]>([])
-   const [loadingSemesters, setLoadingSemesters] = useState(false)
-   const [loadingFeeRecords, setLoadingFeeRecords] = useState(false)
+  // Semester states
+  const [semesters, setSemesters] = useState<Semester[]>([])
+  const [selectedSemesterId, setSelectedSemesterId] = useState<string>("")
+  const [selectedSemester, setSelectedSemester] = useState<Semester | null>(null)
+  const [feeRecords, setFeeRecords] = useState<FeeRecord[]>([])
+  const [loadingSemesters, setLoadingSemesters] = useState(false)
+  const [loadingFeeRecords, setLoadingFeeRecords] = useState(false)
 
-   // New semester creation states
-   const [showCreateSemester, setShowCreateSemester] = useState(false)
-   const [newSemesterName, setNewSemesterName] = useState("")
-   const [newSemesterStartDate, setNewSemesterStartDate] = useState("")
-   const [newSemesterEndDate, setNewSemesterEndDate] = useState("")
-   const [newSemesterBaseAmount, setNewSemesterBaseAmount] = useState("")
-   const [creatingSemester, setCreatingSemester] = useState(false)
-   const [editingSemesterId, setEditingSemesterId] = useState<number | null>(null)
+  // New semester creation states
+  const [showCreateSemester, setShowCreateSemester] = useState(false)
+  const [newSemesterName, setNewSemesterName] = useState("")
+  const [newSemesterStartDate, setNewSemesterStartDate] = useState("")
+  const [newSemesterEndDate, setNewSemesterEndDate] = useState("")
+  const [newSemesterBaseAmount, setNewSemesterBaseAmount] = useState("")
+  const [creatingSemester, setCreatingSemester] = useState(false)
+  const [editingSemesterId, setEditingSemesterId] = useState<number | null>(null)
 
-   // Legacy states (keeping for now)
-   const [selectedStartYear, setSelectedStartYear] = useState(new Date().getFullYear().toString())
-   const [selectedEndYear, setSelectedEndYear] = useState(new Date().getFullYear().toString())
-   const [selectedStartMonth, setSelectedStartMonth] = useState("1")
-   const [selectedEndMonth, setSelectedEndMonth] = useState("6")
-   const [semLaborCharge, setSemLaborCharge] = useState(45)
-   const [semProvisionCharge, setSemProvisionCharge] = useState(25)
-   const [semAdvanceAmount, setSemAdvanceAmount] = useState(15000)
-   const [calculatedProvisionCharge, setCalculatedProvisionCharge] = useState(0)
-   const [totalProvisionUsage, setTotalProvisionUsage] = useState(0)
-   const [loadingProvisionCharge, setLoadingProvisionCharge] = useState(false)
-   const [updatingSem, setUpdatingSem] = useState(false)
-   const [studentsSem, setStudentsSem] = useState<StudentBillingData[]>([])
-   const [loadingStudentsSem, setLoadingStudentsSem] = useState(false)
-   const [selectedStudents, setSelectedStudents] = useState<Set<string>>(new Set())
-   const [selectAll, setSelectAll] = useState(false)
-   const [updatingPayments, setUpdatingPayments] = useState(false)
-   const [markingSelectedPaid, setMarkingSelectedPaid] = useState(false)
-   const [loadingStudentPayments, setLoadingStudentPayments] = useState<Set<string>>(new Set())
-   const [filters, setFilters] = useState({
-     hostel: "all",
-     year: "all",
-     status: "all",
-     mandoFilter: "all",
-     dept: "all",
-     search: "",
-   })
+  // Legacy states (keeping for now)
+  const [selectedStartYear, setSelectedStartYear] = useState(new Date().getFullYear().toString())
+  const [selectedEndYear, setSelectedEndYear] = useState(new Date().getFullYear().toString())
+  const [selectedStartMonth, setSelectedStartMonth] = useState("1")
+  const [selectedEndMonth, setSelectedEndMonth] = useState("6")
+  const [semLaborCharge, setSemLaborCharge] = useState(45)
+  const [semProvisionCharge, setSemProvisionCharge] = useState(25)
+  const [semAdvanceAmount, setSemAdvanceAmount] = useState(15000)
+  const [calculatedProvisionCharge, setCalculatedProvisionCharge] = useState(0)
+  const [totalProvisionUsage, setTotalProvisionUsage] = useState(0)
+  const [loadingProvisionCharge, setLoadingProvisionCharge] = useState(false)
+  const [updatingSem, setUpdatingSem] = useState(false)
+  const [studentsSem, setStudentsSem] = useState<StudentBillingData[]>([])
+  const [loadingStudentsSem, setLoadingStudentsSem] = useState(false)
+  const [selectedStudents, setSelectedStudents] = useState<Set<string>>(new Set())
+  const [selectAll, setSelectAll] = useState(false)
+  const [updatingPayments, setUpdatingPayments] = useState(false)
+  const [markingSelectedPaid, setMarkingSelectedPaid] = useState(false)
+  const [loadingStudentPayments, setLoadingStudentPayments] = useState<Set<string>>(new Set())
+  const [filters, setFilters] = useState({
+    hostel: "all",
+    year: "all",
+    status: "all",
+    mandoFilter: "all",
+    dept: "all",
+    search: "",
+  })
 
   const months = [
     { value: "1", label: "January" },
@@ -737,8 +737,8 @@ export default function BillingPage() {
 
       if (response.ok) {
         const actionText = action === 'markPaid' ? 'marked as paid' :
-                          action === 'markUnpaid' ? 'marked as unpaid' :
-                          'payment amount updated'
+          action === 'markUnpaid' ? 'marked as unpaid' :
+            'payment amount updated'
 
         toast({
           title: "Payment Updated",
@@ -1160,518 +1160,532 @@ export default function BillingPage() {
       </div>
 
       <div className="space-y-6">
-          {/* Semester Selection */}
-          <Card className="border-0 shadow-md">
-            <CardHeader>
-              <CardTitle>Semester Range Selection</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div className="flex gap-4 items-end">
-                  <div className="space-y-2 flex-1">
-                    <Label htmlFor="semesterSelect">Select Semester</Label>
-                    {loadingSemesters ? (
-                      <div className="flex items-center justify-center h-10 border border-gray-300 rounded-md bg-white">
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
-                        <span className="text-sm text-gray-600">Loading semesters...</span>
-                      </div>
-                    ) : (
-                      <Select value={selectedSemesterId} onValueChange={handleSemesterChange}>
-                        <SelectTrigger className="w-full">
-                          <SelectValue placeholder="Select a semester" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {semesters.map(semester => (
-                            <SelectItem key={semester.id} value={semester.id.toString()}>
-                              {semester.name} ({new Date(semester.startDate).toLocaleDateString()} - {new Date(semester.endDate).toLocaleDateString()})
-                            </SelectItem>
-                          ))}
-                          <SelectItem value="create-new">+ Create New Semester</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    )}
-                  </div>
+        {/* Semester Selection */}
+        <Card className="border-0 shadow-md">
+          <CardHeader>
+            <CardTitle>Semester Range Selection</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="flex gap-4 items-end">
+                <div className="space-y-2 flex-1">
+                  <Label htmlFor="semesterSelect">Select Semester</Label>
+                  {loadingSemesters ? (
+                    <div className="flex items-center justify-center h-10 border border-gray-300 rounded-md bg-white">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
+                      <span className="text-sm text-gray-600">Loading semesters...</span>
+                    </div>
+                  ) : (
+                    <Select value={selectedSemesterId} onValueChange={handleSemesterChange}>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select a semester" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {semesters.map(semester => (
+                          <SelectItem key={semester.id} value={semester.id.toString()}>
+                            {semester.name} ({new Date(semester.startDate).toLocaleDateString()} - {new Date(semester.endDate).toLocaleDateString()})
+                          </SelectItem>
+                        ))}
+                        <SelectItem value="create-new">+ Create New Semester</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  )}
                 </div>
+              </div>
 
-                {showCreateSemester && (
-                  <Card className="border border-blue-200 bg-blue-50">
-                    <CardHeader>
-                      <CardTitle className="text-lg">Create New Semester</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label htmlFor="semesterName">Semester Name</Label>
-                          <Input
-                            id="semesterName"
-                            placeholder="e.g., Sem 1 - 2025"
-                            value={newSemesterName}
-                            onChange={(e) => setNewSemesterName(e.target.value)}
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="baseAmount">Base Amount</Label>
-                          <Input
-                            id="baseAmount"
-                            type="number"
-                            placeholder="15000"
-                            value={newSemesterBaseAmount}
-                            onChange={(e) => setNewSemesterBaseAmount(e.target.value)}
-                          />
-                        </div>
+              {showCreateSemester && (
+                <Card className="border border-blue-200 bg-blue-50">
+                  <CardHeader>
+                    <CardTitle className="text-lg">Create New Semester</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="semesterName">Semester Name</Label>
+                        <Input
+                          id="semesterName"
+                          placeholder="e.g., Sem 1 - 2025"
+                          value={newSemesterName}
+                          onChange={(e) => setNewSemesterName(e.target.value)}
+                        />
                       </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label htmlFor="startDate">Start Date</Label>
-                          <Input
-                            id="startDate"
-                            type="date"
-                            value={newSemesterStartDate}
-                            onChange={(e) => setNewSemesterStartDate(e.target.value)}
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="endDate">End Date</Label>
-                          <Input
-                            id="endDate"
-                            type="date"
-                            value={newSemesterEndDate}
-                            onChange={(e) => setNewSemesterEndDate(e.target.value)}
-                          />
-                        </div>
-                      </div>
-                      <div className="flex justify-end gap-2">
-                        <Button variant="outline" onClick={() => setShowCreateSemester(false)}>
-                          Cancel
-                        </Button>
-                        <Button onClick={editingSemesterId ? updateSemester : createNewSemester} disabled={creatingSemester}>
-                          {creatingSemester ? (editingSemesterId ? "Updating..." : "Creating...") : (editingSemesterId ? "Update Semester" : "Create Semester")}
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
-
-                {selectedSemester && (
-                  <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-                    <div className="flex justify-between items-center">
-                      <div>
-                        <h3 className="font-medium text-green-800">{selectedSemester.name}</h3>
-                        <p className="text-sm text-green-600">
-                          {new Date(selectedSemester.startDate).toLocaleDateString()} - {new Date(selectedSemester.endDate).toLocaleDateString()}
-                        </p>
-                        <p className="text-sm text-green-600">
-                          Base Amount: ₹{selectedSemester.feeStructures[0]?.baseAmount || 0}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Badge variant="outline" className="bg-green-100 text-green-800">
-                          Active
-                        </Badge>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => editSemester(selectedSemester)}
-                        >
-                          Edit
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => deleteSemester(selectedSemester.id, selectedSemester.name)}
-                          className="text-red-600 hover:text-red-700"
-                        >
-                          Delete
-                        </Button>
+                      <div className="space-y-2">
+                        <Label htmlFor="baseAmount">Base Amount</Label>
+                        <Input
+                          id="baseAmount"
+                          type="number"
+                          placeholder="15000"
+                          value={newSemesterBaseAmount}
+                          onChange={(e) => setNewSemesterBaseAmount(e.target.value)}
+                        />
                       </div>
                     </div>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="startDate">Start Date</Label>
+                        <Input
+                          id="startDate"
+                          type="date"
+                          value={newSemesterStartDate}
+                          onChange={(e) => setNewSemesterStartDate(e.target.value)}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="endDate">End Date</Label>
+                        <Input
+                          id="endDate"
+                          type="date"
+                          value={newSemesterEndDate}
+                          onChange={(e) => setNewSemesterEndDate(e.target.value)}
+                        />
+                      </div>
+                    </div>
+                    <div className="flex justify-end gap-2">
+                      <Button variant="outline" onClick={() => setShowCreateSemester(false)}>
+                        Cancel
+                      </Button>
+                      <Button onClick={editingSemesterId ? updateSemester : createNewSemester} disabled={creatingSemester}>
+                        {creatingSemester ? (editingSemesterId ? "Updating..." : "Creating...") : (editingSemesterId ? "Update Semester" : "Create Semester")}
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
 
-          {/* Billing Parameters */}
-          <Card className="border-0 shadow-md">
-            <CardHeader>
-              <CardTitle>Billing Parameters</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div className="grid grid-cols-3 gap-4">
-                  <Label htmlFor="semLabor">Labor Charge (per day)</Label>
-                  <Label htmlFor="semProvision">Provision Charge (per day)</Label>
-                  <Label htmlFor="semAdvance">Advance Amount</Label>
+              {selectedSemester && (
+                <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <h3 className="font-medium text-green-800">{selectedSemester.name}</h3>
+                      <p className="text-sm text-green-600">
+                        {new Date(selectedSemester.startDate).toLocaleDateString()} - {new Date(selectedSemester.endDate).toLocaleDateString()}
+                      </p>
+                      <p className="text-sm text-green-600">
+                        Base Amount: ₹{selectedSemester.feeStructures[0]?.baseAmount || 0}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline" className="bg-green-100 text-green-800">
+                        Active
+                      </Badge>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => editSemester(selectedSemester)}
+                      >
+                        Edit
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => deleteSemester(selectedSemester.id, selectedSemester.name)}
+                        className="text-red-600 hover:text-red-700"
+                      >
+                        Delete
+                      </Button>
+                    </div>
+                  </div>
                 </div>
-                <div className="grid grid-cols-3 gap-4">
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Billing Parameters */}
+        <Card className="border-0 shadow-md">
+          <CardHeader>
+            <CardTitle>Billing Parameters</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="grid grid-cols-3 gap-4">
+                <Label htmlFor="semLabor">Labor Charge (per day)</Label>
+                <Label htmlFor="semProvision">Provision Charge (per day)</Label>
+                <Label htmlFor="semAdvance">Advance Amount</Label>
+              </div>
+              <div className="grid grid-cols-3 gap-4">
+                <Input
+                  id="semLabor"
+                  type="number"
+                  step="0.01"
+                  value={semLaborCharge}
+                  onChange={(e) => setSemLaborCharge(parseFloat(e.target.value) || 0)}
+                />
+                <div className="relative">
                   <Input
-                    id="semLabor"
+                    id="semProvision"
                     type="number"
                     step="0.01"
-                    value={semLaborCharge}
-                    onChange={(e) => setSemLaborCharge(parseFloat(e.target.value) || 0)}
-                  />
-                  <div className="relative">
-                    <Input
-                      id="semProvision"
-                      type="number"
-                      step="0.01"
-                      value={loadingProvisionCharge ? "Fetching provision data..." : calculatedProvisionCharge.toFixed(2)}
-                      disabled={true}
-                      className={`pr-8 ${loadingProvisionCharge ? 'bg-blue-50 border-blue-300' : 'bg-gray-50'}`}
-                    />
-                    {loadingProvisionCharge && (
-                      <div className="absolute right-2 top-1/2 transform -translate-y-1/2">
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-                      </div>
-                    )}
-                  </div>
-                  
-                  <Input
-                    id="semAdvance"
-                    type="number"
-                    value={semAdvanceAmount.toFixed(2)}
+                    value={loadingProvisionCharge ? "Fetching provision data..." : calculatedProvisionCharge.toFixed(2)}
                     disabled={true}
-                    className="bg-gray-50"
+                    className={`pr-8 ${loadingProvisionCharge ? 'bg-blue-50 border-blue-300' : 'bg-gray-50'}`}
                   />
+                  {loadingProvisionCharge && (
+                    <div className="absolute right-2 top-1/2 transform -translate-y-1/2">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                    </div>
+                  )}
                 </div>
-              </div>
-              <div className="mt-4">
-                <Button onClick={updateSemBillingSettings} disabled={updatingSem}>
-                  <Save className="w-4 h-4 mr-2" />
-                  {updatingSem ? "Updating..." : "Update Settings"}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
 
-
-          {/* Filters */}
-          <Card className="p-4 border-0 shadow-md">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center space-x-2">
-                <Filter className="w-4 h-4 text-slate-600" />
-                <span className="font-medium text-slate-900">Filters</span>
+                <Input
+                  id="semAdvance"
+                  type="number"
+                  value={semAdvanceAmount.toFixed(2)}
+                  disabled={true}
+                  className="bg-gray-50"
+                />
               </div>
-              <Button variant="outline" size="sm" onClick={() => setFilters({
-                hostel: "all",
-                year: "all",
-                status: "all",
-                mandoFilter: "all",
-                dept: "all",
-                search: "",
-              })}>
-                <RotateCcw className="w-4 h-4 mr-2" />
-                Reset
+            </div>
+            <div className="mt-4">
+              <Button onClick={updateSemBillingSettings} disabled={updatingSem}>
+                <Save className="w-4 h-4 mr-2" />
+                {updatingSem ? "Updating..." : "Update Settings"}
               </Button>
             </div>
+          </CardContent>
+        </Card>
 
-            <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
-              {/* Search */}
-              <div className="space-y-2">
-                <Label className="text-sm font-medium text-slate-700">Search</Label>
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" />
-                  <Input
-                    placeholder="Name or roll number..."
-                    value={filters.search}
-                    onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
-                    className="pl-10"
-                  />
-                </div>
-              </div>
 
-              {/* Hostel Filter */}
-              <div className="space-y-2">
-                <Label className="text-sm font-medium text-slate-700">Hostel</Label>
-                <Select value={filters.hostel} onValueChange={(value) => setFilters(prev => ({ ...prev, hostel: value }))}>
-                  <SelectTrigger className="bg-white">
-                    <SelectValue placeholder="Select hostel" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-white">
-                    <SelectItem value="all">All Hostels</SelectItem>
-                    <SelectItem value="Boys">Boys Hostel</SelectItem>
-                    <SelectItem value="Girls">Girls Hostel</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+        {/* Filters */}
+        <Card className="p-4 border-0 shadow-md">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center space-x-2">
+              <Filter className="w-4 h-4 text-slate-600" />
+              <span className="font-medium text-slate-900">Filters</span>
+            </div>
+            <Button variant="outline" size="sm" onClick={() => setFilters({
+              hostel: "all",
+              year: "all",
+              status: "all",
+              mandoFilter: "all",
+              dept: "all",
+              search: "",
+            })}>
+              <RotateCcw className="w-4 h-4 mr-2" />
+              Reset
+            </Button>
+          </div>
 
-              {/* Year Filter */}
-              <div className="space-y-2">
-                <Label className="text-sm font-medium text-slate-700">Year</Label>
-                <Select value={filters.year} onValueChange={(value) => setFilters(prev => ({ ...prev, year: value }))}>
-                  <SelectTrigger className="bg-white">
-                    <SelectValue placeholder="Select year" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-white">
-                    <SelectItem value="all">All Years</SelectItem>
-                    <SelectItem value="1">1st Year</SelectItem>
-                    <SelectItem value="2">2nd Year</SelectItem>
-                    <SelectItem value="3">3rd Year</SelectItem>
-                    <SelectItem value="4">4th Year</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Status Filter */}
-              <div className="space-y-2">
-                <Label className="text-sm font-medium text-slate-700">Status</Label>
-                <Select value={filters.status} onValueChange={(value) => setFilters(prev => ({ ...prev, status: value }))}>
-                  <SelectTrigger className="bg-white">
-                    <SelectValue placeholder="Select status" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-white">
-                    <SelectItem value="all">All Status</SelectItem>
-                    <SelectItem value="ACTIVE">Active</SelectItem>
-                    <SelectItem value="VACATED">Vacated</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Dept Filter */}
-              <div className="space-y-2">
-                <Label className="text-sm font-medium text-slate-700">Dept</Label>
-                <Select value={filters.dept} onValueChange={(value) => setFilters(prev => ({ ...prev, dept: value }))}>
-                  <SelectTrigger className="bg-white">
-                    <SelectValue placeholder="Select dept" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-white">
-                    <SelectItem value="all">All Depts</SelectItem>
-                    <SelectItem value="cse">CSE</SelectItem>
-                    <SelectItem value="ece">ECE</SelectItem>
-                    <SelectItem value="eee">EEE</SelectItem>
-                    <SelectItem value="mech">Mech</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Mando Filter */}
-              <div className="space-y-2">
-                <Label className="text-sm font-medium text-slate-700">Mando Filter</Label>
-                <Select value={filters.mandoFilter} onValueChange={(value) => setFilters(prev => ({ ...prev, mandoFilter: value }))}>
-                  <SelectTrigger className="bg-white">
-                    <SelectValue placeholder="Select mando filter" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-white">
-                    <SelectItem value="all">All Students</SelectItem>
-                    <SelectItem value="mando">Mando Students Only</SelectItem>
-                    <SelectItem value="regular">Regular Students Only</SelectItem>
-                  </SelectContent>
-                </Select>
+          <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
+            {/* Search */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium text-slate-700">Search</Label>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <Input
+                  placeholder="Name or roll number..."
+                  value={filters.search}
+                  onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
+                  className="pl-10"
+                />
               </div>
             </div>
-          </Card>
 
-          {/* Students Table for Sem */}
-          <Card className="border-0 shadow-md">
-            <CardHeader>
-              <div className="flex justify-between items-center">
-                <CardTitle>
-                  Student Payment Overview - {selectedSemester ? `${selectedSemester.name} (${new Date(selectedSemester.startDate).toLocaleDateString()} - ${new Date(selectedSemester.endDate).toLocaleDateString()})` : 'No Semester Selected'}
-                </CardTitle>
-                <div className="flex gap-2">
-                  {selectedSemester && (
+            {/* Hostel Filter */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium text-slate-700">Hostel</Label>
+              <Select value={filters.hostel} onValueChange={(value) => setFilters(prev => ({ ...prev, hostel: value }))}>
+                <SelectTrigger className="bg-white">
+                  <SelectValue placeholder="Select hostel" />
+                </SelectTrigger>
+                <SelectContent className="bg-white">
+                  <SelectItem value="all">All Hostels</SelectItem>
+                  <SelectItem value="Boys">Boys Hostel</SelectItem>
+                  <SelectItem value="Girls">Girls Hostel</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Year Filter */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium text-slate-700">Year</Label>
+              <Select value={filters.year} onValueChange={(value) => setFilters(prev => ({ ...prev, year: value }))}>
+                <SelectTrigger className="bg-white">
+                  <SelectValue placeholder="Select year" />
+                </SelectTrigger>
+                <SelectContent className="bg-white">
+                  <SelectItem value="all">All Years</SelectItem>
+                  <SelectItem value="1">1st Year</SelectItem>
+                  <SelectItem value="2">2nd Year</SelectItem>
+                  <SelectItem value="3">3rd Year</SelectItem>
+                  <SelectItem value="4">4th Year</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Status Filter */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium text-slate-700">Status</Label>
+              <Select value={filters.status} onValueChange={(value) => setFilters(prev => ({ ...prev, status: value }))}>
+                <SelectTrigger className="bg-white">
+                  <SelectValue placeholder="Select status" />
+                </SelectTrigger>
+                <SelectContent className="bg-white">
+                  <SelectItem value="all">All Status</SelectItem>
+                  <SelectItem value="ACTIVE">Active</SelectItem>
+                  <SelectItem value="VACATED">Vacated</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Dept Filter */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium text-slate-700">Dept</Label>
+              <Select value={filters.dept} onValueChange={(value) => setFilters(prev => ({ ...prev, dept: value }))}>
+                <SelectTrigger className="bg-white">
+                  <SelectValue placeholder="Select dept" />
+                </SelectTrigger>
+                <SelectContent className="bg-white">
+                  <SelectItem value="all">All Depts</SelectItem>
+                  <SelectItem value="cse">CSE</SelectItem>
+                  <SelectItem value="ece">ECE</SelectItem>
+                  <SelectItem value="eee">EEE</SelectItem>
+                  <SelectItem value="mech">Mech</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Mando Filter */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium text-slate-700">Mando Filter</Label>
+              <Select value={filters.mandoFilter} onValueChange={(value) => setFilters(prev => ({ ...prev, mandoFilter: value }))}>
+                <SelectTrigger className="bg-white">
+                  <SelectValue placeholder="Select mando filter" />
+                </SelectTrigger>
+                <SelectContent className="bg-white">
+                  <SelectItem value="all">All Students</SelectItem>
+                  <SelectItem value="mando">Mando Students Only</SelectItem>
+                  <SelectItem value="regular">Regular Students Only</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </Card>
+
+        {/* Students Table for Sem */}
+        <Card className="border-0 shadow-md">
+          <CardHeader>
+            <div className="flex justify-between items-center">
+              <CardTitle>
+                Student Payment Overview - {selectedSemester ? `${selectedSemester.name} (${new Date(selectedSemester.startDate).toLocaleDateString()} - ${new Date(selectedSemester.endDate).toLocaleDateString()})` : 'No Semester Selected'}
+              </CardTitle>
+              <div className="flex gap-2">
+                {selectedSemester && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => forceRefetchSemesterData(selectedSemester)}
+                    disabled={loadingStudentsSem || loadingProvisionCharge}
+                  >
+                    <RefreshCw className={`w-4 h-4 mr-2 ${loadingStudentsSem || loadingProvisionCharge ? 'animate-spin' : ''}`} />
+                    Force Refresh
+                  </Button>
+                )}
+                {selectedSemester && (
+                  <Button variant="outline" onClick={updatePayments} disabled={updatingPayments}>
+                    {updatingPayments ? (
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600 mr-2"></div>
+                    ) : (
+                      <RefreshCw className="w-4 h-4 mr-2" />
+                    )}
+                    {updatingPayments ? "Updating..." : "Update Payments"}
+                  </Button>
+                )}
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {/* Bulk Actions */}
+            {selectedStudents.size > 0 && (
+              <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-blue-800">
+                    {selectedStudents.size} student{selectedStudents.size > 1 ? "s" : ""} selected
+                  </span>
+                  <div className="flex items-center space-x-2">
                     <Button
-                      variant="outline"
                       size="sm"
-                      onClick={() => forceRefetchSemesterData(selectedSemester)}
-                      disabled={loadingStudentsSem || loadingProvisionCharge}
+                      onClick={handleBulkMarkPaid}
+                      disabled={markingSelectedPaid}
+                      className="bg-green-600 hover:bg-green-700 text-white"
                     >
-                      <RefreshCw className={`w-4 h-4 mr-2 ${loadingStudentsSem || loadingProvisionCharge ? 'animate-spin' : ''}`} />
-                      Force Refresh
-                    </Button>
-                  )}
-                  {selectedSemester && (
-                    <Button variant="outline" onClick={updatePayments} disabled={updatingPayments}>
-                      {updatingPayments ? (
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600 mr-2"></div>
+                      {markingSelectedPaid ? (
+                        <>
+                          <div className="animate-spin rounded-full h-3 w-3 border-b border-white mr-1"></div>
+                          Processing...
+                        </>
                       ) : (
-                        <RefreshCw className="w-4 h-4 mr-2" />
+                        "Mark Selected as Paid"
                       )}
-                      {updatingPayments ? "Updating..." : "Update Payments"}
                     </Button>
-                  )}
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        setSelectedStudents(new Set())
+                        setSelectAll(false)
+                      }}
+                    >
+                      Clear Selection
+                    </Button>
+                  </div>
                 </div>
               </div>
-            </CardHeader>
-            <CardContent>
-              {/* Bulk Actions */}
-              {selectedStudents.size > 0 && (
-                <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-blue-800">
-                      {selectedStudents.size} student{selectedStudents.size > 1 ? "s" : ""} selected
-                    </span>
-                    <div className="flex items-center space-x-2">
-                      <Button
-                        size="sm"
-                        onClick={handleBulkMarkPaid}
-                        disabled={markingSelectedPaid}
-                        className="bg-green-600 hover:bg-green-700 text-white"
-                      >
-                        {markingSelectedPaid ? (
-                          <>
-                            <div className="animate-spin rounded-full h-3 w-3 border-b border-white mr-1"></div>
-                            Processing...
-                          </>
-                        ) : (
-                          "Mark Selected as Paid"
-                        )}
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => {
-                          setSelectedStudents(new Set())
-                          setSelectAll(false)
-                        }}
-                      >
-                        Clear Selection
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              )}
+            )}
 
-              {loadingStudentsSem ? (
-                <div className="flex items-center justify-center py-8">
-                  <div className="flex items-center space-x-2">
-                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
-                    <span className="text-sm font-medium text-slate-600">Loading student data...</span>
-                  </div>
-                </div>
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-12">
+            {loadingStudentsSem || loadingProvisionCharge || loadingFeeRecords ? (
+              <div className="flex flex-col items-center justify-center py-12">
+                <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mb-4"></div>
+                <span className="text-sm font-medium text-slate-600">
+                  {loadingProvisionCharge ? "Calculating provision charges..." :
+                    loadingFeeRecords ? "Loading fee records..." :
+                      "Loading student data..."}
+                </span>
+                <span className="text-xs text-slate-400 mt-1">Please wait while we prepare the billing data</span>
+              </div>
+            ) : !selectedSemester ? (
+              <div className="flex flex-col items-center justify-center py-12 text-slate-500">
+                <div className="text-4xl mb-4">📅</div>
+                <span className="text-sm font-medium">No semester selected</span>
+                <span className="text-xs text-slate-400 mt-1">Please select a semester to view student billing data</span>
+              </div>
+            ) : studentsSem.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 text-slate-500">
+                <div className="text-4xl mb-4">👥</div>
+                <span className="text-sm font-medium">No students found</span>
+                <span className="text-xs text-slate-400 mt-1">No billing data available for this semester</span>
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-12">
+                      <input
+                        type="checkbox"
+                        checked={selectAll}
+                        onChange={(e) => handleSelectAll(e.target.checked)}
+                        className="rounded border-gray-300"
+                      />
+                    </TableHead>
+                    <TableHead>Student</TableHead>
+                    <TableHead className="text-right">Labour Mandays</TableHead>
+                    <TableHead className="text-right">Provision Mandays</TableHead>
+                    <TableHead className="text-right">Labor Charge</TableHead>
+                    <TableHead className="text-right">Provision Charges</TableHead>
+                    <TableHead className="text-right">Carry Forward</TableHead>
+                    <TableHead className="text-right">Advance Amount to Pay</TableHead>
+                    <TableHead className="text-right">Advance Paid</TableHead>
+                    <TableHead className="text-right">Balance Amount</TableHead>
+                    <TableHead className="text-center">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredStudentsSem.map((student) => (
+                    <TableRow key={student.id}>
+                      <TableCell>
                         <input
                           type="checkbox"
-                          checked={selectAll}
-                          onChange={(e) => handleSelectAll(e.target.checked)}
+                          checked={selectedStudents.has(student.id)}
+                          onChange={(e) => handleStudentSelect(student.id, e.target.checked)}
                           className="rounded border-gray-300"
                         />
-                      </TableHead>
-                      <TableHead>Student</TableHead>
-                      <TableHead className="text-right">Labour Mandays</TableHead>
-                      <TableHead className="text-right">Provision Mandays</TableHead>
-                      <TableHead className="text-right">Labor Charge</TableHead>
-                      <TableHead className="text-right">Provision Charges</TableHead>
-                      <TableHead className="text-right">Carry Forward</TableHead>
-                      <TableHead className="text-right">Advance Amount to Pay</TableHead>
-                      <TableHead className="text-right">Advance Paid</TableHead>
-                      <TableHead className="text-right">Balance Amount</TableHead>
-                      <TableHead className="text-center">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredStudentsSem.map((student) => (
-                      <TableRow key={student.id}>
-                        <TableCell>
-                          <input
-                            type="checkbox"
-                            checked={selectedStudents.has(student.id)}
-                            onChange={(e) => handleStudentSelect(student.id, e.target.checked)}
-                            className="rounded border-gray-300"
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <div className="font-medium text-slate-900 flex items-center gap-2">
-                            {student.name}
-                            <Badge
-                              variant={student.status === 'ACTIVE' ? 'default' : 'secondary'}
-                              className={`text-xs px-2 py-0 ${
-                                student.status === 'ACTIVE'
-                                  ? 'bg-green-100 text-green-800'
-                                  : 'bg-gray-100 text-gray-800'
+                      </TableCell>
+                      <TableCell>
+                        <div className="font-medium text-slate-900 flex items-center gap-2">
+                          {student.name}
+                          <Badge
+                            variant={student.status === 'ACTIVE' ? 'default' : 'secondary'}
+                            className={`text-xs px-2 py-0 ${student.status === 'ACTIVE'
+                                ? 'bg-green-100 text-green-800'
+                                : 'bg-gray-100 text-gray-800'
                               }`}
-                            >
-                              {student.status === 'ACTIVE' ? 'Active' : 'Vacated'}
+                          >
+                            {student.status === 'ACTIVE' ? 'Active' : 'Vacated'}
+                          </Badge>
+                        </div>
+                        <div className="text-xs text-slate-500 flex items-center space-x-2">
+                          <span>{student.rollNo}</span>
+                          <span>•</span>
+                          <span className="text-slate-400">{student.dept || 'Not Set'}</span>
+                          <span>•</span>
+                          <span>{student.hostel}</span>
+                          {student.isMando && (
+                            <Badge variant="secondary" className="text-xs px-1 py-0">
+                              Mando
                             </Badge>
-                          </div>
-                          <div className="text-xs text-slate-500 flex items-center space-x-2">
-                            <span>{student.rollNo}</span>
-                            <span>•</span>
-                            <span className="text-slate-400">{student.dept || 'Not Set'}</span>
-                            <span>•</span>
-                            <span>{student.hostel}</span>
-                            {student.isMando && (
-                              <Badge variant="secondary" className="text-xs px-1 py-0">
-                                Mando
-                              </Badge>
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-right">{student.labourMandays}</TableCell>
-                        <TableCell className="text-right">{student.provisionMandays}</TableCell>
-                        <TableCell className="text-right">₹{student.laborCharge.toFixed(2)}</TableCell>
-                        <TableCell className="text-right">₹{student.provisionCharge.toFixed(2)}</TableCell>
-                        <TableCell className="text-right">
-                          <span className="text-orange-600">₹{student.carryForwardAmount.toFixed(2)}</span>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <Badge
-                            variant={student.advanceAmountToPay >= 0 ? "default" : "destructive"}
-                            className={student.advanceAmountToPay >= 0 ? "bg-blue-100 text-blue-800" : "bg-red-100 text-red-800"}
-                          >
-                            ₹{student.advanceAmountToPay.toFixed(2)}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-right">₹{student.advancePaid.toFixed(2)}</TableCell>
-                        <TableCell className="text-right">
-                          <Badge
-                            variant={student.totalAmount >= 0 ? "default" : "destructive"}
-                            className={student.totalAmount >= 0 ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}
-                          >
-                            ₹{student.totalAmount.toFixed(2)}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <div className="flex gap-1 justify-center">
-                            {student.advancePaid === 0 ? (
-                              <Button
-                                size="sm"
-                                onClick={() => handleStudentPayment(student.id, 'markPaid')}
-                                disabled={loadingStudentPayments.has(student.id)}
-                                className="bg-green-600 hover:bg-green-700 text-xs px-2 py-1 text-white"
-                              >
-                                {loadingStudentPayments.has(student.id) ? (
-                                  <>
-                                    <div className="animate-spin rounded-full h-3 w-3 border-b border-white mr-1"></div>
-                                    Processing...
-                                  </>
-                                ) : (
-                                  "Mark Paid"
-                                )}
-                              </Button>
-                            ) : (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => handleStudentPayment(student.id, 'markUnpaid')}
-                                disabled={loadingStudentPayments.has(student.id)}
-                                className="text-red-600 hover:text-red-700 text-xs px-2 py-1"
-                              >
-                                {loadingStudentPayments.has(student.id) ? (
-                                  <>
-                                    <div className="animate-spin rounded-full h-3 w-3 border-b border-red-600 mr-1"></div>
-                                    Processing...
-                                  </>
-                                ) : (
-                                  "Unpaid"
-                                )}
-                              </Button>
-                            )}
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
-            </CardContent>
-          </Card>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-right">{student.labourMandays}</TableCell>
+                      <TableCell className="text-right">{student.provisionMandays}</TableCell>
+                      <TableCell className="text-right">₹{student.laborCharge.toFixed(2)}</TableCell>
+                      <TableCell className="text-right">₹{student.provisionCharge.toFixed(2)}</TableCell>
+                      <TableCell className="text-right">
+                        <span className="text-orange-600">₹{student.carryForwardAmount.toFixed(2)}</span>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Badge
+                          variant={student.advanceAmountToPay >= 0 ? "default" : "destructive"}
+                          className={student.advanceAmountToPay >= 0 ? "bg-blue-100 text-blue-800" : "bg-red-100 text-red-800"}
+                        >
+                          ₹{student.advanceAmountToPay.toFixed(2)}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right">₹{student.advancePaid.toFixed(2)}</TableCell>
+                      <TableCell className="text-right">
+                        <Badge
+                          variant={student.totalAmount >= 0 ? "default" : "destructive"}
+                          className={student.totalAmount >= 0 ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}
+                        >
+                          ₹{student.totalAmount.toFixed(2)}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <div className="flex gap-1 justify-center">
+                          {student.advancePaid === 0 ? (
+                            <Button
+                              size="sm"
+                              onClick={() => handleStudentPayment(student.id, 'markPaid')}
+                              disabled={loadingStudentPayments.has(student.id)}
+                              className="bg-green-600 hover:bg-green-700 text-xs px-2 py-1 text-white"
+                            >
+                              {loadingStudentPayments.has(student.id) ? (
+                                <>
+                                  <div className="animate-spin rounded-full h-3 w-3 border-b border-white mr-1"></div>
+                                  Processing...
+                                </>
+                              ) : (
+                                "Mark Paid"
+                              )}
+                            </Button>
+                          ) : (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleStudentPayment(student.id, 'markUnpaid')}
+                              disabled={loadingStudentPayments.has(student.id)}
+                              className="text-red-600 hover:text-red-700 text-xs px-2 py-1"
+                            >
+                              {loadingStudentPayments.has(student.id) ? (
+                                <>
+                                  <div className="animate-spin rounded-full h-3 w-3 border-b border-red-600 mr-1"></div>
+                                  Processing...
+                                </>
+                              ) : (
+                                "Unpaid"
+                              )}
+                            </Button>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
       </div>
-    </div>
+    </div >
   )
 }

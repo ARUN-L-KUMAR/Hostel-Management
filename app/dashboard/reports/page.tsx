@@ -61,7 +61,7 @@ interface ReportData {
   incomes: {
     totalAdvancePaid: number
     bankInterestIncome: number
-    externalIncomes: Array<{id: string, name: string, amount: number}>
+    externalIncomes: Array<{ id: string, name: string, amount: number }>
     totalExternalIncome: number
     totalIncome: number
     semesterName: string
@@ -138,7 +138,7 @@ export default function ReportsPage() {
   const [loadingSemesters, setLoadingSemesters] = useState(false)
   const [bankInterestRate, setBankInterestRate] = useState<number>(2.50)
   const [editingInterestRate, setEditingInterestRate] = useState(false)
-  const [externalIncomes, setExternalIncomes] = useState<Array<{id: string, name: string, amount: number}>>([])
+  const [externalIncomes, setExternalIncomes] = useState<Array<{ id: string, name: string, amount: number }>>([])
   const [showAddIncome, setShowAddIncome] = useState(false)
   const [newIncomeName, setNewIncomeName] = useState('')
   const [newIncomeAmount, setNewIncomeAmount] = useState('')
@@ -219,7 +219,7 @@ export default function ReportsPage() {
       setSelectedSemester(semester || null)
     }
   }
-  
+
   const fetchReportData = async () => {
     console.log('fetchReportData called with local rates - Outsider:', outsiderRate, 'Mando:', mandoRate)
     setLoading(true)
@@ -447,7 +447,9 @@ export default function ReportsPage() {
   useEffect(() => {
     console.log('useEffect triggered with selectedYear:', selectedYear, 'selectedMonth:', selectedMonth)
     fetchReportData()
-  }, [selectedYear, selectedMonth, selectedSemester, outsiderRate, mandoRate, externalIncomes])
+    // Note: outsiderRate and mandoRate are intentionally excluded to prevent refetch on rate changes
+    // The rates are applied locally when displaying the data
+  }, [selectedYear, selectedMonth, selectedSemester, externalIncomes])
 
   // Auto-load saved reports when semesters are loaded
   useEffect(() => {
@@ -690,13 +692,13 @@ export default function ReportsPage() {
     setSavingReport(true)
     try {
       const totalExpenses = (reportData.expenses?.totalAmount || 0) +
-                           (reportData.provisions?.usage?.totalCost || 0) +
-                           (reportData.mando?.totalCost || 0) +
-                           (monthlyLabourCharge || 0)
+        (reportData.provisions?.usage?.totalCost || 0) +
+        (reportData.mando?.totalCost || 0) +
+        (monthlyLabourCharge || 0)
 
       const totalIncomes = (reportData.incomes?.totalAdvancePaid || 0) +
-                          (reportData.incomes?.bankInterestIncome || 0) +
-                          (reportData.incomes?.totalExternalIncome || 0)
+        (reportData.incomes?.bankInterestIncome || 0) +
+        (reportData.incomes?.totalExternalIncome || 0)
 
       const netProfit = totalIncomes - totalExpenses
 
@@ -1537,7 +1539,7 @@ export default function ReportsPage() {
             <CardContent>
               <div className="space-y-4">
                 <div className="text-3xl font-bold text-green-600">
-                  ₹{reportData.outsiders.totalCost.toLocaleString()}
+                  ₹{(reportData.outsiders.totalMeals * outsiderRate).toLocaleString()}
                 </div>
                 <div className="text-sm text-muted-foreground flex items-center">
                   {reportData.outsiders.totalMeals} meals × ₹
@@ -1582,7 +1584,7 @@ export default function ReportsPage() {
             <CardContent>
               <div className="space-y-4">
                 <div className="text-3xl font-bold text-orange-600">
-                  ₹{reportData.mando.totalCost.toLocaleString()}
+                  ₹{(reportData.mando.totalMeals * mandoRate).toLocaleString()}
                 </div>
                 <div className="text-sm text-muted-foreground flex items-center">
                   {reportData.mando.totalMeals} meals × ₹
@@ -1639,67 +1641,67 @@ export default function ReportsPage() {
                 {perStudentCosts ? (
                   <>
                     <div className="text-sm text-gray-600 mb-4">
-                       Based on {perStudentCosts.totalStudents} students for {monthNames[parseInt(selectedMonth) - 1]} {selectedYear}
-                     </div>
+                      Based on {perStudentCosts.totalStudents} students for {monthNames[parseInt(selectedMonth) - 1]} {selectedYear}
+                    </div>
 
-                     {/* Total Mandays Display */}
-                     <div className="mb-6 p-4 bg-slate-50 border border-slate-200 rounded-lg">
-                       <div className="space-y-3">
-                         <div className="flex items-center justify-between">
-                           <div className="flex items-center space-x-2">
-                             <Calendar className="h-5 w-5 text-slate-600" />
-                             <div>
-                               <div className="text-lg font-semibold text-slate-800">
-                                 Total Mandays Breakdown
-                               </div>
-                               <div className="text-xs text-slate-600">
-                                 Separate calculations for labour and provision charges
-                               </div>
-                             </div>
-                           </div>
-                         </div>
+                    {/* Total Mandays Display */}
+                    <div className="mb-6 p-4 bg-slate-50 border border-slate-200 rounded-lg">
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-2">
+                            <Calendar className="h-5 w-5 text-slate-600" />
+                            <div>
+                              <div className="text-lg font-semibold text-slate-800">
+                                Total Mandays Breakdown
+                              </div>
+                              <div className="text-xs text-slate-600">
+                                Separate calculations for labour and provision charges
+                              </div>
+                            </div>
+                          </div>
+                        </div>
 
-                         <div className="grid grid-cols-2 gap-4">
-                           {/* Labour Mandays */}
-                           <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                             <div className="flex items-center justify-between">
-                               <div>
-                                 <div className="text-sm font-medium text-blue-800">Labour Mandays</div>
-                                   <div className="text-xs text-blue-600">
-                                     <span className="font-medium">P + L + CN</span>
-                                   </div>
-                               </div>
-                               <Users className="h-4 w-4 text-blue-600" />
-                             </div>
-                             <div className="mt-2">
-                               <div className="text-xl font-bold text-blue-900">
-                                 {perStudentCosts.totalLabourMandays.toLocaleString()}
-                               </div>
-                             </div>
-                           </div>
+                        <div className="grid grid-cols-2 gap-4">
+                          {/* Labour Mandays */}
+                          <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <div className="text-sm font-medium text-blue-800">Labour Mandays</div>
+                                <div className="text-xs text-blue-600">
+                                  <span className="font-medium">P + L + CN</span>
+                                </div>
+                              </div>
+                              <Users className="h-4 w-4 text-blue-600" />
+                            </div>
+                            <div className="mt-2">
+                              <div className="text-xl font-bold text-blue-900">
+                                {perStudentCosts.totalLabourMandays.toLocaleString()}
+                              </div>
+                            </div>
+                          </div>
 
-                           {/* Provision Mandays */}
-                           <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
-                             <div className="flex items-center justify-between">
-                               <div>
-                                 <div className="text-sm font-medium text-green-800">Provision Mandays</div>
-                                   <div className="text-xs text-green-600">
-                                     <span className="font-medium">P + L</span>
-                                   </div>
-                               </div>
-                               <Package className="h-4 w-4 text-green-600" />
-                             </div>
-                             <div className="mt-2">
-                               <div className="text-xl font-bold text-green-900">
-                                 {perStudentCosts.totalProvisionMandays.toLocaleString()}
-                               </div>
-                             </div>
-                           </div>
-                         </div>
+                          {/* Provision Mandays */}
+                          <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <div className="text-sm font-medium text-green-800">Provision Mandays</div>
+                                <div className="text-xs text-green-600">
+                                  <span className="font-medium">P + L</span>
+                                </div>
+                              </div>
+                              <Package className="h-4 w-4 text-green-600" />
+                            </div>
+                            <div className="mt-2">
+                              <div className="text-xl font-bold text-green-900">
+                                {perStudentCosts.totalProvisionMandays.toLocaleString()}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
 
-                         
-                       </div>
-                     </div>
+
+                      </div>
+                    </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       {/* Labour Charge Per Student */}

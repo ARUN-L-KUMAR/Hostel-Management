@@ -8,6 +8,8 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const year = searchParams.get('year')
     const month = searchParams.get('month')
+    const startDate = searchParams.get('startDate')
+    const endDate = searchParams.get('endDate')
 
     let query = sql`
       SELECT
@@ -37,13 +39,17 @@ export async function GET(request: NextRequest) {
       LEFT JOIN provision_items pi ON ppi."provisionItemId" = pi.id
     `
 
-    // Filter by year and month if provided
-    if (year && month) {
-      const startDate = `${year}-${month.padStart(2, '0')}-01`
-      const endDate = new Date(parseInt(year), parseInt(month), 0)
-      const endDateStr = endDate.toISOString().split('T')[0]
+    // Filter by startDate and endDate if provided
+    if (startDate && endDate) {
+      query = sql`${query} WHERE pp.date >= ${startDate} AND pp.date <= ${endDate}`
+    }
+    // Fallback: Filter by year and month if provided
+    else if (year && month) {
+      const startDateStr = `${year}-${month.padStart(2, '0')}-01`
+      const endDateObj = new Date(parseInt(year), parseInt(month), 0)
+      const endDateStr = endDateObj.toISOString().split('T')[0]
 
-      query = sql`${query} WHERE pp.date >= ${startDate} AND pp.date <= ${endDateStr}`
+      query = sql`${query} WHERE pp.date >= ${startDateStr} AND pp.date <= ${endDateStr}`
     }
 
     query = sql`${query} GROUP BY pp.id, pp.date, pp.vendor, pp."paymentType", pp."billId", pp."totalAmount", pp."createdAt" ORDER BY pp.date DESC`

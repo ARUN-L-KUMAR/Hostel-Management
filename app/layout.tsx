@@ -4,6 +4,7 @@ import { GeistMono } from 'geist/font/mono'
 import { Analytics } from '@vercel/analytics/next'
 import { AuthProvider } from '@/components/providers/auth-provider'
 import { Toaster } from 'sonner'
+import '@/lib/mui-license' // Initialize MUI X License
 import './globals.css'
 
 export const metadata: Metadata = {
