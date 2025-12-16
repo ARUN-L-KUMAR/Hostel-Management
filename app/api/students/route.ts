@@ -15,12 +15,16 @@ export async function GET(request: NextRequest) {
     const search = searchParams.get("search")
     const month = searchParams.get("month")
     const attendanceYear = searchParams.get("attendanceYear")
+    const id = searchParams.get("id")
 
-    console.log(`[API DEBUG] Query params:`, { hostel, year, isMando, status, dept, search })
+    console.log(`[API DEBUG] Query params:`, { hostel, year, isMando, status, dept, search, id })
 
     const where: any = {}
 
     // Apply filters
+    if (id) {
+      where.id = id
+    }
     if (hostel && hostel !== "all") {
       where.hostel = {
         name: hostel
@@ -175,5 +179,62 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error("Error creating student:", error)
     return NextResponse.json({ error: "Failed to create student" }, { status: 500 })
+  }
+}
+
+export async function PUT(request: NextRequest) {
+  try {
+    const body = await request.json()
+    const { id, name, rollNumber, dept, hostel, year, isMando, company, status, leaveDate } = body
+
+    if (!id) {
+      return NextResponse.json({ error: "Student ID is required" }, { status: 400 })
+    }
+
+    // Use predefined hostel IDs
+    const hostelId = hostel === 'boys' ? 'hostel_boys' : 'hostel_girls'
+
+    // Update student
+    const student = await prisma.student.update({
+      where: { id },
+      data: {
+        name,
+        rollNumber, // This will be mapped to "rollNo" in db adapter if needed, or check db adapter implementation
+        dept: dept || null,
+        hostelId, // This might need careful handling if db adapter expects hostelId
+        year: parseInt(year),
+        isMando: isMando,
+        company: company || null,
+        status,
+        leaveDate: leaveDate ? new Date(leaveDate) : undefined
+      },
+      include: {
+        hostel: true
+      }
+    })
+
+    // Log the update
+    const currentUserId = await getCurrentUserId()
+    await createAuditLog(
+      currentUserId,
+      "UPDATE",
+      "student",
+      student.id,
+      null,
+      {
+        name,
+        rollNo: rollNumber,
+        dept: dept || null,
+        hostelId,
+        year: parseInt(year),
+        isMando,
+        status
+      }
+    )
+
+    return NextResponse.json(student)
+  } catch (error) {
+    console.error("Error updating student:", error)
+    return NextResponse.json({ error: "Failed to update student" }, { status: 500 })
   }
 }

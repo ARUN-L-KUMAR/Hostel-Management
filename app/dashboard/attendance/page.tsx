@@ -17,7 +17,7 @@ export default function AttendancePage({
     const filters = {
         hostel: typeof searchParams.hostel === "string" ? searchParams.hostel : "all",
         year: typeof searchParams.yearFilter === "string" ? searchParams.yearFilter : "all",
-        mandoFilter: typeof searchParams.mando === "string" ? searchParams.mando : "all",
+        mandoFilter: typeof searchParams.mando === "string" ? searchParams.mando : "regular",
         status: typeof searchParams.status === "string" ? searchParams.status : "ACTIVE",
         dept: typeof searchParams.dept === "string" ? searchParams.dept : "all",
     }

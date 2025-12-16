@@ -8,7 +8,7 @@ import { Progress } from "@/components/ui/progress"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Label } from "@/components/ui/label"
 import { Plus, Download, Upload, ArrowUp, Loader2 } from "lucide-react"
-import { AddStudentDialog } from "./add-student-dialog"
+import { StudentFormDialog } from "./student-form-dialog"
 import { ExcelImportDialog } from "./excel-import-dialog"
 import { StudentImportTypeDialog } from "./student-import-type-dialog"
 import { MandoStudentImportDialog } from "@/components/meal-entry/mando-student-import-dialog"
@@ -204,7 +204,7 @@ export function StudentsActions() {
                       </Label>
                     </div>
 
-                    
+
                   </RadioGroup>
                 </div>
               )}
@@ -226,20 +226,16 @@ export function StudentsActions() {
         </AlertDialogContent>
       </AlertDialog>
 
-      <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
-        <DialogTrigger asChild>
-          <Button>
-            <Plus className="w-4 h-4 mr-2" />
-            Add Student
-          </Button>
-        </DialogTrigger>
-        <DialogContent className="max-w-2xl bg-white">
-          <DialogHeader>
-            <DialogTitle>Add New Student</DialogTitle>
-          </DialogHeader>
-          <AddStudentDialog onClose={() => setAddDialogOpen(false)} />
-        </DialogContent>
-      </Dialog>
+      <Button onClick={() => setAddDialogOpen(true)}>
+        <Plus className="w-4 h-4 mr-2" />
+        Add Student
+      </Button>
+
+      <StudentFormDialog
+        open={addDialogOpen}
+        onOpenChange={setAddDialogOpen}
+        onSuccess={() => window.location.reload()}
+      />
     </div>
   )
 }

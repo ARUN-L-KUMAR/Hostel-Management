@@ -125,9 +125,7 @@ export default function StudentsPage() {
                                     <SelectContent>
                                         <SelectItem value="all">All Status</SelectItem>
                                         <SelectItem value="ACTIVE">Active</SelectItem>
-                                        <SelectItem value="INACTIVE">Inactive</SelectItem>
                                         <SelectItem value="VACATE">Vacated</SelectItem>
-                                        <SelectItem value="GRADUATED">Graduated</SelectItem>
                                     </SelectContent>
                                 </Select>
                             </div>

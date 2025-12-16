@@ -12,6 +12,8 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { ApiClient } from "@/lib/api-client"
 import { RemoveStudentDialog } from "./remove-student-dialog"
 import { BulkRemoveDialog } from "./bulk-remove-dialog"
+import { ViewStudentDialog } from "./view-student-dialog"
+import { StudentFormDialog } from "./student-form-dialog"
 
 interface Student {
   id: string
@@ -49,6 +51,8 @@ export function StudentsTable({ filters }: StudentsTableProps) {
   const [removeDialogOpen, setRemoveDialogOpen] = useState(false)
   const [selectedStudents, setSelectedStudents] = useState<Set<string>>(new Set())
   const [bulkRemoveDialogOpen, setBulkRemoveDialogOpen] = useState(false)
+  const [viewDialogOpen, setViewDialogOpen] = useState(false)
+  const [editDialogOpen, setEditDialogOpen] = useState(false)
 
   useEffect(() => {
     const fetchStudents = async () => {
@@ -113,6 +117,64 @@ export function StudentsTable({ filters }: StudentsTableProps) {
     fetchStudents()
   }, [filters]) // Fetch when filters change
 
+  const handleViewStudent = (student: Student) => {
+    setSelectedStudent(student)
+    setViewDialogOpen(true)
+  }
+
+  const handleEditStudent = (student: Student) => {
+    setSelectedStudent(student)
+    setEditDialogOpen(true)
+  }
+
+  // General refresh function
+  const refreshData = async () => {
+    setLoading(true)
+    try {
+      const apiFilters: any = {}
+
+      if (filters.hostel !== "all") {
+        apiFilters.hostel = filters.hostel
+      }
+      if (filters.year !== "all") {
+        apiFilters.year = filters.year
+      }
+      if (filters.status !== "all") {
+        apiFilters.status = filters.status
+      }
+      if (filters.mandoFilter && filters.mandoFilter !== "all") {
+        apiFilters.isMando = filters.mandoFilter === "mando" ? "true" : "false"
+      }
+      if (filters.dept !== "all") {
+        apiFilters.dept = filters.dept
+      }
+      if (filters.search) {
+        apiFilters.search = filters.search
+      }
+
+      console.log('Frontend: Refreshing with API filters:', apiFilters)
+
+      const response = await ApiClient.students.getAll(apiFilters)
+      const studentsWithStats = response.map((student: any) => ({
+        ...student,
+        stats: {
+          totalDays: 0,
+          presentDays: 0,
+          leaveDays: 0,
+          concessionDays: 0,
+          mandays: 0,
+        },
+      }))
+
+      setStudents(studentsWithStats)
+    } catch (error) {
+      console.error("Error fetching students:", error)
+      setStudents([])
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const handleRemoveStudent = (student: Student) => {
     setSelectedStudent(student)
     setRemoveDialogOpen(true)
@@ -148,58 +210,12 @@ export function StudentsTable({ filters }: StudentsTableProps) {
   const handleStudentRemoved = () => {
     // Clear selections and refresh the students list
     setSelectedStudents(new Set())
-
-    const fetchStudents = async () => {
-      setLoading(true)
-      try {
-        const apiFilters: any = {}
-
-        if (filters.hostel !== "all") {
-          apiFilters.hostel = filters.hostel
-        }
-        if (filters.year !== "all") {
-          apiFilters.year = filters.year
-        }
-        if (filters.status !== "all") {
-          apiFilters.status = filters.status
-        }
-        if (filters.mandoFilter && filters.mandoFilter !== "all") {
-          apiFilters.isMando = filters.mandoFilter === "mando" ? "true" : "false"
-        }
-        if (filters.dept !== "all") {
-          apiFilters.dept = filters.dept
-        }
-        if (filters.search) {
-          apiFilters.search = filters.search
-        }
-
-        console.log('Frontend: Refreshing with API filters:', apiFilters)
-
-        const response = await ApiClient.students.getAll(apiFilters)
-        const studentsWithStats = response.map((student: any) => ({
-          ...student,
-          stats: {
-            totalDays: 0,
-            presentDays: 0,
-            leaveDays: 0,
-            concessionDays: 0,
-            mandays: 0,
-          },
-        }))
-
-        setStudents(studentsWithStats)
-      } catch (error) {
-        console.error("Error fetching students:", error)
-        setStudents([])
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    fetchStudents()
+    refreshData()
   }
 
-  // Students are now filtered server-side
+  const handleStudentUpdated = () => {
+    refreshData()
+  }
 
   if (loading) {
     return (
@@ -311,13 +327,11 @@ export function StudentsTable({ filters }: StudentsTableProps) {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem asChild>
-                          <Link href={`/dashboard/students/${student.id}`}>
-                            <Eye className="w-4 h-4 mr-2" />
-                            View Profile
-                          </Link>
+                        <DropdownMenuItem onClick={() => handleViewStudent(student)}>
+                          <Eye className="w-4 h-4 mr-2" />
+                          View Profile
                         </DropdownMenuItem>
-                        <DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleEditStudent(student)}>
                           <Edit className="w-4 h-4 mr-2" />
                           Edit Student
                         </DropdownMenuItem>
@@ -338,6 +352,20 @@ export function StudentsTable({ filters }: StudentsTableProps) {
           </TableBody>
         </Table>
       </CardContent>
+
+      {/* Dialogs */}
+      <ViewStudentDialog
+        studentId={selectedStudent?.id || null}
+        open={viewDialogOpen}
+        onOpenChange={setViewDialogOpen}
+      />
+
+      <StudentFormDialog
+        open={editDialogOpen}
+        onOpenChange={setEditDialogOpen}
+        onSuccess={handleStudentUpdated}
+        initialData={selectedStudent}
+      />
 
       {/* Remove Student Dialog */}
       <RemoveStudentDialog

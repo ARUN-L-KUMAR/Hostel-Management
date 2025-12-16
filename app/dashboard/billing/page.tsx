@@ -907,7 +907,7 @@ export default function BillingPage() {
     filteredStudentsSem.forEach(student => {
       params.push([
         student.name,
-        student.rollNo,
+        `\t${student.rollNo}`, // Tab prefix prevents Excel number conversion
         student.dept || "Not Set",
         student.hostel,
         student.labourMandays.toString(),
@@ -950,7 +950,10 @@ export default function BillingPage() {
 
     const matchesDept = filters.dept === "all" || (student.dept && student.dept.toLowerCase().includes(filters.dept.toLowerCase()))
 
-    return matchesSearch && matchesHostel && matchesYear && matchesStatus && matchesDept
+    // Exclude Mando students from billing (they have separate billing in mando-students page)
+    const isNotMando = !student.isMando
+
+    return matchesSearch && matchesHostel && matchesYear && matchesStatus && matchesDept && isNotMando
   })
 
   const fetchSemStudentsData = async (overrideProvisionCharge?: number) => {
@@ -1495,7 +1498,7 @@ export default function BillingPage() {
                           {updatingPayments ? (
                             <div className="animate-spin rounded-full h-3.5 w-3.5 border-b-2 border-primary mr-2"></div>
                           ) : (
-                            <RefreshCw className="w-3.5 h-3.5 mr-2" />
+                            <Save className="w-3.5 h-3.5 mr-2" />
                           )}
                           {updatingPayments ? "Updating..." : "Update Payments"}
                         </Button>
