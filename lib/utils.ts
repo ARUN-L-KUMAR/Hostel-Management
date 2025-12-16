@@ -161,7 +161,7 @@ export function processStudentImportData(
         columnMap.name = index
       } else if (headerStr && (headerStr.includes('dept') || headerStr === 'dept' || headerStr === 'department')) {
         columnMap.dept = index
-      } else if (headerStr && (headerStr.includes('register no') || headerStr.includes('reg no') || headerStr.includes('register') || headerStr === 'regno')) {
+      } else if (headerStr && (headerStr.includes('register no') || headerStr.includes('reg no') || headerStr.includes('register') || headerStr === 'regno' || headerStr.includes('roll no') || headerStr.includes('roll_no'))) {
         columnMap.regNo = index
       }
     })
@@ -183,35 +183,37 @@ export function processStudentImportData(
     }
 
     // Process data rows
-for (let i = headerRowIndex + 1; i < jsonData.length; i++) {
-  const row = jsonData[i] as any[]
-  if (!row || row.length <= Math.max(columnMap.sNo, columnMap.name)) continue
+    for (let i = headerRowIndex + 1; i < jsonData.length; i++) {
+      const row = jsonData[i] as any[]
+      if (!row || row.length <= Math.max(columnMap.sNo, columnMap.name)) continue
 
-  const sNo = row[columnMap.sNo]?.toString().trim()
-  const name = row[columnMap.name]?.toString().trim()
-  const dept = columnMap.dept !== undefined ? row[columnMap.dept]?.toString().trim() : 'MECH'
-  const regNo = columnMap.regNo !== undefined ? row[columnMap.regNo]?.toString().trim() : null
+      const sNo = row[columnMap.sNo]?.toString().trim()
+      const name = row[columnMap.name]?.toString().trim()
+      const dept = columnMap.dept !== undefined ? row[columnMap.dept]?.toString().trim() : 'MECH'
+      const regNo = columnMap.regNo !== undefined ? row[columnMap.regNo]?.toString().trim() : null
 
-  if (!sNo || !name || sNo === '' || name === '') continue
+      if (!sNo || !name || sNo === '' || name === '') continue
 
-  let rollNo: string
-  if (regNo && regNo !== '') {
-    rollNo = regNo
-  } else {
-    rollNo = generateUniqueRollNumber(name, dept)
-  }
+      let rollNo: string
+      // For both Regular and Mando, prefer the value from file if present
+      if (regNo && regNo !== '') {
+        rollNo = regNo
+      } else {
+        // Only generate if missing
+        rollNo = generateUniqueRollNumber(name, dept)
+      }
 
-  // Use the predefined year from import options, not from the Excel column
-  allStudents.push({
-    name,
-    rollNo,
-    dept: dept || null,
-    year: year,
-    gender,
-    hostelId,
-    isMando: importOptions.studentType === 'mando' || false,
-  })
-}
+      // Use the predefined year from import options, not from the Excel column
+      allStudents.push({
+        name,
+        rollNo,
+        dept: dept || null,
+        year: year,
+        gender,
+        hostelId,
+        isMando: importOptions.studentType === 'mando' || false,
+      })
+    }
   })
 
   return { students: allStudents, warnings }

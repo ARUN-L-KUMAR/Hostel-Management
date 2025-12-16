@@ -9,17 +9,12 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Label } from "@/components/ui/label"
 import { Plus, Download, Upload, ArrowUp, Loader2 } from "lucide-react"
 import { StudentFormDialog } from "./student-form-dialog"
-import { ExcelImportDialog } from "./excel-import-dialog"
-import { StudentImportTypeDialog } from "./student-import-type-dialog"
-import { MandoStudentImportDialog } from "@/components/meal-entry/mando-student-import-dialog"
+import { ImportStudentsDialog } from "./import-students-dialog"
 import { useToast } from "@/hooks/use-toast"
 
 export function StudentsActions() {
   const [addDialogOpen, setAddDialogOpen] = useState(false)
-  const [importTypeDialogOpen, setImportTypeDialogOpen] = useState(false)
-  const [regularImportDialogOpen, setRegularImportDialogOpen] = useState(false)
-  const [mandoImportDialogOpen, setMandoImportDialogOpen] = useState(false)
-  const [importOptions, setImportOptions] = useState<{ gender: 'boys' | 'girls', importType: 'batch' | 'separate', year?: number, studentType?: 'regular' | 'mando' } | null>(null)
+  const [importDialogOpen, setImportDialogOpen] = useState(false)
   const [promoteDialogOpen, setPromoteDialogOpen] = useState(false)
   const [isPromoting, setIsPromoting] = useState(false)
   const [promoteProgress, setPromoteProgress] = useState({ promoted: 0, graduated: 0, mandoPromoted: 0, mandoGraduated: 0, total: 0 })
@@ -32,18 +27,10 @@ export function StudentsActions() {
   }
 
   const handleImport = () => {
-    setImportTypeDialogOpen(true)
+    setImportDialogOpen(true)
   }
 
-  const handleSelectImport = (options: { gender: 'boys' | 'girls', importType: 'batch' | 'separate', year?: number, studentType: 'regular' | 'mando' }) => {
-    setImportOptions(options)
-    setImportTypeDialogOpen(false)
-    if (options.studentType === 'mando') {
-      setMandoImportDialogOpen(true)
-    } else {
-      setRegularImportDialogOpen(true)
-    }
-  }
+
 
 
   const handlePromoteStudents = async () => {
@@ -105,51 +92,17 @@ export function StudentsActions() {
         Export
       </Button>
 
-      {/* Import Type Selection Dialog */}
-      <Dialog open={importTypeDialogOpen} onOpenChange={setImportTypeDialogOpen}>
-        <DialogTrigger asChild>
-          <Button variant="outline">
-            <Upload className="w-4 h-4 mr-2" />
-            Import
-          </Button>
-        </DialogTrigger>
-        <DialogContent className="max-w-2xl bg-white">
-          <DialogHeader>
-            <DialogTitle>Select Import Type</DialogTitle>
-          </DialogHeader>
-          <StudentImportTypeDialog
-            onSelectImport={handleSelectImport}
-            onClose={() => setImportTypeDialogOpen(false)}
-          />
-        </DialogContent>
-      </Dialog>
+      <Button variant="outline" onClick={handleImport}>
+        <Upload className="w-4 h-4 mr-2" />
+        Import
+      </Button>
 
-      {/* Regular Students Import Dialog */}
-      <Dialog open={regularImportDialogOpen} onOpenChange={setRegularImportDialogOpen}>
-        <DialogContent className="max-w-4xl bg-white">
-          <DialogHeader>
-            <DialogTitle>Import Regular Students from Excel</DialogTitle>
-          </DialogHeader>
-          <ExcelImportDialog
-            onClose={() => setRegularImportDialogOpen(false)}
-            onImportMore={() => {
-              setRegularImportDialogOpen(false)
-              setImportTypeDialogOpen(true)
-            }}
-            importOptions={importOptions || undefined}
-          />
-        </DialogContent>
-      </Dialog>
-
-      {/* Mando Students Import Dialog */}
-      <Dialog open={mandoImportDialogOpen} onOpenChange={setMandoImportDialogOpen}>
-        <DialogContent className="max-w-4xl bg-white">
-          <DialogHeader>
-            <DialogTitle>Import Mando Students from Excel</DialogTitle>
-          </DialogHeader>
-          <MandoStudentImportDialog onClose={() => setMandoImportDialogOpen(false)} />
-        </DialogContent>
-      </Dialog>
+      {/* Unified Import Dialog */}
+      <ImportStudentsDialog
+        open={importDialogOpen}
+        onOpenChange={setImportDialogOpen}
+        onSuccess={() => window.location.reload()}
+      />
 
       {/* Promote Students Alert Dialog */}
       <AlertDialog open={promoteDialogOpen} onOpenChange={setPromoteDialogOpen}>
