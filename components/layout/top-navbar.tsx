@@ -20,9 +20,9 @@ export function TopNavbar() {
   const [searchQuery, setSearchQuery] = useState("")
 
   return (
-    <header className="bg-white border-b border-slate-200 px-6 py-4">
+    <header className="bg-background/95 border-b border-border px-6 py-4 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="flex items-center justify-between">
-        
+
 
         {/* Right side - Empty for now since user profile is in header */}
         <div className="flex items-center space-x-4 ml-auto">

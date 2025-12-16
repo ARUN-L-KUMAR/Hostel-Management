@@ -4,8 +4,8 @@ import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import { useEffect } from "react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Loader2 } from "lucide-react"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
+import { Loader2, Building2 } from "lucide-react"
 
 export default function HomePage() {
   const { data: session, status } = useSession()
@@ -19,41 +19,59 @@ export default function HomePage() {
 
   if (status === "loading") {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <Loader2 className="h-8 w-8 animate-spin" />
+      <div className="flex items-center justify-center min-h-screen bg-background">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     )
   }
 
+  // If session exists, we are redirecting, so show loading state
   if (session) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <Loader2 className="h-8 w-8 animate-spin" />
+      <div className="flex items-center justify-center min-h-screen bg-background">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 py-12 px-4 sm:px-6 lg:px-8">
-      <Card className="w-full max-w-md bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-lg">
-        <CardHeader className="text-center">
-          <CardTitle className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-            Hostel Mess Management
-          </CardTitle>
-          <CardDescription className="text-gray-600 dark:text-gray-400">
-            Complete solution for hostel mess management
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <Button
-            onClick={() => router.push("/auth/signin")}
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white"
-          >
-            Sign In
-          </Button>
+    <div className="min-h-screen flex items-center justify-center bg-muted/40 p-4 sm:px-6 lg:px-8">
+      <div className="w-full max-w-md space-y-8">
+        <div className="flex flex-col items-center justify-center text-center space-y-2">
+          <div className="p-3 bg-primary/10 rounded-full">
+            <Building2 className="h-10 w-10 text-primary" />
+          </div>
+          <h1 className="text-3xl font-bold tracking-tight text-foreground">
+            Hostel Management
+          </h1>
+          <p className="text-muted-foreground">
+            Streamlined administration for modern hostels.
+          </p>
+        </div>
 
-        </CardContent>
-      </Card>
+        <Card className="border-border/50 shadow-xl bg-card/50 backdrop-blur-sm">
+          <CardHeader className="space-y-1 text-center">
+            <CardTitle className="text-2xl font-semibold tracking-tight">Welcome Back</CardTitle>
+            <CardDescription>
+              Sign in to access your dashboard
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button
+              onClick={() => router.push("/auth/signin")}
+              className="w-full h-11 text-base font-medium shadow-md transition-all hover:shadow-lg"
+              size="lg"
+            >
+              Sign In to Portal
+            </Button>
+          </CardContent>
+          <CardFooter className="flex justify-center border-t border-border/50 pt-4">
+            <p className="text-xs text-muted-foreground">
+              © {new Date().getFullYear()} Hostel Management System.
+            </p>
+          </CardFooter>
+        </Card>
+      </div>
     </div>
   )
 }

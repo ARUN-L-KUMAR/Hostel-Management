@@ -109,10 +109,10 @@ export function AuditLogs() {
       const prevLog = logs[i - 1]
 
       if (prevLog &&
-          prevLog.userId === log.userId &&
-          prevLog.action === log.action &&
-          prevLog.entity === log.entity &&
-          Math.abs(new Date(log.timestamp).getTime() - new Date(prevLog.timestamp).getTime()) < 5 * 60 * 1000) { // 5 minutes
+        prevLog.userId === log.userId &&
+        prevLog.action === log.action &&
+        prevLog.entity === log.entity &&
+        Math.abs(new Date(log.timestamp).getTime() - new Date(prevLog.timestamp).getTime()) < 5 * 60 * 1000) { // 5 minutes
         currentGroup.push(log)
       } else {
         if (currentGroup.length > 0) {
@@ -432,7 +432,7 @@ export function AuditLogs() {
                                 <Eye className="h-4 w-4" />
                               </Button>
                             </DialogTrigger>
-                            <DialogContent className="max-w-2xl bg-white">
+                            <DialogContent className="max-w-2xl bg-background border-border">
                               <DialogHeader>
                                 <DialogTitle>Audit Log Details</DialogTitle>
                               </DialogHeader>
@@ -557,9 +557,9 @@ export function AuditLogs() {
                         size="sm"
                         onClick={() => handlePageChange(pageNum)}
                         className={`min-w-10 ${isActive
-                          ? "bg-blue-600 text-white shadow-sm"
-                          : "border-gray-300 text-gray-700 hover:bg-gray-50"
-                        }`}
+                          ? "bg-primary text-primary-foreground shadow-sm"
+                          : "border-border text-foreground hover:bg-muted"
+                          }`}
                       >
                         {pageNum}
                       </Button>

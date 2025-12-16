@@ -5,7 +5,6 @@ import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import { useEffect } from "react"
 import { AppSidebar } from "@/components/layout/app-sidebar"
-import { TopNavbar } from "@/components/layout/top-navbar"
 import { DashboardHeader } from "@/components/dashboard/dashboard-header"
 import { SidebarProvider, useSidebar } from "@/components/ui/sidebar"
 import { Loader2 } from "lucide-react"
@@ -22,8 +21,7 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
       )}
     >
       <DashboardHeader />
-      <TopNavbar />
-      <main className="flex-1 p-6 bg-slate-50 overflow-x-hidden">
+      <main className="flex-1 p-6 bg-background overflow-x-hidden">
         {children}
       </main>
     </div>

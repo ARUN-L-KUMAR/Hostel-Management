@@ -42,9 +42,9 @@ export function MealEntryPeriodFilters() {
   ]
 
   return (
-    <div className="flex items-center space-x-4 p-4 bg-white border rounded-lg">
-      <div className="flex items-center space-x-2">
-        <span className="text-sm font-medium text-slate-700">Period:</span>
+    <div className="flex items-center gap-4 p-1">
+      <div className="flex items-center gap-2">
+        <span className="text-sm font-medium text-muted-foreground">Period:</span>
         <YearPicker
           value={year}
           onValueChange={handleYearChange}
@@ -52,7 +52,7 @@ export function MealEntryPeriodFilters() {
         />
 
         <Select value={month} onValueChange={handleMonthChange}>
-          <SelectTrigger className="w-32">
+          <SelectTrigger className="w-36">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>

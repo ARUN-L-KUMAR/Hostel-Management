@@ -13,6 +13,7 @@ import { Plus, ShoppingCart, BarChart3, Package, RefreshCw, Download } from "luc
 import { useToast } from "@/hooks/use-toast"
 import { ApiClient } from "@/lib/api-client"
 import { DateRangePicker } from "@/components/ui/date-range-picker"
+import { DatePicker } from "@/components/ui/date-picker"
 
 interface ProvisionItem {
   id: string
@@ -956,11 +957,17 @@ export default function ProvisionsPage() {
                 <div className="space-y-4">
                   <div>
                     <Label htmlFor="purchaseDate">Purchase Date</Label>
-                    <Input
-                      id="purchaseDate"
-                      type="date"
-                      value={purchaseDate}
-                      onChange={(e) => setPurchaseDate(e.target.value)}
+                    <DatePicker
+                      date={purchaseDate ? new Date(purchaseDate) : undefined}
+                      setDate={(date) => {
+                        if (date) {
+                          // Adjust for timezone to avoid off-by-one error when converting to string
+                          const offsetDate = new Date(date.getTime() - (date.getTimezoneOffset() * 60000));
+                          setPurchaseDate(offsetDate.toISOString().split('T')[0])
+                        } else {
+                          setPurchaseDate("")
+                        }
+                      }}
                     />
                   </div>
 
@@ -1152,7 +1159,16 @@ export default function ProvisionsPage() {
                 </TableHeader>
                 <TableBody>
                   {purchaseView === "date" ? (
-                    Array.isArray(purchases) && purchases.length > 0 ? (
+                    loading ? (
+                      <TableRow>
+                        <TableCell colSpan={6} className="text-center py-8">
+                          <div className="flex items-center justify-center">
+                            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mr-2"></div>
+                            <span className="text-gray-500">Loading purchases...</span>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ) : Array.isArray(purchases) && purchases.length > 0 ? (
                       purchases
                         .filter(purchase => {
                           if (purchaseFilter === "all") return true
@@ -1416,22 +1432,32 @@ export default function ProvisionsPage() {
                   {usageType === "day" && (
                     <div>
                       <Label htmlFor="date">Date</Label>
-                      <Input
-                        id="date"
-                        type="date"
-                        value={dialogStartDate}
-                        onChange={(e) => setDialogStartDate(e.target.value)}
+                      <DatePicker
+                        date={dialogStartDate ? new Date(dialogStartDate) : undefined}
+                        setDate={(date) => {
+                          if (date) {
+                            const offsetDate = new Date(date.getTime() - (date.getTimezoneOffset() * 60000));
+                            setDialogStartDate(offsetDate.toISOString().split('T')[0])
+                          } else {
+                            setDialogStartDate("")
+                          }
+                        }}
                       />
                     </div>
                   )}
                   {usageType === "week" && (
                     <div>
                       <Label htmlFor="weekStart">Week Starting</Label>
-                      <Input
-                        id="weekStart"
-                        type="date"
-                        value={dialogStartDate}
-                        onChange={(e) => setDialogStartDate(e.target.value)}
+                      <DatePicker
+                        date={dialogStartDate ? new Date(dialogStartDate) : undefined}
+                        setDate={(date) => {
+                          if (date) {
+                            const offsetDate = new Date(date.getTime() - (date.getTimezoneOffset() * 60000));
+                            setDialogStartDate(offsetDate.toISOString().split('T')[0])
+                          } else {
+                            setDialogStartDate("")
+                          }
+                        }}
                       />
                     </div>
                   )}
@@ -1439,20 +1465,30 @@ export default function ProvisionsPage() {
                     <>
                       <div>
                         <Label htmlFor="monthStart">Start Date</Label>
-                        <Input
-                          id="monthStart"
-                          type="date"
-                          value={dialogStartDate}
-                          onChange={(e) => setDialogStartDate(e.target.value)}
+                        <DatePicker
+                          date={dialogStartDate ? new Date(dialogStartDate) : undefined}
+                          setDate={(date) => {
+                            if (date) {
+                              const offsetDate = new Date(date.getTime() - (date.getTimezoneOffset() * 60000));
+                              setDialogStartDate(offsetDate.toISOString().split('T')[0])
+                            } else {
+                              setDialogStartDate("")
+                            }
+                          }}
                         />
                       </div>
                       <div>
                         <Label htmlFor="monthEnd">End Date</Label>
-                        <Input
-                          id="monthEnd"
-                          type="date"
-                          value={dialogEndDate}
-                          onChange={(e) => setDialogEndDate(e.target.value)}
+                        <DatePicker
+                          date={dialogEndDate ? new Date(dialogEndDate) : undefined}
+                          setDate={(date) => {
+                            if (date) {
+                              const offsetDate = new Date(date.getTime() - (date.getTimezoneOffset() * 60000));
+                              setDialogEndDate(offsetDate.toISOString().split('T')[0])
+                            } else {
+                              setDialogEndDate("")
+                            }
+                          }}
                         />
                       </div>
                     </>
@@ -1504,30 +1540,42 @@ export default function ProvisionsPage() {
                 <TableBody>
                   {usageView === "date" ? (
                     <>
-                      {usages
+                      {loading ? (
+                        <TableRow>
+                          <TableCell colSpan={6} className="text-center py-8">
+                            <div className="flex items-center justify-center">
+                              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mr-2"></div>
+                              <span className="text-gray-500">Loading usage records...</span>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ) : usages
                         .filter(usage => usageFilter === "all" || usage.provisionItem.id === usageFilter)
-                        .map((usage) => {
-                          const period = usage.fromDate && usage.toDate && usage.fromDate !== usage.toDate
-                            ? `${new Date(usage.fromDate).toLocaleDateString('en-GB')} - ${new Date(usage.toDate).toLocaleDateString('en-GB')}`
-                            : new Date(usage.date).toLocaleDateString('en-GB')
-                          return (
-                            <TableRow key={usage.id}>
-                              <TableCell>{period}</TableCell>
-                              <TableCell>{usage.provisionItem.name}</TableCell>
-                              <TableCell>{usage.provisionItem.unit}</TableCell>
-                              <TableCell className="text-right">{usage.quantity}</TableCell>
-                              <TableCell className="text-right">
-                                ₹{(usage.quantity * (averageCosts[usage.provisionItem.id] || Number(usage.provisionItem.unitCost))).toFixed(2)}
-                              </TableCell>
-                              <TableCell>
-                                <Button variant="outline" size="sm" onClick={() => editUsage(usage)}>
-                                  Edit
-                                </Button>
-                              </TableCell>
-                            </TableRow>
-                          )
-                        })}
-                      {usages.filter(usage => usageFilter === "all" || usage.provisionItem.id === usageFilter).length === 0 && (
+                        .length > 0 ? (
+                        usages
+                          .filter(usage => usageFilter === "all" || usage.provisionItem.id === usageFilter)
+                          .map((usage) => {
+                            const period = usage.fromDate && usage.toDate && usage.fromDate !== usage.toDate
+                              ? `${new Date(usage.fromDate).toLocaleDateString('en-GB')} - ${new Date(usage.toDate).toLocaleDateString('en-GB')}`
+                              : new Date(usage.date).toLocaleDateString('en-GB')
+                            return (
+                              <TableRow key={usage.id}>
+                                <TableCell>{period}</TableCell>
+                                <TableCell>{usage.provisionItem.name}</TableCell>
+                                <TableCell>{usage.provisionItem.unit}</TableCell>
+                                <TableCell className="text-right">{usage.quantity}</TableCell>
+                                <TableCell className="text-right">
+                                  ₹{(usage.quantity * (averageCosts[usage.provisionItem.id] || Number(usage.provisionItem.unitCost))).toFixed(2)}
+                                </TableCell>
+                                <TableCell>
+                                  <Button variant="outline" size="sm" onClick={() => editUsage(usage)}>
+                                    Edit
+                                  </Button>
+                                </TableCell>
+                              </TableRow>
+                            )
+                          })
+                      ) : (
                         <TableRow>
                           <TableCell colSpan={6} className="text-center text-gray-500 py-8">
                             No usage records found for the selected filters

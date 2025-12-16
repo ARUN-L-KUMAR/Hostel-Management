@@ -93,17 +93,17 @@ export default function AdminPage() {
   }
 
   return (
-    <div className="space-y-6 overflow-x-hidden">
+    <div className="space-y-8 overflow-x-hidden animate-in fade-in duration-500">
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Admin Panel</h1>
+          <h1 className="text-3xl font-bold tracking-tight text-foreground">Admin Panel</h1>
           <p className="text-muted-foreground">System administration and configuration settings</p>
         </div>
         <div className="flex items-center gap-3 flex-wrap">
-          <Button variant="outline" onClick={handleRefresh}>
+          <Button variant="outline" onClick={handleRefresh} className="border-border shadow-sm">
             Refresh
           </Button>
-          <Badge variant="secondary" className="gap-1">
+          <Badge variant="secondary" className="gap-1 bg-primary/10 text-primary border-primary/20">
             <Shield className="h-3 w-3" />
             {session.user?.role === "ADMIN" ? "Admin Access" : "Manager Access"}
           </Badge>
@@ -111,69 +111,73 @@ export default function AdminPage() {
       </div>
 
       {/* Quick Stats */}
-      <div className="grid gap-4 md:grid-cols-2 overflow-x-auto">
-        <Card>
+      <div className="grid gap-6 md:grid-cols-2 overflow-x-auto">
+        <Card className="border-border/60 shadow-sm hover:shadow-md transition-all">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active Users</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium text-foreground">Active Users</CardTitle>
+            <div className="p-2 bg-blue-500/10 rounded-md">
+              <Users className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+            </div>
           </CardHeader>
           <CardContent>
             {statsLoading ? (
               <div className="flex items-center space-x-2">
-                <Loader2 className="h-4 w-4 animate-spin" />
+                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
                 <span className="text-sm text-muted-foreground">Loading...</span>
               </div>
             ) : (
               <>
-                <div className="text-2xl font-bold">{userStats.total}</div>
-                <p className="text-xs text-muted-foreground">
+                <div className="text-2xl font-bold text-foreground">{userStats.total}</div>
+                <p className="text-xs text-muted-foreground mt-1">
                   {userStats.admins} admin{userStats.admins !== 1 ? 's' : ''}, {userStats.managers} manager{userStats.managers !== 1 ? 's' : ''}
                 </p>
               </>
             )}
           </CardContent>
         </Card>
-        <Card>
+        <Card className="border-border/60 shadow-sm hover:shadow-md transition-all">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Access Level</CardTitle>
-            <Shield className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium text-foreground">Access Level</CardTitle>
+            <div className="p-2 bg-emerald-500/10 rounded-md">
+              <Shield className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">
+            <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
               {session.user?.role === "ADMIN" ? "Admin" : "Manager"}
             </div>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-muted-foreground mt-1">
               {session.user?.role === "ADMIN" ? "Full system access" : "Limited admin access"}
             </p>
           </CardContent>
         </Card>
       </div>
 
-      <Tabs defaultValue="users" className="w-full">
-        <TabsList className="grid w-full grid-cols-2 h-12 bg-slate-100 p-1 rounded-lg">
+      <Tabs defaultValue="users" className="w-full space-y-6">
+        <TabsList className="grid w-full grid-cols-2 h-12 bg-muted p-1 rounded-lg">
           <TabsTrigger
             value="users"
-            className="flex items-center gap-2 font-medium data-[state=active]:bg-blue-600 data-[state=active]:text-white data-[state=inactive]:bg-white data-[state=inactive]:text-slate-700 data-[state=inactive]:hover:bg-slate-50 transition-colors"
+            className="flex items-center gap-2 font-medium data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:bg-background/50 transition-all"
           >
-            <Users className="w-5 h-5" />
+            <Users className="w-4 h-4" />
             <span className="hidden sm:inline">User Management</span>
             <span className="sm:hidden">Users</span>
           </TabsTrigger>
           <TabsTrigger
             value="logs"
-            className="flex items-center gap-2 font-medium data-[state=active]:bg-blue-600 data-[state=active]:text-white data-[state=inactive]:bg-white data-[state=inactive]:text-slate-700 data-[state=inactive]:hover:bg-slate-50 transition-colors"
+            className="flex items-center gap-2 font-medium data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:bg-background/50 transition-all"
           >
-            <FileText className="w-5 h-5" />
+            <FileText className="w-4 h-4" />
             <span className="hidden sm:inline">Audit Logs</span>
             <span className="sm:hidden">Logs</span>
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="users" className="space-y-6">
+        <TabsContent value="users" className="space-y-6 animate-in slide-in-from-bottom-2 duration-500">
           <UserManagement onUserChange={fetchUserStats} />
         </TabsContent>
 
-        <TabsContent value="logs" className="space-y-6">
+        <TabsContent value="logs" className="space-y-6 animate-in slide-in-from-bottom-2 duration-500">
           <AuditLogs />
         </TabsContent>
       </Tabs>

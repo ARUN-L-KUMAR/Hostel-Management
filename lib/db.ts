@@ -66,7 +66,7 @@ export const prisma = {
             } else if (typeof options.where.dept === 'object' && options.where.dept.contains) {
               // Contains search for department
               const deptFilter = options.where.dept.contains.toLowerCase()
-              studentsWithHostel = studentsWithHostel.filter(s => 
+              studentsWithHostel = studentsWithHostel.filter(s =>
                 s.dept && s.dept.toLowerCase().includes(deptFilter)
               )
               console.log(`[v0] Applied contains dept filter: ${deptFilter}`)
@@ -233,7 +233,7 @@ export const prisma = {
         const { id } = options.where
         const data = options.data
         const now = new Date()
-        
+
         // Build the update fields based on what's provided
         const updates = []
         if (data.name !== undefined) updates.push(`name = '${data.name}'`)
@@ -248,24 +248,24 @@ export const prisma = {
           const leaveDate = data.leaveDate ? `'${new Date(data.leaveDate).toISOString()}'` : 'NULL'
           updates.push(`"leaveDate" = ${leaveDate}`)
         }
-        
+
         // Always update updatedAt
         updates.push(`"updatedAt" = '${now.toISOString()}'`)
-        
+
         const result = await sql`
           UPDATE students SET ${sql.unsafe(updates.join(', '))}
           WHERE id = ${id}
           RETURNING *
         `
-        
+
         if (result.length === 0) return null
-        
+
         // If include hostel is requested, fetch hostel data
         if (options.include?.hostel) {
           const hostelResult = await sql`SELECT * FROM hostels WHERE id = ${result[0].hostelId}`
           result[0].hostel = hostelResult[0] || null
         }
-        
+
         return result[0]
       } catch (error) {
         console.error("[v0] Error updating student:", error)
@@ -860,7 +860,7 @@ export const prisma = {
         } else {
           result = await sql`SELECT * FROM users ORDER BY name ASC`
         }
-        
+
         console.log("[v0] Found users:", result.length)
         return result
       } catch (error) {
@@ -1339,6 +1339,96 @@ export const prisma = {
         throw error
       }
     },
+
+    findFirst: async (options?: any) => {
+      try {
+        let query = sql`SELECT * FROM outsider_meal_records`
+        const whereConditions = []
+
+        if (options?.where) {
+          if (options.where.outsiderId) {
+            whereConditions.push(sql`"outsiderId" = ${options.where.outsiderId}`)
+          }
+          if (options.where.date) {
+            whereConditions.push(sql`date = ${options.where.date}`)
+          }
+        }
+
+        if (whereConditions.length > 0) {
+          query = sql`${query} WHERE ${whereConditions[0]}`
+          for (let i = 1; i < whereConditions.length; i++) {
+            query = sql`${query} AND ${whereConditions[i]}`
+          }
+        }
+
+        query = sql`${query} ORDER BY date DESC LIMIT 1`
+
+        const result = await query
+        return result[0] || null
+      } catch (error) {
+        console.error("[v0] Error finding first outsider meal record:", error)
+        return null
+      }
+    },
+
+    findUnique: async (options: any) => {
+      try {
+        const { id } = options.where
+        if (!id) return null
+
+        const result = await sql`SELECT * FROM outsider_meal_records WHERE id = ${id}`
+        return result[0] || null
+      } catch (error) {
+        console.error("[v0] Error finding unique outsider meal record:", error)
+        return null
+      }
+    },
+
+    update: async (options: any) => {
+      try {
+        const { id } = options.where
+        const data = options.data
+        const now = new Date()
+
+        const updates = []
+        if (data.breakfast !== undefined) updates.push(`breakfast = ${data.breakfast}`)
+        if (data.lunch !== undefined) updates.push(`lunch = ${data.lunch}`)
+        if (data.dinner !== undefined) updates.push(`dinner = ${data.dinner}`)
+        if (data.memberCount !== undefined) updates.push(`"memberCount" = ${data.memberCount}`)
+        if (data.mealRate !== undefined) updates.push(`"mealRate" = ${data.mealRate}`)
+        if (data.date !== undefined) updates.push(`date = '${new Date(data.date).toISOString()}'`)
+        if (data.outsiderId !== undefined) updates.push(`"outsiderId" = ${data.outsiderId}`)
+
+        // Safety check
+        if (updates.length === 0) return null
+
+        const result = await sql`
+          UPDATE outsider_meal_records SET ${sql.unsafe(updates.join(', '))}
+          WHERE id = ${id}
+          RETURNING *
+        `
+
+        return result[0]
+      } catch (error) {
+        console.error("[v0] Error updating outsider meal record:", error)
+        throw error
+      }
+    },
+
+    create: async (options: any) => {
+      try {
+        const { outsiderId, date, breakfast, lunch, dinner, mealRate, memberCount } = options.data
+        const result = await sql`
+          INSERT INTO outsider_meal_records ("outsiderId", date, breakfast, lunch, dinner, "mealRate", "memberCount")
+          VALUES (${outsiderId}, ${date}, ${breakfast || false}, ${lunch || false}, ${dinner || false}, ${mealRate || 50}, ${memberCount || 1})
+          RETURNING *
+        `
+        return result[0]
+      } catch (error) {
+        console.error("[v0] Error creating outsider meal record:", error)
+        throw error
+      }
+    },
   },
 
   mandoSettings: {
@@ -1430,7 +1520,7 @@ export const prisma = {
           WHERE id = ${id}
           RETURNING *
         `
-        
+
         console.log('[v0] Update result:', result)
         return result[0]
       } catch (error) {

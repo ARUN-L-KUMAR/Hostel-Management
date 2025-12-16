@@ -32,22 +32,22 @@ export function AttendancePeriodFilters() {
   }
 
   return (
-    <div className="flex items-center justify-center space-x-4 pt-10">
+    <div className="flex items-center space-x-4 p-4 bg-muted/30 border-b border-border">
       <div className="flex items-center space-x-2">
-        <Label className="text-sm font-medium text-slate-700">Attendance Year:</Label>
+        <Label className="text-sm font-medium text-muted-foreground">Year:</Label>
         <YearPicker
           value={selectedYear}
           onValueChange={(value) => { setSelectedYear(value); updateSearchParams("year", value); }}
-          className="w-32 bg-white"
+          className="w-32"
         />
       </div>
       <div className="flex items-center space-x-2">
-        <Label className="text-sm font-medium text-slate-700">Attendance Month:</Label>
+        <Label className="text-sm font-medium text-muted-foreground">Month:</Label>
         <Select value={selectedMonth} onValueChange={(value) => { setSelectedMonth(value); updateSearchParams("month", value); }}>
-          <SelectTrigger className="w-40 bg-white">
+          <SelectTrigger className="w-40">
             <SelectValue />
           </SelectTrigger>
-          <SelectContent className="bg-white">
+          <SelectContent>
             <SelectItem value="1">January</SelectItem>
             <SelectItem value="2">February</SelectItem>
             <SelectItem value="3">March</SelectItem>

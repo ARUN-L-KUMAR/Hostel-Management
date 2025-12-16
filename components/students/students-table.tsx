@@ -69,7 +69,7 @@ export function StudentsTable({ filters }: StudentsTableProps) {
           apiFilters.status = filters.status
         }
 
-        if (filters.mandoFilter) {
+        if (filters.mandoFilter && filters.mandoFilter !== "all") {
           apiFilters.isMando = filters.mandoFilter === "mando" ? "true" : "false"
         }
 
@@ -148,7 +148,7 @@ export function StudentsTable({ filters }: StudentsTableProps) {
   const handleStudentRemoved = () => {
     // Clear selections and refresh the students list
     setSelectedStudents(new Set())
-    
+
     const fetchStudents = async () => {
       setLoading(true)
       try {
@@ -163,7 +163,7 @@ export function StudentsTable({ filters }: StudentsTableProps) {
         if (filters.status !== "all") {
           apiFilters.status = filters.status
         }
-        if (filters.mandoFilter) {
+        if (filters.mandoFilter && filters.mandoFilter !== "all") {
           apiFilters.isMando = filters.mandoFilter === "mando" ? "true" : "false"
         }
         if (filters.dept !== "all") {
@@ -203,14 +203,14 @@ export function StudentsTable({ filters }: StudentsTableProps) {
 
   if (loading) {
     return (
-      <Card className="border-0 shadow-md">
+      <Card className="border shadow-sm">
         <CardHeader>
           <CardTitle>Loading Students...</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
             {Array.from({ length: 5 }).map((_, i) => (
-              <div key={i} className="h-16 bg-slate-100 rounded animate-pulse"></div>
+              <div key={i} className="h-16 bg-muted/40 rounded animate-pulse"></div>
             ))}
           </div>
         </CardContent>
@@ -219,14 +219,14 @@ export function StudentsTable({ filters }: StudentsTableProps) {
   }
 
   return (
-    <Card className="border-0 shadow-md">
+    <Card className="border shadow-sm">
       <CardHeader>
         <div className="flex items-center justify-between">
           <CardTitle>Students ({students.length})</CardTitle>
           {selectedStudents.size > 0 && (
-            <Button 
-              variant="destructive" 
-              size="sm" 
+            <Button
+              variant="destructive"
+              size="sm"
               onClick={handleBulkRemove}
               className="flex items-center gap-2"
             >
@@ -259,7 +259,7 @@ export function StudentsTable({ filters }: StudentsTableProps) {
           <TableBody>
             {students.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} className="text-center py-8 text-slate-500">
+                <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                   No students found matching the current filters.
                 </TableCell>
               </TableRow>
@@ -275,8 +275,8 @@ export function StudentsTable({ filters }: StudentsTableProps) {
                   </TableCell>
                   <TableCell>
                     <div>
-                      <div className="font-medium text-slate-900">{student.name}</div>
-                      <div className="text-sm text-slate-500">{student.rollNo}</div>
+                      <div className="font-medium text-foreground">{student.name}</div>
+                      <div className="text-sm text-muted-foreground">{student.rollNo}</div>
                     </div>
                   </TableCell>
                   <TableCell>{student.dept || 'Not Set'}</TableCell>
@@ -284,18 +284,20 @@ export function StudentsTable({ filters }: StudentsTableProps) {
                   <TableCell>{student.year}</TableCell>
                   <TableCell>
                     {student.isMando ? (
-                      <Badge variant="secondary" className="bg-orange-100 text-orange-800">
+                      <Badge variant="secondary" className="bg-amber-500/15 text-amber-700 hover:bg-amber-500/25 border-0">
                         Mando
                       </Badge>
                     ) : (
-                      <Badge variant="outline">Regular</Badge>
+                      <Badge variant="outline" className="text-muted-foreground">Regular</Badge>
                     )}
                   </TableCell>
                   <TableCell>
                     <Badge
                       variant={student.status === "ACTIVE" ? "default" : "secondary"}
                       className={
-                        student.status === "ACTIVE" ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"
+                        student.status === "ACTIVE"
+                          ? "bg-emerald-500/15 text-emerald-700 hover:bg-emerald-500/25 border-0"
+                          : "bg-muted text-muted-foreground"
                       }
                     >
                       {student.status}
@@ -320,9 +322,9 @@ export function StudentsTable({ filters }: StudentsTableProps) {
                           Edit Student
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem 
+                        <DropdownMenuItem
                           onClick={() => handleRemoveStudent(student)}
-                          className="text-red-600 focus:text-red-600"
+                          className="text-destructive focus:text-destructive"
                         >
                           <UserX className="w-4 h-4 mr-2" />
                           Remove Student
@@ -336,7 +338,7 @@ export function StudentsTable({ filters }: StudentsTableProps) {
           </TableBody>
         </Table>
       </CardContent>
-      
+
       {/* Remove Student Dialog */}
       <RemoveStudentDialog
         student={selectedStudent}
@@ -344,7 +346,7 @@ export function StudentsTable({ filters }: StudentsTableProps) {
         onOpenChange={setRemoveDialogOpen}
         onStudentRemoved={handleStudentRemoved}
       />
-      
+
       {/* Bulk Remove Dialog */}
       <BulkRemoveDialog
         students={students.filter(s => selectedStudents.has(s.id))}

@@ -155,8 +155,8 @@ export function MealEntryGrid({ students, days, currentMonth, total, onExport }:
       <div className="overflow-x-auto border rounded-lg">
         <table className="min-w-max border-collapse">
           <thead className="sticky top-0 z-10">
-            <tr className="bg-slate-50">
-              <th className="sticky left-0 bg-slate-50 border border-slate-300 border-r-2 border-r-slate-400 p-2 w-[200px] text-left font-semibold text-sm text-slate-700">
+            <tr className="bg-muted/50 border-b border-border">
+              <th className="sticky left-0 bg-background border-r border-border p-3 w-[200px] text-left font-semibold text-sm text-foreground shadow-[1px_0_0_0_rgba(0,0,0,0.05)]">
                 Student
               </th>
               {days.map((day) => {
@@ -164,32 +164,32 @@ export function MealEntryGrid({ students, days, currentMonth, total, onExport }:
                 return (
                   <th
                     key={day}
-                    className="border border-slate-300 p-2 text-center text-sm font-medium min-w-[60px]"
+                    className="border-r border-border p-2 text-center text-sm font-medium min-w-[60px] last:border-r-0"
                   >
                     <div className={cn(
-                      "py-1",
-                      isToday ? "bg-blue-100 text-blue-800 font-bold rounded" : "text-slate-600 bg-slate-50"
+                      "py-1 rounded-sm text-xs",
+                      isToday ? "bg-primary text-primary-foreground font-bold shadow-sm" : "text-muted-foreground"
                     )}>
                       {day}
                     </div>
                   </th>
                 )
               })}
-              <th className="sticky right-0 bg-slate-50 border border-slate-300 border-l-2 border-l-slate-400 p-2 w-[200px] text-center font-semibold text-sm text-slate-700">
+              <th className="sticky right-0 bg-background border-l border-border p-3 w-[200px] text-center font-semibold text-sm text-foreground shadow-[-1px_0_0_0_rgba(0,0,0,0.05)]">
                 <div className="grid grid-cols-2 gap-2">
-                  <div>Total Meals</div>
-                  <div>Total Present</div>
+                  <div>Meals</div>
+                  <div>Present</div>
                 </div>
               </th>
             </tr>
           </thead>
-          <tbody>
+          <tbody className="divide-y divide-border">
             {paginatedStudents.map((student) => (
-              <tr key={student.id} className="hover:bg-slate-50">
-                <td className="sticky left-0 bg-white border border-slate-300 border-r-2 border-r-slate-400 p-2 w-[200px]">
-                  <div className="font-medium text-slate-900 truncate">{student.name}</div>
-                  <div className="text-xs text-slate-500">
-                    {student.rollNo || 'N/A'} • {student.dept || 'N/A'} • {student.gender || 'N/A'}
+              <tr key={student.id} className="hover:bg-muted/30 transition-colors">
+                <td className="sticky left-0 bg-background border-r border-border p-3 w-[200px] shadow-[1px_0_0_0_rgba(0,0,0,0.05)]">
+                  <div className="font-medium text-foreground truncate text-sm">{student.name}</div>
+                  <div className="text-xs text-muted-foreground truncate max-w-[180px]">
+                    {student.rollNo || 'N/A'} • {student.dept || 'N/A'}
                   </div>
                 </td>
                 {days.map((day) => {
@@ -198,7 +198,7 @@ export function MealEntryGrid({ students, days, currentMonth, total, onExport }:
                   const mealCount = mealRecord ? (mealRecord.breakfast ? 1 : 0) + (mealRecord.lunch ? 1 : 0) + (mealRecord.dinner ? 1 : 0) + (mealRecord.present ? 1 : 0) : 0
 
                   return (
-                    <td key={day} className="border border-slate-300 p-1 text-center">
+                    <td key={day} className="border-r border-border p-1 text-center last:border-r-0">
                       <Popover
                         open={openPopover?.studentId === student.id && openPopover?.day === day}
                         onOpenChange={(open) => setOpenPopover(open ? { studentId: student.id, day } : null)}
@@ -208,55 +208,61 @@ export function MealEntryGrid({ students, days, currentMonth, total, onExport }:
                             variant="ghost"
                             size="sm"
                             className={cn(
-                              "h-8 w-full text-xs font-medium",
-                              mealCount > 0 ? "bg-green-100 text-green-800 hover:bg-green-200" : "bg-gray-50 text-gray-600 hover:bg-gray-100"
+                              "h-8 w-full text-xs font-semibold rounded-sm",
+                              mealCount > 0
+                                ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/25"
+                                : "text-muted-foreground/30 hover:bg-muted"
                             )}
                           >
-                            {mealCount > 0 ? `${mealSummary} (${mealCount})` : "None"}
+                            {mealCount > 0 ? `${mealSummary}` : "-"}
                           </Button>
                         </PopoverTrigger>
-                        <PopoverContent className="w-48 p-3" align="center">
-                          <div className="space-y-3">
-                            <div className="text-sm font-medium text-center">Meals for Day {day}</div>
-                            <div className="space-y-2">
-                              <div className="flex items-center space-x-2">
+                        <PopoverContent className="w-56 p-4 shadow-lg border-border" align="center">
+                          <div className="space-y-4">
+                            <div className="text-sm font-semibold text-center border-b pb-2">Day {day} - {student.name}</div>
+                            <div className="space-y-3">
+                              <div className="flex items-center space-x-3">
                                 <Checkbox
                                   id={`breakfast-${student.id}-${day}`}
                                   checked={mealRecord?.breakfast || false}
                                   onCheckedChange={(checked) => handleMealToggle(student.id, day, "breakfast", checked)}
+                                  className="data-[state=checked]:bg-emerald-500 data-[state=checked]:border-emerald-500"
                                 />
-                                <label htmlFor={`breakfast-${student.id}-${day}`} className="text-sm text-green-700">
+                                <label htmlFor={`breakfast-${student.id}-${day}`} className="text-sm font-medium">
                                   Breakfast
                                 </label>
                               </div>
-                              <div className="flex items-center space-x-2">
+                              <div className="flex items-center space-x-3">
                                 <Checkbox
                                   id={`lunch-${student.id}-${day}`}
                                   checked={mealRecord?.lunch || false}
                                   onCheckedChange={(checked) => handleMealToggle(student.id, day, "lunch", checked)}
+                                  className="data-[state=checked]:bg-blue-500 data-[state=checked]:border-blue-500"
                                 />
-                                <label htmlFor={`lunch-${student.id}-${day}`} className="text-sm text-blue-700">
+                                <label htmlFor={`lunch-${student.id}-${day}`} className="text-sm font-medium">
                                   Lunch
                                 </label>
                               </div>
-                              <div className="flex items-center space-x-2">
+                              <div className="flex items-center space-x-3">
                                 <Checkbox
                                   id={`dinner-${student.id}-${day}`}
                                   checked={mealRecord?.dinner || false}
                                   onCheckedChange={(checked) => handleMealToggle(student.id, day, "dinner", checked)}
+                                  className="data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500"
                                 />
-                                <label htmlFor={`dinner-${student.id}-${day}`} className="text-sm text-orange-700">
+                                <label htmlFor={`dinner-${student.id}-${day}`} className="text-sm font-medium">
                                   Dinner
                                 </label>
                               </div>
-                              <div className="flex items-center space-x-2">
+                              <div className="flex items-center space-x-3 pt-2 border-t">
                                 <Checkbox
                                   id={`present-${student.id}-${day}`}
                                   checked={mealRecord?.present || false}
                                   onCheckedChange={(checked) => handleMealToggle(student.id, day, "present", checked)}
+                                  className="data-[state=checked]:bg-purple-500 data-[state=checked]:border-purple-500"
                                 />
-                                <label htmlFor={`present-${student.id}-${day}`} className="text-sm text-purple-700">
-                                  Present
+                                <label htmlFor={`present-${student.id}-${day}`} className="text-sm font-medium text-purple-600 dark:text-purple-400">
+                                  Mark Present
                                 </label>
                               </div>
                             </div>
@@ -266,12 +272,12 @@ export function MealEntryGrid({ students, days, currentMonth, total, onExport }:
                     </td>
                   )
                 })}
-                <td className="sticky right-0 bg-white border border-slate-300 border-l-2 border-l-slate-400 p-2 w-[200px] text-center">
+                <td className="sticky right-0 bg-background border-l border-border p-3 w-[200px] text-center shadow-[-1px_0_0_0_rgba(0,0,0,0.05)]">
                   <div className="grid grid-cols-2 gap-2">
-                    <div className="font-semibold text-slate-900">
+                    <div className="font-semibold text-foreground text-sm">
                       {getTotalMeals(student)}
                     </div>
-                    <div className="font-semibold text-slate-900">
+                    <div className="font-semibold text-foreground text-sm">
                       {getTotalPresent(student)}
                     </div>
                   </div>

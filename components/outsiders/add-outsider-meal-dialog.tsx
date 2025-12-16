@@ -13,22 +13,24 @@ import { toast } from "sonner"
 
 interface AddOutsiderMealDialogProps {
   onClose: () => void
+  initialData?: any // Using any to avoid complex type mapping, but ideally should match MealRecord
 }
 
-export function AddOutsiderMealDialog({ onClose }: AddOutsiderMealDialogProps) {
+export function AddOutsiderMealDialog({ onClose, initialData }: AddOutsiderMealDialogProps) {
   const [formData, setFormData] = useState({
-    name: "",
-    phone: "",
-    designation: "",
-    description: "",
-    date: new Date().toISOString().split('T')[0], // Today's date
-    breakfast: false,
-    lunch: false,
-    dinner: false,
-    memberCount: 1,
+    name: initialData?.outsider?.name || "",
+    phone: initialData?.outsider?.phone || "",
+    designation: initialData?.outsider?.designation || "",
+    description: initialData?.outsider?.description || "",
+    date: initialData?.date || new Date().toISOString().split('T')[0],
+    breakfast: initialData?.breakfast || false,
+    lunch: initialData?.lunch || false,
+    dinner: initialData?.dinner || false,
+    memberCount: initialData?.memberCount || 1,
   })
 
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const isEditing = !!initialData
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -41,7 +43,7 @@ export function AddOutsiderMealDialog({ onClose }: AddOutsiderMealDialogProps) {
       outsider = existingOutsiders.find((o: any) => o.name.toLowerCase() === formData.name.toLowerCase())
 
       if (!outsider) {
-        // Create new outsider
+        // Create new outsider if name doesn't exist
         outsider = await ApiClient.outsiders.create({
           name: formData.name,
           phone: formData.phone,
@@ -49,13 +51,19 @@ export function AddOutsiderMealDialog({ onClose }: AddOutsiderMealDialogProps) {
           designation: formData.designation,
           description: formData.description,
         })
+      } else if (isEditing) {
+        // If editing and outsider exists, we might want to update their details too?
+        // For now, let's just use the existing logic which is safe.
+        // If we wanted to strictly update the outsider details, we'd need a separate API call.
+        // But the primary goal here is editing the MEAL record.
       }
 
-      // Create meal record
+      // Create/Update meal record
       await fetch('/api/outsider-meal-records', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          id: initialData?.id, // Send ID if editing
           outsiderId: outsider.id,
           date: formData.date,
           breakfast: formData.breakfast,
@@ -65,11 +73,11 @@ export function AddOutsiderMealDialog({ onClose }: AddOutsiderMealDialogProps) {
         }),
       })
 
-      toast.success("Outsider meal record added successfully")
+      toast.success(isEditing ? "Outsider meal record updated" : "Outsider meal record added successfully")
       onClose()
     } catch (error) {
-      console.error("Error adding outsider meal record:", error)
-      toast.error("Failed to add outsider meal record")
+      console.error("Error saving outsider meal record:", error)
+      toast.error(isEditing ? "Failed to update outsider meal record" : "Failed to add outsider meal record")
     } finally {
       setIsSubmitting(false)
     }
@@ -193,7 +201,7 @@ export function AddOutsiderMealDialog({ onClose }: AddOutsiderMealDialogProps) {
           Cancel
         </Button>
         <Button type="submit" disabled={!formData.name || !hasMealsSelected || isSubmitting}>
-          {isSubmitting ? "Adding..." : "Add Meal Record"}
+          {isSubmitting ? (isEditing ? "Updating..." : "Adding...") : (isEditing ? "Update Meal Record" : "Add Meal Record")}
         </Button>
       </div>
     </form>

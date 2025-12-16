@@ -62,11 +62,13 @@ export function StudentProfile({ student, editable = false }: StudentProfileProp
   }
 
   return (
-    <Card className="border-0 shadow-md">
+    <Card className="shadow-sm">
       <CardHeader>
         <div className="flex items-center justify-between">
-          <CardTitle className="flex items-center space-x-2">
-            <User className="w-5 h-5" />
+          <CardTitle className="flex items-center space-x-2 text-xl">
+            <div className="p-2 bg-primary/10 rounded-lg">
+              <User className="w-5 h-5 text-primary" />
+            </div>
             <span>Student Profile</span>
           </CardTitle>
           {editable && (
@@ -77,7 +79,7 @@ export function StudentProfile({ student, editable = false }: StudentProfileProp
                     <Save className="w-4 h-4 mr-2" />
                     Save
                   </Button>
-                  <Button size="sm" variant="outline" onClick={handleCancel}>
+                  <Button size="sm" variant="ghost" onClick={handleCancel}>
                     <X className="w-4 h-4 mr-2" />
                     Cancel
                   </Button>
@@ -92,12 +94,12 @@ export function StudentProfile({ student, editable = false }: StudentProfileProp
           )}
         </div>
       </CardHeader>
-      <CardContent className="space-y-6">
+      <CardContent className="space-y-8">
         {/* Basic Information */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          <div className="space-y-6">
             <div className="space-y-2">
-              <Label htmlFor="name">Full Name</Label>
+              <Label htmlFor="name" className="text-muted-foreground">Full Name</Label>
               {isEditing ? (
                 <Input
                   id="name"
@@ -105,12 +107,12 @@ export function StudentProfile({ student, editable = false }: StudentProfileProp
                   onChange={(e) => setFormData((prev) => ({ ...prev, name: e.target.value }))}
                 />
               ) : (
-                <div className="text-lg font-semibold text-slate-900">{student.name}</div>
+                <div className="text-lg font-semibold text-foreground">{student.name}</div>
               )}
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="rollNo">Roll Number</Label>
+              <Label htmlFor="rollNo" className="text-muted-foreground">Roll Number</Label>
               {isEditing ? (
                 <Input
                   id="rollNo"
@@ -118,12 +120,12 @@ export function StudentProfile({ student, editable = false }: StudentProfileProp
                   onChange={(e) => setFormData((prev) => ({ ...prev, rollNo: e.target.value }))}
                 />
               ) : (
-                <div className="font-medium text-slate-700">{student.rollNo}</div>
+                <div className="font-medium text-foreground">{student.rollNo}</div>
               )}
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="dept">Department</Label>
+              <Label htmlFor="dept" className="text-muted-foreground">Department</Label>
               {isEditing ? (
                 <Input
                   id="dept"
@@ -132,12 +134,12 @@ export function StudentProfile({ student, editable = false }: StudentProfileProp
                   placeholder="e.g., CSE, ECE, ME"
                 />
               ) : (
-                <div className="font-medium text-slate-700">{student.dept || "Not Set"}</div>
+                <div className="font-medium text-foreground">{student.dept || "Not Set"}</div>
               )}
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="year">Academic Year</Label>
+              <Label htmlFor="year" className="text-muted-foreground">Academic Year</Label>
               {isEditing ? (
                 <Select
                   value={formData.year.toString()}
@@ -154,22 +156,22 @@ export function StudentProfile({ student, editable = false }: StudentProfileProp
                   </SelectContent>
                 </Select>
               ) : (
-                <div className="font-medium text-slate-700">{student.year}</div>
+                <div className="font-medium text-foreground">{student.year}</div>
               )}
             </div>
           </div>
 
-          <div className="space-y-4">
+          <div className="space-y-6">
             <div className="space-y-2">
-              <Label>Hostel</Label>
-              <div className="flex items-center space-x-2">
-                <Building className="w-4 h-4 text-slate-500" />
-                <span className="font-medium text-slate-700">{student.hostel.name} Hostel</span>
+              <Label className="text-muted-foreground">Hostel</Label>
+              <div className="flex items-center space-x-2 p-2 bg-muted/50 rounded-md w-fit">
+                <Building className="w-4 h-4 text-muted-foreground" />
+                <span className="font-medium text-foreground">{student.hostel.name} Hostel</span>
               </div>
             </div>
 
             <div className="space-y-2">
-              <Label>Status</Label>
+              <Label className="text-muted-foreground">Status</Label>
               {isEditing ? (
                 <Select
                   value={formData.status}
@@ -186,20 +188,22 @@ export function StudentProfile({ student, editable = false }: StudentProfileProp
                   </SelectContent>
                 </Select>
               ) : (
-                <Badge
-                  variant={student.status === "ACTIVE" ? "default" : "secondary"}
-                  className={student.status === "ACTIVE" ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"}
-                >
-                  {student.status}
-                </Badge>
+                <div>
+                  <Badge
+                    variant={student.status === "ACTIVE" ? "default" : "secondary"}
+                    className={student.status === "ACTIVE" ? "bg-emerald-500/15 text-emerald-700 hover:bg-emerald-500/25 border-0" : ""}
+                  >
+                    {student.status}
+                  </Badge>
+                </div>
               )}
             </div>
 
             <div className="space-y-2">
-              <Label>Join Date</Label>
+              <Label className="text-muted-foreground">Join Date</Label>
               <div className="flex items-center space-x-2">
-                <Calendar className="w-4 h-4 text-slate-500" />
-                <span className="font-medium text-slate-700">{new Date(student.joinDate).toLocaleDateString()}</span>
+                <Calendar className="w-4 h-4 text-muted-foreground" />
+                <span className="font-medium text-foreground">{new Date(student.joinDate).toLocaleDateString()}</span>
               </div>
             </div>
           </div>
@@ -209,36 +213,33 @@ export function StudentProfile({ student, editable = false }: StudentProfileProp
 
         {/* Mando Information */}
         <div className="space-y-4">
-          <h3 className="font-semibold text-slate-900">Mando Status</h3>
+          <h3 className="font-semibold text-foreground flex items-center gap-2">
+            Mando Status
+            {student.isMando && <Badge variant="secondary" className="bg-amber-500/15 text-amber-700 hover:bg-amber-500/25 border-0">Active</Badge>}
+          </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-2">
-              <Label>Mando Student</Label>
+              <Label className="text-muted-foreground">Mando Student</Label>
               {isEditing ? (
                 <div className="flex items-center space-x-2">
                   <Switch
                     checked={formData.isMando}
                     onCheckedChange={(checked) => setFormData((prev) => ({ ...prev, isMando: checked }))}
                   />
-                  <span className="text-sm text-slate-600">
+                  <span className="text-sm text-muted-foreground">
                     {formData.isMando ? "Yes, this is a Mando student" : "No, regular student"}
                   </span>
                 </div>
               ) : (
-                <div>
-                  {student.isMando ? (
-                    <Badge variant="secondary" className="bg-orange-100 text-orange-800">
-                      Mando Student
-                    </Badge>
-                  ) : (
-                    <Badge variant="outline">Regular Student</Badge>
-                  )}
+                <div className="text-sm font-medium">
+                  {student.isMando ? "Enrolled in Mando program" : "Not enrolled"}
                 </div>
               )}
             </div>
 
             {(student.isMando || formData.isMando) && (
               <div className="space-y-2">
-                <Label htmlFor="company">Company</Label>
+                <Label htmlFor="company" className="text-muted-foreground">Company</Label>
                 {isEditing ? (
                   <Input
                     id="company"
@@ -248,8 +249,8 @@ export function StudentProfile({ student, editable = false }: StudentProfileProp
                   />
                 ) : (
                   <div className="flex items-center space-x-2">
-                    <Briefcase className="w-4 h-4 text-slate-500" />
-                    <span className="font-medium text-slate-700">{student.company || "Not specified"}</span>
+                    <Briefcase className="w-4 h-4 text-muted-foreground" />
+                    <span className="font-medium text-foreground">{student.company || "Not specified"}</span>
                   </div>
                 )}
               </div>
@@ -257,8 +258,8 @@ export function StudentProfile({ student, editable = false }: StudentProfileProp
           </div>
 
           {student.isMando && (
-            <div className="p-4 bg-orange-50 border border-orange-200 rounded-lg">
-              <div className="text-sm text-orange-800">
+            <div className="p-4 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg">
+              <div className="text-sm text-amber-800 dark:text-amber-400">
                 <strong>Mando Billing:</strong> This student's mess bills are covered by the Mando budget. They will not
                 be charged individually for meals.
               </div>

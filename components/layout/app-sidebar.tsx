@@ -18,12 +18,17 @@ import {
   Home,
   TrendingUp,
   DollarSign,
+  UtensilsCrossed,
+  UserCircle
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 
+import { useSidebar } from "@/components/ui/sidebar"
+
 export function AppSidebar() {
-  const [isCollapsed, setIsCollapsed] = useState(false)
+  const { state, toggleSidebar } = useSidebar()
+  const isCollapsed = state === "collapsed"
   const pathname = usePathname()
   const { data: session } = useSession()
 
@@ -33,8 +38,8 @@ export function AppSidebar() {
       { icon: Home, label: "Dashboard", href: "/dashboard", permission: "dashboard" },
       { icon: Calendar, label: "Attendance", href: "/dashboard/attendance", permission: "attendance" },
       { icon: Users, label: "Students", href: "/dashboard/students", permission: "students" },
-      { icon: Calendar, label: "Mando Meal Entry", href: "/dashboard/mando-students", permission: "mando-students" },
-      { icon: Users, label: "Outsiders", href: "/dashboard/outsiders", permission: "outsiders" },
+      { icon: UtensilsCrossed, label: "Mando Meal Entry", href: "/dashboard/mando-students", permission: "mando-students" },
+      { icon: UserCircle, label: "Outsiders", href: "/dashboard/outsiders", permission: "outsiders" },
       { icon: Package, label: "Provisions", href: "/dashboard/provisions", permission: "provisions" },
       { icon: Receipt, label: "Billing", href: "/dashboard/billing", permission: "billing" },
       { icon: DollarSign, label: "Expenses", href: "/dashboard/expenses", permission: "expenses" },
@@ -42,27 +47,14 @@ export function AppSidebar() {
       { icon: Settings, label: "Admin", href: "/dashboard/admin", permission: "admin" },
     ]
 
-    // Get user permissions from session
     const userPermissions = session?.user?.permissions as string[] || []
 
-    console.log("[SIDEBAR] User permissions from session:", {
-      role: session?.user?.role,
-      permissions: userPermissions,
-      allItems: allItems.length
-    })
-
-    // Filter items based on user permissions
-    // ADMIN role gets all permissions, MANAGER role uses specific permissions
     if (session?.user?.role === "ADMIN") {
-      console.log("[SIDEBAR] ADMIN user - showing all items")
       return allItems
     }
 
-    // For MANAGER role, filter based on permissions array
     return allItems.filter(item => {
-      // Always show dashboard for all users
       if (item.permission === "dashboard") return true
-      // Show other pages only if user has specific permission
       return userPermissions.includes(item.permission)
     })
   }
@@ -72,30 +64,35 @@ export function AppSidebar() {
   return (
     <div
       className={cn(
-        "bg-white border-r border-slate-200 flex flex-col transition-all duration-300 fixed left-0 top-0 h-screen z-40",
+        "bg-sidebar border-r border-sidebar-border flex flex-col transition-all duration-300 fixed left-0 top-0 h-screen z-40 bg-card",
         isCollapsed ? "w-16" : "w-64",
       )}
     >
-      {/* Logo */}
-      <div className="p-4 border-b border-slate-200">
-        <div className="flex items-center justify-between">
-          {!isCollapsed && (
-            <div className="flex items-center space-x-2 min-w-0">
-              <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center flex-shrink-0">
-                <BarChart3 className="w-5 h-5 text-white" />
-              </div>
-              <span className="font-semibold text-slate-900 truncate">Mess Manager</span>
+      {/* Header / Logo */}
+      <div className="h-16 flex items-center justify-between px-4 border-b border-sidebar-border/50">
+        {!isCollapsed && (
+          <div className="flex items-center space-x-2 min-w-0 transition-opacity duration-300 animate-in fade-in slide-in-from-left-2">
+            <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
+              <BarChart3 className="w-5 h-5 text-primary" />
             </div>
-          )}
-          <Button variant="ghost" size="sm" onClick={() => setIsCollapsed(!isCollapsed)} className="p-1.5 h-auto flex-shrink-0">
-            {isCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
-          </Button>
-        </div>
+            <span className="font-bold text-foreground tracking-tight truncate">
+              Mess Manager
+            </span>
+          </div>
+        )}
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={toggleSidebar}
+          className={cn("h-8 w-8 shrink-0 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground", isCollapsed && "ml-auto mr-auto")}
+        >
+          {isCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+        </Button>
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 p-4 overflow-y-auto">
-        <ul className="space-y-2">
+      <nav className="flex-1 overflow-y-auto py-4 px-2 custom-scrollbar">
+        <ul className="space-y-1">
           {menuItems.map((item) => {
             const isActive = pathname === item.href
             return (
@@ -103,14 +100,20 @@ export function AppSidebar() {
                 <Link
                   href={item.href}
                   className={cn(
-                    "flex items-center space-x-3 px-3 py-2 rounded-xl transition-colors",
+                    "flex items-center space-x-3 px-3 py-2.5 rounded-md transition-all duration-200 group relative",
                     isActive
-                      ? "bg-blue-50 text-blue-700 border border-blue-200"
-                      : "text-slate-600 hover:bg-slate-50 hover:text-slate-900",
+                      ? "bg-primary text-primary-foreground shadow-sm font-medium"
+                      : "text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground hover:translate-x-0.5",
                   )}
+                  title={isCollapsed ? item.label : undefined}
                 >
-                  <item.icon className="w-5 h-5 flex-shrink-0" />
-                  {!isCollapsed && <span className="font-medium truncate">{item.label}</span>}
+                  <item.icon className={cn("w-5 h-5 flex-shrink-0 transition-colors", isActive ? "text-primary-foreground" : "text-muted-foreground group-hover:text-foreground")} />
+                  {!isCollapsed && (
+                    <span className="truncate">{item.label}</span>
+                  )}
+                  {isCollapsed && isActive && (
+                    <div className="absolute right-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-primary rounded-l-full" />
+                  )}
                 </Link>
               </li>
             )
@@ -120,13 +123,14 @@ export function AppSidebar() {
 
       {/* Footer */}
       {!isCollapsed && (
-        <>
-          <Separator />
-          <div className="p-4">
-            <div className="text-xs text-slate-500 text-center truncate">Hostel Mess Management v1.0</div>
+        <div className="p-4 border-t border-sidebar-border/50">
+          <div className="flex items-center space-x-2 text-xs text-muted-foreground">
+            <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            <span>System Operational</span>
           </div>
-        </>
+        </div>
       )}
     </div>
   )
 }
+

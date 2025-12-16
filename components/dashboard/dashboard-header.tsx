@@ -49,28 +49,28 @@ export function DashboardHeader() {
   if (!session) return null
 
   return (
-    <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4">
+    <header className="bg-background border-b border-border sticky top-0 z-30 px-6 py-4 supports-[backdrop-filter]:bg-background/60 supports-[backdrop-filter]:backdrop-blur">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
+          <h1 className="text-xl font-bold tracking-tight text-foreground">
             Hostel Mess Management
           </h1>
-          <p className="text-sm text-gray-600 dark:text-gray-400">
-            Welcome back, {session.user?.name}
+          <p className="text-sm text-muted-foreground">
+            Welcome back, <span className="font-medium text-foreground">{session.user?.name}</span>
           </p>
         </div>
-        
+
         <div className="flex items-center gap-4">
-          <Badge variant={getRoleBadgeVariant(session.user?.role || "")} className="gap-1">
+          <Badge variant={getRoleBadgeVariant(session.user?.role || "")} className="gap-1 px-3 py-1">
             <User className="h-3 w-3" />
             {formatRole(session.user?.role || "")}
           </Badge>
-          
+
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="relative h-8 w-8 rounded-full">
-                <Avatar className="h-8 w-8">
-                  <AvatarFallback className="bg-blue-500 text-white">
+              <Button variant="ghost" className="relative h-10 w-10 rounded-full hover:bg-muted transition-colors">
+                <Avatar className="h-10 w-10 border border-border">
+                  <AvatarFallback className="bg-primary/10 text-primary font-medium">
                     {session.user?.name
                       ?.split(" ")
                       .map((n) => n[0])
@@ -91,13 +91,13 @@ export function DashboardHeader() {
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
               {session.user?.role === "ADMIN" && (
-                <DropdownMenuItem onClick={handleSettingsClick} className="hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer transition-colors">
+                <DropdownMenuItem onClick={handleSettingsClick} className="cursor-pointer">
                   <Settings className="mr-2 h-4 w-4" />
                   <span>Settings</span>
                 </DropdownMenuItem>
               )}
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={handleSignOut}>
+              <DropdownMenuItem onClick={handleSignOut} className="text-destructive focus:text-destructive cursor-pointer">
                 <LogOut className="mr-2 h-4 w-4" />
                 <span>Log out</span>
               </DropdownMenuItem>

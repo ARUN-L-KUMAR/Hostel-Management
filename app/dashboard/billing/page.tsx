@@ -11,6 +11,8 @@ import { Badge } from "@/components/ui/badge"
 import { Save, RefreshCw, Filter, RotateCcw, Search, Download } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { computeMandays, AttendanceCode } from "@/lib/calculations"
+import { DatePicker } from "@/components/ui/date-picker"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 
 interface StudentBillingData {
   id: string
@@ -121,7 +123,6 @@ export default function BillingPage() {
     hostel: "all",
     year: "all",
     status: "all",
-    mandoFilter: "all",
     dept: "all",
     search: "",
   })
@@ -949,11 +950,7 @@ export default function BillingPage() {
 
     const matchesDept = filters.dept === "all" || (student.dept && student.dept.toLowerCase().includes(filters.dept.toLowerCase()))
 
-    const matchesMando = filters.mandoFilter === "all" ||
-      (filters.mandoFilter === "mando" && student.isMando) ||
-      (filters.mandoFilter === "regular" && !student.isMando)
-
-    return matchesSearch && matchesHostel && matchesYear && matchesStatus && matchesDept && matchesMando
+    return matchesSearch && matchesHostel && matchesYear && matchesStatus && matchesDept
   })
 
   const fetchSemStudentsData = async (overrideProvisionCharge?: number) => {
@@ -1070,9 +1067,9 @@ export default function BillingPage() {
           const prevRecord = prevFeeRecords.find((record: any) => record.studentId === student.id)
           if (prevRecord && prevRecord.balance !== undefined) {
             const prevBalance = prevRecord.balance
-            // If previous balance was positive (student owed), subtract from current
-            // If previous balance was negative (student was owed), add to current
-            carryForwardAmount = -prevBalance // Reverse the sign
+            // If previous balance was negative (student owes money), carry forward is positive (add to next semester dues)
+            // If previous balance was positive (student has credit), carry forward is negative (reduce next semester dues)
+            carryForwardAmount = -prevBalance
           }
         }
 
@@ -1146,34 +1143,34 @@ export default function BillingPage() {
   // Removed the useEffect that was causing conflicts - now handled in handleSemesterChange
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8 animate-in fade-in duration-500">
       {/* Page Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Student Billing Overview</h1>
-          <p className="text-slate-600">View and manage student payment amounts with labor, provision, and advance calculations</p>
+          <h1 className="text-3xl font-bold tracking-tight text-foreground">Student Billing Overview</h1>
+          <p className="text-muted-foreground mt-1">View and manage student payment amounts with labor, provision, and advance calculations</p>
         </div>
-        <Button variant="outline" onClick={exportToCSV}>
+        <Button variant="outline" onClick={exportToCSV} className="border-primary/20 hover:bg-primary/5 text-primary">
           <Download className="w-4 h-4 mr-2" />
           Export CSV
         </Button>
       </div>
 
-      <div className="space-y-6">
+      <div className="space-y-8">
         {/* Semester Selection */}
-        <Card className="border-0 shadow-md">
-          <CardHeader>
-            <CardTitle>Semester Range Selection</CardTitle>
+        <Card className="border-border/60 shadow-sm">
+          <CardHeader className="bg-muted/30 border-b border-border/60">
+            <CardTitle className="text-lg font-semibold text-foreground">Semester Range Selection</CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div className="flex gap-4 items-end">
+          <CardContent className="p-6">
+            <div className="space-y-6">
+              <div className="flex flex-col md:flex-row gap-4 items-end">
                 <div className="space-y-2 flex-1">
-                  <Label htmlFor="semesterSelect">Select Semester</Label>
+                  <Label htmlFor="semesterSelect" className="text-muted-foreground">Select Semester</Label>
                   {loadingSemesters ? (
-                    <div className="flex items-center justify-center h-10 border border-gray-300 rounded-md bg-white">
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
-                      <span className="text-sm text-gray-600">Loading semesters...</span>
+                    <div className="flex items-center justify-center h-10 border border-input rounded-md bg-background px-3">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary mr-2"></div>
+                      <span className="text-sm text-muted-foreground">Loading semesters...</span>
                     </div>
                   ) : (
                     <Select value={selectedSemesterId} onValueChange={handleSemesterChange}>
@@ -1186,7 +1183,7 @@ export default function BillingPage() {
                             {semester.name} ({new Date(semester.startDate).toLocaleDateString()} - {new Date(semester.endDate).toLocaleDateString()})
                           </SelectItem>
                         ))}
-                        <SelectItem value="create-new">+ Create New Semester</SelectItem>
+                        <SelectItem value="create-new" className="text-primary font-medium focus:text-primary">+ Create New Semester</SelectItem>
                       </SelectContent>
                     </Select>
                   )}
@@ -1194,12 +1191,12 @@ export default function BillingPage() {
               </div>
 
               {showCreateSemester && (
-                <Card className="border border-blue-200 bg-blue-50">
+                <Card className="border-primary/20 bg-primary/5 shadow-sm">
                   <CardHeader>
-                    <CardTitle className="text-lg">Create New Semester</CardTitle>
+                    <CardTitle className="text-lg text-foreground">Create New Semester</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label htmlFor="semesterName">Semester Name</Label>
                         <Input
@@ -1207,6 +1204,7 @@ export default function BillingPage() {
                           placeholder="e.g., Sem 1 - 2025"
                           value={newSemesterName}
                           onChange={(e) => setNewSemesterName(e.target.value)}
+                          className="bg-background"
                         />
                       </div>
                       <div className="space-y-2">
@@ -1217,31 +1215,42 @@ export default function BillingPage() {
                           placeholder="15000"
                           value={newSemesterBaseAmount}
                           onChange={(e) => setNewSemesterBaseAmount(e.target.value)}
+                          className="bg-background"
                         />
                       </div>
                     </div>
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label htmlFor="startDate">Start Date</Label>
-                        <Input
-                          id="startDate"
-                          type="date"
-                          value={newSemesterStartDate}
-                          onChange={(e) => setNewSemesterStartDate(e.target.value)}
+                        <DatePicker
+                          date={newSemesterStartDate ? new Date(newSemesterStartDate) : undefined}
+                          setDate={(date) => {
+                            if (date) {
+                              const offsetDate = new Date(date.getTime() - (date.getTimezoneOffset() * 60000));
+                              setNewSemesterStartDate(offsetDate.toISOString().split('T')[0])
+                            } else {
+                              setNewSemesterStartDate("")
+                            }
+                          }}
                         />
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="endDate">End Date</Label>
-                        <Input
-                          id="endDate"
-                          type="date"
-                          value={newSemesterEndDate}
-                          onChange={(e) => setNewSemesterEndDate(e.target.value)}
+                        <DatePicker
+                          date={newSemesterEndDate ? new Date(newSemesterEndDate) : undefined}
+                          setDate={(date) => {
+                            if (date) {
+                              const offsetDate = new Date(date.getTime() - (date.getTimezoneOffset() * 60000));
+                              setNewSemesterEndDate(offsetDate.toISOString().split('T')[0])
+                            } else {
+                              setNewSemesterEndDate("")
+                            }
+                          }}
                         />
                       </div>
                     </div>
-                    <div className="flex justify-end gap-2">
-                      <Button variant="outline" onClick={() => setShowCreateSemester(false)}>
+                    <div className="flex justify-end gap-2 pt-2">
+                      <Button variant="ghost" onClick={() => setShowCreateSemester(false)}>
                         Cancel
                       </Button>
                       <Button onClick={editingSemesterId ? updateSemester : createNewSemester} disabled={creatingSemester}>
@@ -1253,33 +1262,40 @@ export default function BillingPage() {
               )}
 
               {selectedSemester && (
-                <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-                  <div className="flex justify-between items-center">
+                <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-lg animate-in fade-in slide-in-from-top-2">
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                     <div>
-                      <h3 className="font-medium text-green-800">{selectedSemester.name}</h3>
-                      <p className="text-sm text-green-600">
-                        {new Date(selectedSemester.startDate).toLocaleDateString()} - {new Date(selectedSemester.endDate).toLocaleDateString()}
-                      </p>
-                      <p className="text-sm text-green-600">
+                      <h3 className="font-semibold text-emerald-900 dark:text-emerald-400 text-lg">{selectedSemester.name}</h3>
+                      <div className="flex items-center gap-4 mt-1 text-sm text-emerald-700 dark:text-emerald-300">
+                        <span className="flex items-center gap-1">
+                          Since: {new Date(selectedSemester.startDate).toLocaleDateString()}
+                        </span>
+                        <span>•</span>
+                        <span>
+                          Until: {new Date(selectedSemester.endDate).toLocaleDateString()}
+                        </span>
+                      </div>
+                      <p className="text-sm font-medium text-emerald-800 dark:text-emerald-200 mt-2">
                         Base Amount: ₹{selectedSemester.feeStructures[0]?.baseAmount || 0}
                       </p>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Badge variant="outline" className="bg-green-100 text-green-800">
+                      <Badge variant="outline" className="bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border-emerald-500/30">
                         Active
                       </Badge>
                       <Button
-                        variant="outline"
+                        variant="secondary"
                         size="sm"
                         onClick={() => editSemester(selectedSemester)}
+                        className="bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 border-emerald-200"
                       >
                         Edit
                       </Button>
                       <Button
-                        variant="outline"
+                        variant="secondary"
                         size="sm"
                         onClick={() => deleteSemester(selectedSemester.id, selectedSemester.name)}
-                        className="text-red-600 hover:text-red-700"
+                        className="bg-destructive/10 hover:bg-destructive/20 text-destructive border-destructive/20"
                       >
                         Delete
                       </Button>
@@ -1292,182 +1308,171 @@ export default function BillingPage() {
         </Card>
 
         {/* Billing Parameters */}
-        <Card className="border-0 shadow-md">
-          <CardHeader>
-            <CardTitle>Billing Parameters</CardTitle>
+        <Card className="border-border/60 shadow-sm">
+          <CardHeader className="bg-muted/30 border-b border-border/60 py-3 px-4">
+            <CardTitle className="text-sm font-semibold text-foreground">Billing Parameters</CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div className="grid grid-cols-3 gap-4">
-                <Label htmlFor="semLabor">Labor Charge (per day)</Label>
-                <Label htmlFor="semProvision">Provision Charge (per day)</Label>
-                <Label htmlFor="semAdvance">Advance Amount</Label>
-              </div>
-              <div className="grid grid-cols-3 gap-4">
+          <CardContent className="p-4">
+            <div className="flex flex-col md:flex-row gap-4 items-end">
+              <div className="space-y-1.5 flex-1">
+                <Label htmlFor="semLabor" className="text-xs text-muted-foreground">Labor Charge / day</Label>
                 <Input
                   id="semLabor"
                   type="number"
                   step="0.01"
+                  className="h-8"
                   value={semLaborCharge}
                   onChange={(e) => setSemLaborCharge(parseFloat(e.target.value) || 0)}
                 />
+              </div>
+              <div className="space-y-1.5 flex-1">
+                <Label htmlFor="semProvision" className="text-xs text-muted-foreground">Provision Charge / day</Label>
                 <div className="relative">
                   <Input
                     id="semProvision"
                     type="number"
                     step="0.01"
-                    value={loadingProvisionCharge ? "Fetching provision data..." : calculatedProvisionCharge.toFixed(2)}
+                    className={`h-8 pr-8 ${loadingProvisionCharge ? 'bg-primary/5 border-primary/30' : 'bg-muted/50'}`}
+                    value={loadingProvisionCharge ? "..." : calculatedProvisionCharge.toFixed(2)}
                     disabled={true}
-                    className={`pr-8 ${loadingProvisionCharge ? 'bg-blue-50 border-blue-300' : 'bg-gray-50'}`}
                   />
                   {loadingProvisionCharge && (
                     <div className="absolute right-2 top-1/2 transform -translate-y-1/2">
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                      <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-primary"></div>
                     </div>
                   )}
                 </div>
-
+              </div>
+              <div className="space-y-1.5 flex-1">
+                <Label htmlFor="semAdvance" className="text-xs text-muted-foreground">Advance Amount ({semAdvanceAmount.toString()})</Label>
                 <Input
                   id="semAdvance"
                   type="number"
+                  className="h-8 bg-muted/50"
                   value={semAdvanceAmount.toFixed(2)}
                   disabled={true}
-                  className="bg-gray-50"
                 />
               </div>
-            </div>
-            <div className="mt-4">
-              <Button onClick={updateSemBillingSettings} disabled={updatingSem}>
-                <Save className="w-4 h-4 mr-2" />
-                {updatingSem ? "Updating..." : "Update Settings"}
-              </Button>
+              <div className="pb-0.5">
+                <Button onClick={updateSemBillingSettings} disabled={updatingSem} size="sm" className="h-8 px-4">
+                  <Save className="w-3.5 h-3.5 mr-2" />
+                  {updatingSem ? "Updating..." : "Update"}
+                </Button>
+              </div>
             </div>
           </CardContent>
         </Card>
 
 
         {/* Filters */}
-        <Card className="p-4 border-0 shadow-md">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center space-x-2">
-              <Filter className="w-4 h-4 text-slate-600" />
-              <span className="font-medium text-slate-900">Filters</span>
+        <Card className="border-border/60 shadow-sm">
+          <CardHeader className="bg-muted/30 border-b border-border/60 py-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <Filter className="w-4 h-4 text-muted-foreground" />
+                <span className="font-semibold text-foreground">Filters</span>
+              </div>
+              <Button variant="ghost" size="sm" onClick={() => setFilters({
+                hostel: "all",
+                year: "all",
+                status: "all",
+                dept: "all",
+                search: "",
+              })}>
+                <RotateCcw className="w-4 h-4 mr-2" />
+                Reset
+              </Button>
             </div>
-            <Button variant="outline" size="sm" onClick={() => setFilters({
-              hostel: "all",
-              year: "all",
-              status: "all",
-              mandoFilter: "all",
-              dept: "all",
-              search: "",
-            })}>
-              <RotateCcw className="w-4 h-4 mr-2" />
-              Reset
-            </Button>
-          </div>
+          </CardHeader>
+          <CardContent className="p-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+              {/* Search */}
+              <div className="space-y-2">
+                <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Search</Label>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Name or roll number..."
+                    value={filters.search}
+                    onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
+                    className="pl-9 h-9"
+                  />
+                </div>
+              </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
-            {/* Search */}
-            <div className="space-y-2">
-              <Label className="text-sm font-medium text-slate-700">Search</Label>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" />
-                <Input
-                  placeholder="Name or roll number..."
-                  value={filters.search}
-                  onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
-                  className="pl-10"
-                />
+              {/* Hostel Filter */}
+              <div className="space-y-2">
+                <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Hostel</Label>
+                <Select value={filters.hostel} onValueChange={(value) => setFilters(prev => ({ ...prev, hostel: value }))}>
+                  <SelectTrigger className="h-9">
+                    <SelectValue placeholder="Select hostel" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Hostels</SelectItem>
+                    <SelectItem value="Boys">Boys Hostel</SelectItem>
+                    <SelectItem value="Girls">Girls Hostel</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Year Filter */}
+              <div className="space-y-2">
+                <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Year</Label>
+                <Select value={filters.year} onValueChange={(value) => setFilters(prev => ({ ...prev, year: value }))}>
+                  <SelectTrigger className="h-9">
+                    <SelectValue placeholder="Select year" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Years</SelectItem>
+                    <SelectItem value="1">1st Year</SelectItem>
+                    <SelectItem value="2">2nd Year</SelectItem>
+                    <SelectItem value="3">3rd Year</SelectItem>
+                    <SelectItem value="4">4th Year</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Status Filter */}
+              <div className="space-y-2">
+                <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Status</Label>
+                <Select value={filters.status} onValueChange={(value) => setFilters(prev => ({ ...prev, status: value }))}>
+                  <SelectTrigger className="h-9">
+                    <SelectValue placeholder="Select status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Status</SelectItem>
+                    <SelectItem value="ACTIVE">Active</SelectItem>
+                    <SelectItem value="VACATED">Vacated</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Dept Filter */}
+              <div className="space-y-2">
+                <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Dept</Label>
+                <Select value={filters.dept} onValueChange={(value) => setFilters(prev => ({ ...prev, dept: value }))}>
+                  <SelectTrigger className="h-9">
+                    <SelectValue placeholder="Select dept" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Depts</SelectItem>
+                    <SelectItem value="cse">CSE</SelectItem>
+                    <SelectItem value="ece">ECE</SelectItem>
+                    <SelectItem value="eee">EEE</SelectItem>
+                    <SelectItem value="mech">Mech</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
-
-            {/* Hostel Filter */}
-            <div className="space-y-2">
-              <Label className="text-sm font-medium text-slate-700">Hostel</Label>
-              <Select value={filters.hostel} onValueChange={(value) => setFilters(prev => ({ ...prev, hostel: value }))}>
-                <SelectTrigger className="bg-white">
-                  <SelectValue placeholder="Select hostel" />
-                </SelectTrigger>
-                <SelectContent className="bg-white">
-                  <SelectItem value="all">All Hostels</SelectItem>
-                  <SelectItem value="Boys">Boys Hostel</SelectItem>
-                  <SelectItem value="Girls">Girls Hostel</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Year Filter */}
-            <div className="space-y-2">
-              <Label className="text-sm font-medium text-slate-700">Year</Label>
-              <Select value={filters.year} onValueChange={(value) => setFilters(prev => ({ ...prev, year: value }))}>
-                <SelectTrigger className="bg-white">
-                  <SelectValue placeholder="Select year" />
-                </SelectTrigger>
-                <SelectContent className="bg-white">
-                  <SelectItem value="all">All Years</SelectItem>
-                  <SelectItem value="1">1st Year</SelectItem>
-                  <SelectItem value="2">2nd Year</SelectItem>
-                  <SelectItem value="3">3rd Year</SelectItem>
-                  <SelectItem value="4">4th Year</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Status Filter */}
-            <div className="space-y-2">
-              <Label className="text-sm font-medium text-slate-700">Status</Label>
-              <Select value={filters.status} onValueChange={(value) => setFilters(prev => ({ ...prev, status: value }))}>
-                <SelectTrigger className="bg-white">
-                  <SelectValue placeholder="Select status" />
-                </SelectTrigger>
-                <SelectContent className="bg-white">
-                  <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="ACTIVE">Active</SelectItem>
-                  <SelectItem value="VACATED">Vacated</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Dept Filter */}
-            <div className="space-y-2">
-              <Label className="text-sm font-medium text-slate-700">Dept</Label>
-              <Select value={filters.dept} onValueChange={(value) => setFilters(prev => ({ ...prev, dept: value }))}>
-                <SelectTrigger className="bg-white">
-                  <SelectValue placeholder="Select dept" />
-                </SelectTrigger>
-                <SelectContent className="bg-white">
-                  <SelectItem value="all">All Depts</SelectItem>
-                  <SelectItem value="cse">CSE</SelectItem>
-                  <SelectItem value="ece">ECE</SelectItem>
-                  <SelectItem value="eee">EEE</SelectItem>
-                  <SelectItem value="mech">Mech</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Mando Filter */}
-            <div className="space-y-2">
-              <Label className="text-sm font-medium text-slate-700">Mando Filter</Label>
-              <Select value={filters.mandoFilter} onValueChange={(value) => setFilters(prev => ({ ...prev, mandoFilter: value }))}>
-                <SelectTrigger className="bg-white">
-                  <SelectValue placeholder="Select mando filter" />
-                </SelectTrigger>
-                <SelectContent className="bg-white">
-                  <SelectItem value="all">All Students</SelectItem>
-                  <SelectItem value="mando">Mando Students Only</SelectItem>
-                  <SelectItem value="regular">Regular Students Only</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
+          </CardContent>
         </Card>
 
         {/* Students Table for Sem */}
-        <Card className="border-0 shadow-md">
-          <CardHeader>
-            <div className="flex justify-between items-center">
-              <CardTitle>
-                Student Payment Overview - {selectedSemester ? `${selectedSemester.name} (${new Date(selectedSemester.startDate).toLocaleDateString()} - ${new Date(selectedSemester.endDate).toLocaleDateString()})` : 'No Semester Selected'}
+        <Card className="border-border/60 shadow-sm">
+          <CardHeader className="bg-muted/30 border-b border-border/60 py-4">
+            <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
+              <CardTitle className="text-lg font-semibold text-foreground">
+                Student Payment Overview <span className="text-muted-foreground font-normal ml-2 text-sm">{selectedSemester ? `${selectedSemester.name} (${new Date(selectedSemester.startDate).toLocaleDateString()} - ${new Date(selectedSemester.endDate).toLocaleDateString()})` : 'No Semester Selected'}</span>
               </CardTitle>
               <div className="flex gap-2">
                 {selectedSemester && (
@@ -1476,30 +1481,40 @@ export default function BillingPage() {
                     size="sm"
                     onClick={() => forceRefetchSemesterData(selectedSemester)}
                     disabled={loadingStudentsSem || loadingProvisionCharge}
+                    className="h-9"
                   >
-                    <RefreshCw className={`w-4 h-4 mr-2 ${loadingStudentsSem || loadingProvisionCharge ? 'animate-spin' : ''}`} />
+                    <RefreshCw className={`w-3.5 h-3.5 mr-2 ${loadingStudentsSem || loadingProvisionCharge ? 'animate-spin' : ''}`} />
                     Force Refresh
                   </Button>
                 )}
                 {selectedSemester && (
-                  <Button variant="outline" onClick={updatePayments} disabled={updatingPayments}>
-                    {updatingPayments ? (
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600 mr-2"></div>
-                    ) : (
-                      <RefreshCw className="w-4 h-4 mr-2" />
-                    )}
-                    {updatingPayments ? "Updating..." : "Update Payments"}
-                  </Button>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button variant="secondary" size="sm" onClick={updatePayments} disabled={updatingPayments} className="h-9">
+                          {updatingPayments ? (
+                            <div className="animate-spin rounded-full h-3.5 w-3.5 border-b-2 border-primary mr-2"></div>
+                          ) : (
+                            <RefreshCw className="w-3.5 h-3.5 mr-2" />
+                          )}
+                          {updatingPayments ? "Updating..." : "Update Payments"}
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Save payments data of this semester</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                 )}
               </div>
             </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-0">
             {/* Bulk Actions */}
             {selectedStudents.size > 0 && (
-              <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <div className="m-4 p-3 bg-primary/5 border border-primary/20 rounded-lg animate-in fade-in slide-in-from-top-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-blue-800">
+                  <span className="text-sm font-medium text-primary">
                     {selectedStudents.size} student{selectedStudents.size > 1 ? "s" : ""} selected
                   </span>
                   <div className="flex items-center space-x-2">
@@ -1507,7 +1522,7 @@ export default function BillingPage() {
                       size="sm"
                       onClick={handleBulkMarkPaid}
                       disabled={markingSelectedPaid}
-                      className="bg-green-600 hover:bg-green-700 text-white"
+                      className="bg-emerald-600 hover:bg-emerald-700 text-white border-0"
                     >
                       {markingSelectedPaid ? (
                         <>
@@ -1520,7 +1535,7 @@ export default function BillingPage() {
                     </Button>
                     <Button
                       size="sm"
-                      variant="outline"
+                      variant="ghost"
                       onClick={() => {
                         setSelectedStudents(new Set())
                         setSelectAll(false)
@@ -1534,154 +1549,164 @@ export default function BillingPage() {
             )}
 
             {loadingStudentsSem || loadingProvisionCharge || loadingFeeRecords ? (
-              <div className="flex flex-col items-center justify-center py-12">
-                <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mb-4"></div>
-                <span className="text-sm font-medium text-slate-600">
+              <div className="flex flex-col items-center justify-center py-16">
+                <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary mb-4"></div>
+                <span className="text-sm font-medium text-muted-foreground">
                   {loadingProvisionCharge ? "Calculating provision charges..." :
                     loadingFeeRecords ? "Loading fee records..." :
                       "Loading student data..."}
                 </span>
-                <span className="text-xs text-slate-400 mt-1">Please wait while we prepare the billing data</span>
+                <span className="text-xs text-muted-foreground/60 mt-1">Please wait while we prepare the billing data</span>
               </div>
             ) : !selectedSemester ? (
-              <div className="flex flex-col items-center justify-center py-12 text-slate-500">
-                <div className="text-4xl mb-4">📅</div>
-                <span className="text-sm font-medium">No semester selected</span>
-                <span className="text-xs text-slate-400 mt-1">Please select a semester to view student billing data</span>
+              <div className="flex flex-col items-center justify-center py-16 text-muted-foreground/50">
+                <div className="text-5xl mb-4 opacity-20">📅</div>
+                <span className="text-base font-medium text-muted-foreground">No semester selected</span>
+                <span className="text-sm text-muted-foreground/60 mt-1">Please select a semester to view student billing data</span>
               </div>
             ) : studentsSem.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-12 text-slate-500">
-                <div className="text-4xl mb-4">👥</div>
-                <span className="text-sm font-medium">No students found</span>
-                <span className="text-xs text-slate-400 mt-1">No billing data available for this semester</span>
+              <div className="flex flex-col items-center justify-center py-16 text-muted-foreground/50">
+                <div className="text-5xl mb-4 opacity-20">👥</div>
+                <span className="text-base font-medium text-muted-foreground">No students found</span>
+                <span className="text-sm text-muted-foreground/60 mt-1">No billing data available for this semester</span>
               </div>
             ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-12">
-                      <input
-                        type="checkbox"
-                        checked={selectAll}
-                        onChange={(e) => handleSelectAll(e.target.checked)}
-                        className="rounded border-gray-300"
-                      />
-                    </TableHead>
-                    <TableHead>Student</TableHead>
-                    <TableHead className="text-right">Labour Mandays</TableHead>
-                    <TableHead className="text-right">Provision Mandays</TableHead>
-                    <TableHead className="text-right">Labor Charge</TableHead>
-                    <TableHead className="text-right">Provision Charges</TableHead>
-                    <TableHead className="text-right">Carry Forward</TableHead>
-                    <TableHead className="text-right">Advance Amount to Pay</TableHead>
-                    <TableHead className="text-right">Advance Paid</TableHead>
-                    <TableHead className="text-right">Balance Amount</TableHead>
-                    <TableHead className="text-center">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredStudentsSem.map((student) => (
-                    <TableRow key={student.id}>
-                      <TableCell>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader className="bg-muted/30">
+                    <TableRow className="hover:bg-transparent">
+                      <TableHead className="w-12 text-center">
                         <input
                           type="checkbox"
-                          checked={selectedStudents.has(student.id)}
-                          onChange={(e) => handleStudentSelect(student.id, e.target.checked)}
-                          className="rounded border-gray-300"
+                          checked={selectAll}
+                          onChange={(e) => handleSelectAll(e.target.checked)}
+                          className="rounded border-input text-primary focus:ring-primary shadow-sm h-4 w-4"
                         />
-                      </TableCell>
-                      <TableCell>
-                        <div className="font-medium text-slate-900 flex items-center gap-2">
-                          {student.name}
+                      </TableHead>
+                      <TableHead className="w-[200px] font-semibold">Student</TableHead>
+                      <TableHead className="text-right font-semibold text-xs uppercase tracking-wide">Labour Days</TableHead>
+                      <TableHead className="text-right font-semibold text-xs uppercase tracking-wide">Prov. Days</TableHead>
+                      <TableHead className="text-right font-semibold text-xs uppercase tracking-wide">Labor Cost</TableHead>
+                      <TableHead className="text-right font-semibold text-xs uppercase tracking-wide">Prov. Cost</TableHead>
+                      <TableHead className="text-right font-semibold text-xs uppercase tracking-wide">Carry Fwd</TableHead>
+                      <TableHead className="text-right font-semibold text-xs uppercase tracking-wide">To Pay (Adv)</TableHead>
+                      <TableHead className="text-right font-semibold text-xs uppercase tracking-wide">Adv Paid</TableHead>
+                      <TableHead className="text-right font-semibold text-xs uppercase tracking-wide">Balance</TableHead>
+                      <TableHead className="text-center font-semibold">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody className="divide-y divide-border/60">
+                    {filteredStudentsSem.map((student) => (
+                      <TableRow key={student.id} className="hover:bg-muted/40 transition-colors">
+                        <TableCell className="text-center">
+                          <input
+                            type="checkbox"
+                            checked={selectedStudents.has(student.id)}
+                            onChange={(e) => handleStudentSelect(student.id, e.target.checked)}
+                            className="rounded border-input text-primary focus:ring-primary h-4 w-4"
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <div className="font-medium text-foreground flex items-center gap-2">
+                            {student.name}
+                            <Badge
+                              variant={student.status === 'ACTIVE' ? 'default' : 'secondary'}
+                              className={`text-[10px] px-1.5 py-0 h-5 shadow-none ${student.status === 'ACTIVE'
+                                ? 'bg-emerald-500/15 text-emerald-700 hover:bg-emerald-500/25 border-0'
+                                : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                                }`}
+                            >
+                              {student.status === 'ACTIVE' ? 'Active' : 'Vacated'}
+                            </Badge>
+                          </div>
+                          <div className="text-xs text-muted-foreground flex items-center space-x-1.5 mt-1">
+                            <span>{student.rollNo}</span>
+                            <span className="text-border">•</span>
+                            <span className="text-muted-foreground/80">{student.dept || 'N/A'}</span>
+                            <span className="text-border">•</span>
+                            <span>{student.hostel}</span>
+                            {student.isMando && (
+                              <Badge variant="secondary" className="text-[10px] px-1 py-0 h-4 bg-amber-500/10 text-amber-600 border-amber-200/50 shadow-none ml-1">
+                                Mando
+                              </Badge>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums">{student.labourMandays}</TableCell>
+                        <TableCell className="text-right tabular-nums">{student.provisionMandays}</TableCell>
+                        <TableCell className="text-right tabular-nums text-muted-foreground">₹{student.laborCharge.toFixed(2)}</TableCell>
+                        <TableCell className="text-right tabular-nums text-muted-foreground">₹{student.provisionCharge.toFixed(2)}</TableCell>
+                        <TableCell className="text-right tabular-nums">
+                          <span className={`${student.carryForwardAmount > 0 ? "text-amber-600 dark:text-amber-500" : "text-muted-foreground"}`}>
+                            ₹{student.carryForwardAmount.toFixed(2)}
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums">
                           <Badge
-                            variant={student.status === 'ACTIVE' ? 'default' : 'secondary'}
-                            className={`text-xs px-2 py-0 ${student.status === 'ACTIVE'
-                                ? 'bg-green-100 text-green-800'
-                                : 'bg-gray-100 text-gray-800'
+                            variant={student.advanceAmountToPay >= 0 ? "outline" : "destructive"}
+                            className={`shadow-none font-medium ${student.advanceAmountToPay >= 0
+                              ? "bg-primary/10 text-primary border-primary/20"
+                              : "bg-destructive/10 text-destructive border-destructive/20"
                               }`}
                           >
-                            {student.status === 'ACTIVE' ? 'Active' : 'Vacated'}
+                            ₹{student.advanceAmountToPay.toFixed(2)}
                           </Badge>
-                        </div>
-                        <div className="text-xs text-slate-500 flex items-center space-x-2">
-                          <span>{student.rollNo}</span>
-                          <span>•</span>
-                          <span className="text-slate-400">{student.dept || 'Not Set'}</span>
-                          <span>•</span>
-                          <span>{student.hostel}</span>
-                          {student.isMando && (
-                            <Badge variant="secondary" className="text-xs px-1 py-0">
-                              Mando
-                            </Badge>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-right">{student.labourMandays}</TableCell>
-                      <TableCell className="text-right">{student.provisionMandays}</TableCell>
-                      <TableCell className="text-right">₹{student.laborCharge.toFixed(2)}</TableCell>
-                      <TableCell className="text-right">₹{student.provisionCharge.toFixed(2)}</TableCell>
-                      <TableCell className="text-right">
-                        <span className="text-orange-600">₹{student.carryForwardAmount.toFixed(2)}</span>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Badge
-                          variant={student.advanceAmountToPay >= 0 ? "default" : "destructive"}
-                          className={student.advanceAmountToPay >= 0 ? "bg-blue-100 text-blue-800" : "bg-red-100 text-red-800"}
-                        >
-                          ₹{student.advanceAmountToPay.toFixed(2)}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right">₹{student.advancePaid.toFixed(2)}</TableCell>
-                      <TableCell className="text-right">
-                        <Badge
-                          variant={student.totalAmount >= 0 ? "default" : "destructive"}
-                          className={student.totalAmount >= 0 ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}
-                        >
-                          ₹{student.totalAmount.toFixed(2)}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <div className="flex gap-1 justify-center">
-                          {student.advancePaid === 0 ? (
-                            <Button
-                              size="sm"
-                              onClick={() => handleStudentPayment(student.id, 'markPaid')}
-                              disabled={loadingStudentPayments.has(student.id)}
-                              className="bg-green-600 hover:bg-green-700 text-xs px-2 py-1 text-white"
-                            >
-                              {loadingStudentPayments.has(student.id) ? (
-                                <>
-                                  <div className="animate-spin rounded-full h-3 w-3 border-b border-white mr-1"></div>
-                                  Processing...
-                                </>
-                              ) : (
-                                "Mark Paid"
-                              )}
-                            </Button>
-                          ) : (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleStudentPayment(student.id, 'markUnpaid')}
-                              disabled={loadingStudentPayments.has(student.id)}
-                              className="text-red-600 hover:text-red-700 text-xs px-2 py-1"
-                            >
-                              {loadingStudentPayments.has(student.id) ? (
-                                <>
-                                  <div className="animate-spin rounded-full h-3 w-3 border-b border-red-600 mr-1"></div>
-                                  Processing...
-                                </>
-                              ) : (
-                                "Unpaid"
-                              )}
-                            </Button>
-                          )}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums font-medium">₹{student.advancePaid.toFixed(2)}</TableCell>
+                        <TableCell className="text-right tabular-nums">
+                          <Badge
+                            variant={student.totalAmount >= 0 ? "default" : "destructive"}
+                            className={`shadow-none font-bold ${student.totalAmount >= 0
+                              ? "bg-emerald-500/15 text-emerald-700 hover:bg-emerald-500/25 border-emerald-200/50"
+                              : "bg-destructive/15 text-destructive hover:bg-destructive/25 border-destructive/20"
+                              }`}
+                          >
+                            ₹{student.totalAmount.toFixed(2)}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <div className="flex gap-2 justify-center">
+                            {student.advancePaid === 0 ? (
+                              <Button
+                                size="sm"
+                                onClick={() => handleStudentPayment(student.id, 'markPaid')}
+                                disabled={loadingStudentPayments.has(student.id)}
+                                className="bg-emerald-600 hover:bg-emerald-700 text-xs px-2.5 py-1 h-7 text-white shadow-sm"
+                              >
+                                {loadingStudentPayments.has(student.id) ? (
+                                  <>
+                                    <div className="animate-spin rounded-full h-3 w-3 border-b border-white mr-1"></div>
+                                    Processing...
+                                  </>
+                                ) : (
+                                  "Mark Paid"
+                                )}
+                              </Button>
+                            ) : (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleStudentPayment(student.id, 'markUnpaid')}
+                                disabled={loadingStudentPayments.has(student.id)}
+                                className="text-destructive hover:text-destructive hover:bg-destructive/5 text-xs px-2.5 py-1 h-7 border-destructive/20"
+                              >
+                                {loadingStudentPayments.has(student.id) ? (
+                                  <>
+                                    <div className="animate-spin rounded-full h-3 w-3 border-b border-destructive mr-1"></div>
+                                    Processing...
+                                  </>
+                                ) : (
+                                  "Unpaid"
+                                )}
+                              </Button>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
             )}
           </CardContent>
         </Card>

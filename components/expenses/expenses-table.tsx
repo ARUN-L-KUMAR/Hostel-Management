@@ -84,11 +84,11 @@ export function ExpensesTable({ year, month }: ExpensesTableProps) {
 
   const getTypeBadgeColor = (type: string) => {
     switch (type) {
-      case 'LABOUR': return 'bg-blue-100 text-blue-800'
-      case 'MAINTENANCE': return 'bg-orange-100 text-orange-800'
-      case 'UTILITY': return 'bg-purple-100 text-purple-800'
-      case 'OTHER': return 'bg-gray-100 text-gray-800'
-      default: return 'bg-gray-100 text-gray-800'
+      case 'LABOUR': return 'bg-blue-500/15 text-blue-700 border-0'
+      case 'MAINTENANCE': return 'bg-amber-500/15 text-amber-700 border-0'
+      case 'UTILITY': return 'bg-purple-500/15 text-purple-700 border-0'
+      case 'OTHER': return 'bg-muted text-muted-foreground border-0'
+      default: return 'bg-muted text-muted-foreground border-0'
     }
   }
 
@@ -102,14 +102,14 @@ export function ExpensesTable({ year, month }: ExpensesTableProps) {
 
   if (loading) {
     return (
-      <Card className="border-0 shadow-md">
+      <Card className="border shadow-sm">
         <CardHeader>
           <CardTitle>Loading Expenses...</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
             {Array.from({ length: 5 }).map((_, i) => (
-              <div key={i} className="h-16 bg-slate-100 rounded animate-pulse"></div>
+              <div key={i} className="h-16 bg-muted/40 rounded animate-pulse"></div>
             ))}
           </div>
         </CardContent>
@@ -119,7 +119,7 @@ export function ExpensesTable({ year, month }: ExpensesTableProps) {
 
   return (
     <>
-      <Card className="border-0 shadow-md">
+      <Card className="border shadow-sm">
         <CardHeader>
           <CardTitle>Expenses ({expenses.length})</CardTitle>
         </CardHeader>
@@ -139,10 +139,10 @@ export function ExpensesTable({ year, month }: ExpensesTableProps) {
               {expenses.map((expense) => (
                 <TableRow key={expense.id}>
                   <TableCell>
-                    <div className="font-medium text-slate-900">{expense.name}</div>
+                    <div className="font-medium text-foreground">{expense.name}</div>
                   </TableCell>
                   <TableCell>
-                    <div className="font-medium text-slate-900">{formatDate(expense.date)}</div>
+                    <div className="font-medium text-foreground">{formatDate(expense.date)}</div>
                   </TableCell>
                   <TableCell>
                     <Badge className={getTypeBadgeColor(expense.type)}>
@@ -154,7 +154,7 @@ export function ExpensesTable({ year, month }: ExpensesTableProps) {
                   <TableCell className="text-right">
                     <button
                       onClick={() => handleEditClick(expense)}
-                      className="p-1 hover:bg-slate-100 rounded"
+                      className="p-1 hover:bg-muted rounded text-muted-foreground hover:text-foreground"
                     >
                       <Edit className="w-4 h-4" />
                     </button>
@@ -177,7 +177,7 @@ export function ExpensesTable({ year, month }: ExpensesTableProps) {
       {showScrollToTop && (
         <button
           onClick={scrollToTop}
-          className="fixed bottom-8 right-8 z-50 w-12 h-12 rounded-full shadow-lg bg-blue-600 hover:bg-blue-700 text-white transition-all duration-300 ease-in-out transform hover:scale-110 flex items-center justify-center"
+          className="fixed bottom-8 right-8 z-50 w-12 h-12 rounded-full shadow-lg bg-primary hover:bg-primary/90 text-primary-foreground transition-all duration-300 ease-in-out transform hover:scale-110 flex items-center justify-center"
           aria-label="Scroll to top"
         >
           <ArrowUp className="w-5 h-5" />

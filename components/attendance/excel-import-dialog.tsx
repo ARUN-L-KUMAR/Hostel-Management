@@ -65,32 +65,32 @@ export function ExcelImportDialog({ onClose }: ExcelImportDialogProps) {
   return (
     <div className="space-y-6">
       {/* File Upload */}
-      <Card className="p-6 border-2 border-dashed border-slate-300 hover:border-slate-400 transition-colors">
+      <Card className="p-6 border-2 border-dashed border-border hover:border-primary/50 transition-colors bg-muted/5">
         <div className="text-center">
-          <FileSpreadsheet className="w-12 h-12 text-slate-400 mx-auto mb-4" />
+          <FileSpreadsheet className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
           <div className="space-y-2">
-            <h3 className="font-medium text-slate-900">Upload Excel File</h3>
-            <p className="text-sm text-slate-600">Select the Boys Mandays Excel file with attendance data</p>
+            <h3 className="font-medium text-foreground">Upload Excel File</h3>
+            <p className="text-sm text-muted-foreground">Select the Boys Mandays Excel file with attendance data</p>
             <input type="file" accept=".xlsx,.xls" onChange={handleFileSelect} className="hidden" id="excel-file" />
             <label htmlFor="excel-file">
-              <Button variant="outline" className="cursor-pointer bg-transparent" asChild>
+              <Button variant="outline" className="cursor-pointer bg-background" asChild>
                 <span>
                   <Upload className="w-4 h-4 mr-2" />
                   Choose File
                 </span>
               </Button>
             </label>
-            {file && <p className="text-sm text-green-600 mt-2">Selected: {file.name}</p>}
+            {file && <p className="text-sm text-emerald-600 dark:text-emerald-500 mt-2 font-medium">Selected: {file.name}</p>}
           </div>
         </div>
       </Card>
 
       {/* Import Instructions */}
-      <Alert>
-        <AlertTriangle className="h-4 w-4" />
+      <Alert className="bg-amber-500/10 border-amber-500/20 text-amber-500">
+        <AlertTriangle className="h-4 w-4 stroke-amber-500" />
         <AlertDescription>
-          <strong>Excel Format Requirements:</strong>
-          <ul className="mt-2 space-y-1 text-sm">
+          <strong className="text-amber-700 dark:text-amber-400">Excel Format Requirements:</strong>
+          <ul className="mt-2 space-y-1 text-sm text-amber-700/80 dark:text-amber-400/80">
             <li>• First row should contain student names or roll numbers</li>
             <li>• Columns should represent days of the month (1-31)</li>
             <li>• Use codes: P (Present), L (Leave), CN (Concession), V (Vacation), C (Closed)</li>
@@ -101,29 +101,29 @@ export function ExcelImportDialog({ onClose }: ExcelImportDialogProps) {
 
       {/* Import Progress */}
       {importing && (
-        <Card className="p-4">
+        <Card className="p-4 border-border/60 shadow-sm">
           <div className="space-y-3">
             <div className="flex items-center space-x-2">
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-              <span className="text-sm font-medium">Importing attendance data...</span>
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
+              <span className="text-sm font-medium text-foreground">Importing attendance data...</span>
             </div>
-            <Progress value={65} className="w-full" />
-            <p className="text-xs text-slate-600">Processing rows and validating data...</p>
+            <Progress value={65} className="w-full h-2" />
+            <p className="text-xs text-muted-foreground">Processing rows and validating data...</p>
           </div>
         </Card>
       )}
 
       {/* Import Results */}
       {importResult && (
-        <Card className="p-4">
+        <Card className="p-4 border-border/60 shadow-sm">
           <div className="space-y-4">
             <div className="flex items-center space-x-2">
               {importResult.success ? (
-                <CheckCircle className="w-5 h-5 text-green-600" />
+                <CheckCircle className="w-5 h-5 text-emerald-600 dark:text-emerald-500" />
               ) : (
-                <AlertTriangle className="w-5 h-5 text-red-600" />
+                <AlertTriangle className="w-5 h-5 text-destructive" />
               )}
-              <span className={`font-medium ${importResult.success ? "text-green-800" : "text-red-800"}`}>
+              <span className={`font-medium ${importResult.success ? "text-emerald-700 dark:text-emerald-400" : "text-destructive"}`}>
                 {importResult.message}
               </span>
             </div>
@@ -131,26 +131,29 @@ export function ExcelImportDialog({ onClose }: ExcelImportDialogProps) {
             {importResult.stats && (
               <div className="space-y-3">
                 <div className="grid grid-cols-3 gap-4 text-sm">
-                  <div className="text-center">
-                    <div className="font-semibold text-slate-900">{importResult.stats.totalRows}</div>
-                    <div className="text-slate-600">Total Rows</div>
+                  <div className="text-center p-2 bg-muted/30 rounded-lg">
+                    <div className="font-semibold text-foreground text-lg">{importResult.stats.totalRows}</div>
+                    <div className="text-muted-foreground text-xs uppercase tracking-wider">Total Rows</div>
                   </div>
-                  <div className="text-center">
-                    <div className="font-semibold text-green-600">{importResult.stats.successfulRows}</div>
-                    <div className="text-slate-600">Successful</div>
+                  <div className="text-center p-2 bg-emerald-500/10 rounded-lg">
+                    <div className="font-semibold text-emerald-600 dark:text-emerald-500 text-lg">{importResult.stats.successfulRows}</div>
+                    <div className="text-emerald-700 dark:text-emerald-400 text-xs uppercase tracking-wider">Successful</div>
                   </div>
-                  <div className="text-center">
-                    <div className="font-semibold text-red-600">{importResult.stats.failedRows}</div>
-                    <div className="text-slate-600">Failed</div>
+                  <div className="text-center p-2 bg-destructive/10 rounded-lg">
+                    <div className="font-semibold text-destructive text-lg">{importResult.stats.failedRows}</div>
+                    <div className="text-destructive text-xs uppercase tracking-wider">Failed</div>
                   </div>
                 </div>
 
                 {importResult.stats.warnings.length > 0 && (
-                  <div>
-                    <h4 className="font-medium text-slate-900 mb-2">Warnings:</h4>
-                    <ul className="space-y-1 text-sm text-orange-700">
+                  <div className="bg-amber-500/5 p-3 rounded-lg border border-amber-500/10">
+                    <h4 className="font-medium text-amber-700 dark:text-amber-500 mb-2 text-sm">Warnings:</h4>
+                    <ul className="space-y-1 text-sm text-amber-600/90 dark:text-amber-400/90">
                       {importResult.stats.warnings.map((warning, index) => (
-                        <li key={index}>• {warning}</li>
+                        <li key={index} className="flex items-start gap-2">
+                          <span className="mt-1.5 w-1 h-1 rounded-full bg-amber-500 shrink-0" />
+                          {warning}
+                        </li>
                       ))}
                     </ul>
                   </div>
@@ -163,7 +166,7 @@ export function ExcelImportDialog({ onClose }: ExcelImportDialogProps) {
 
       {/* Actions */}
       <div className="flex justify-end space-x-2">
-        <Button variant="outline" onClick={onClose}>
+        <Button variant="ghost" onClick={onClose}>
           Cancel
         </Button>
         <Button onClick={handleImport} disabled={!file || importing}>

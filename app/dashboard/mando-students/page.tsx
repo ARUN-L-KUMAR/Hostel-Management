@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
+import { Card, CardContent } from "@/components/ui/card"
 import { MealEntryCalendar } from "@/components/meal-entry/meal-entry-calendar"
 import { MealEntryActions } from "@/components/meal-entry/meal-entry-actions"
 
@@ -86,15 +87,15 @@ export default function MealEntryPage({ searchParams }: { searchParams: { [key: 
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-in fade-in duration-500">
       {/* Page Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Meal Entry - Mando Students</h1>
-          <p className="text-slate-600">Track meal consumption (B=Breakfast, L=Lunch, D=Dinner) for mando students</p>
+          <h1 className="text-3xl font-bold tracking-tight text-foreground">Meal Entry - Mando Students</h1>
+          <p className="text-muted-foreground mt-1">Track meal consumption (B=Breakfast, L=Lunch, D=Dinner) for mando students</p>
         </div>
         <div className="flex items-center space-x-2">
-          <Button variant="outline" onClick={handleRefresh}>
+          <Button variant="outline" onClick={handleRefresh} className="shadow-sm">
             Refresh
           </Button>
           <MealEntryActions onExport={exportMealDataToCSV} />
@@ -102,7 +103,11 @@ export default function MealEntryPage({ searchParams }: { searchParams: { [key: 
       </div>
 
       {/* Meal Entry Calendar */}
-      <MealEntryCalendar year={year} month={month} onExport={exportMealDataToCSV} onStudentsChange={setMealStudents} />
+      <Card className="shadow-sm border-border/60">
+        <CardContent className="p-0">
+          <MealEntryCalendar year={year} month={month} onExport={exportMealDataToCSV} onStudentsChange={setMealStudents} />
+        </CardContent>
+      </Card>
     </div>
   )
 }

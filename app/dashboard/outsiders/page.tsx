@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { YearPicker } from "@/components/ui/year-picker"
-import { Plus, Eye } from "lucide-react"
+import { Plus, Eye, Edit } from "lucide-react"
 import { AddOutsiderMealDialog } from "@/components/outsiders/add-outsider-meal-dialog"
 
 interface MealRecord {
@@ -34,6 +34,7 @@ export default function OutsidersPage() {
   const [loading, setLoading] = useState(true)
   const [addDialogOpen, setAddDialogOpen] = useState(false)
   const [viewDialogOpen, setViewDialogOpen] = useState(false)
+  const [editDialogOpen, setEditDialogOpen] = useState(false)
   const [selectedRecord, setSelectedRecord] = useState<MealRecord | null>(null)
 
   // Filter states
@@ -213,16 +214,28 @@ export default function OutsidersPage() {
                       <TableCell>₹{record.mealRate}</TableCell>
                       <TableCell className="font-medium">₹{total}</TableCell>
                       <TableCell className="text-right">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => {
-                            setSelectedRecord(record)
-                            setViewDialogOpen(true)
-                          }}
-                        >
-                          <Eye className="w-4 h-4" />
-                        </Button>
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setSelectedRecord(record)
+                              setEditDialogOpen(true)
+                            }}
+                          >
+                            <Edit className="w-4 h-4 text-blue-600" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setSelectedRecord(record)
+                              setViewDialogOpen(true)
+                            }}
+                          >
+                            <Eye className="w-4 h-4" />
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   )
@@ -232,6 +245,22 @@ export default function OutsidersPage() {
           </Table>
         </CardContent>
       </Card>
+
+      {/* Edit Dialog */}
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent className="max-w-2xl bg-white">
+          <DialogHeader>
+            <DialogTitle>Edit Outsider Meal Record</DialogTitle>
+          </DialogHeader>
+          <AddOutsiderMealDialog
+            initialData={selectedRecord}
+            onClose={() => {
+              setEditDialogOpen(false)
+              refreshData()
+            }}
+          />
+        </DialogContent>
+      </Dialog>
 
       {/* View Details Dialog */}
       <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>

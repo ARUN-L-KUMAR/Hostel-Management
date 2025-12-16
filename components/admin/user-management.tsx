@@ -1,4 +1,4 @@
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      "use client"
+"use client"
 
 import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -268,9 +268,9 @@ export function UserManagement({ onUserChange }: UserManagementProps = {}) {
                         className="mt-0.5"
                       >
                         {newUser.permissions.includes(page.id) ? (
-                          <CheckSquare className="h-5 w-5 text-green-600" />
+                          <CheckSquare className="h-5 w-5 text-primary" />
                         ) : (
-                          <Square className="h-5 w-5 text-gray-400" />
+                          <Square className="h-5 w-5 text-muted-foreground/30" />
                         )}
                       </button>
                       <div className="flex-1 min-w-0">
@@ -283,12 +283,12 @@ export function UserManagement({ onUserChange }: UserManagementProps = {}) {
               )}
 
               {newUser.role === "ADMIN" && (
-                <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <div className="p-4 bg-primary/5 border border-primary/10 rounded-lg">
                   <div className="flex items-center space-x-2">
-                    <Shield className="h-5 w-5 text-blue-600" />
+                    <Shield className="h-5 w-5 text-primary" />
                     <div>
-                      <div className="font-medium text-blue-900">Full Access</div>
-                      <div className="text-sm text-blue-700">Admin users have access to all pages in the system.</div>
+                      <div className="font-medium text-foreground">Full Access</div>
+                      <div className="text-sm text-muted-foreground">Admin users have access to all pages in the system.</div>
                     </div>
                   </div>
                 </div>
@@ -344,7 +344,7 @@ export function UserManagement({ onUserChange }: UserManagementProps = {}) {
                         <p className="text-sm text-muted-foreground truncate">{user.email}</p>
                         {user.permissions && user.permissions.length > 0 && (
                           <div className="flex flex-wrap gap-1 mt-1">
-                            <span className="text-xs text-blue-600 bg-blue-50 px-2 py-0.5 rounded">
+                            <span className="text-xs text-primary bg-primary/10 px-2 py-0.5 rounded border border-primary/20">
                               {user.permissions.length} permissions
                             </span>
                           </div>
@@ -364,10 +364,10 @@ export function UserManagement({ onUserChange }: UserManagementProps = {}) {
                       <div className="text-center min-w-[100px]">
                         <p className="text-sm text-muted-foreground truncate">
                           {user.createdAt ? new Date(user.createdAt).toLocaleDateString() :
-                           user.created_at ? new Date(user.created_at).toLocaleDateString() :
-                           user.updatedAt ? new Date(user.updatedAt).toLocaleDateString() : 
-                           user.updated_at ? new Date(user.updated_at).toLocaleDateString() : 
-                           'Recent'}
+                            user.created_at ? new Date(user.created_at).toLocaleDateString() :
+                              user.updatedAt ? new Date(user.updatedAt).toLocaleDateString() :
+                                user.updated_at ? new Date(user.updated_at).toLocaleDateString() :
+                                  'Recent'}
                         </p>
                       </div>
                       <div className="flex gap-2">
@@ -378,8 +378,8 @@ export function UserManagement({ onUserChange }: UserManagementProps = {}) {
                           role: user.role,
                           permissions: user.permissions
                         }} onUserUpdated={fetchUsers} />
-                        <Button 
-                          variant="outline" 
+                        <Button
+                          variant="outline"
                           size="sm"
                           onClick={() => handleDeleteUser(user.id)}
                           disabled={deleteUserLoading === user.id}

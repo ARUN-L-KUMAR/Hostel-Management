@@ -1,103 +1,87 @@
 "use client"
 
 import { useState } from "react"
+import { DollarSign, Plus } from "lucide-react"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { useSearchParams } from "next/navigation"
-import { ExpensesTable } from "@/components/expenses/expenses-table"
-import { ExpensesActions } from "@/components/expenses/expenses-actions"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { useRouter } from "next/navigation"
-import { YearPicker } from "@/components/ui/year-picker"
+import { ExpensesTable } from "@/components/expenses/expenses-table"
+import { AddExpenseDialog } from "@/components/expenses/add-expense-dialog"
 
 export default function ExpensesPage() {
-  const [refreshTrigger, setRefreshTrigger] = useState(0)
-  const router = useRouter()
-  const searchParams = useSearchParams()
+    const currentDate = new Date()
+    const [year, setYear] = useState(currentDate.getFullYear().toString())
+    const [month, setMonth] = useState((currentDate.getMonth() + 1).toString())
+    const [addDialogOpen, setAddDialogOpen] = useState(false)
 
-  const currentYear = new Date().getFullYear()
-  const currentMonth = new Date().getMonth() + 1
+    const handleExpenseAdded = () => {
+        // This will trigger a re-fetch in ExpensesTable if we force it, 
+        // but for now relying on the page refresh or state lift logic.
+        // Ideally, we should pass a refresh trigger to ExpensesTable.
+        // For this implementation, we'll try to just close the dialog.
+        // A full refresh might be needed or a context based refresh.
+        window.location.reload() // Simple refresh for now to ensure data consistency
+    }
 
-  const year = searchParams.get('year') || currentYear.toString()
-  const month = searchParams.get('month') || currentMonth.toString()
+    return (
+        <div className="space-y-6 animate-in fade-in duration-500">
+            {/* Header */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                    <h1 className="text-3xl font-bold tracking-tight text-foreground">Expenses</h1>
+                    <p className="text-muted-foreground mt-1">Track and manage hostel operational expenses.</p>
+                </div>
+                <Button onClick={() => setAddDialogOpen(true)} className="bg-primary hover:bg-primary/90">
+                    <Plus className="w-4 h-4 mr-2" />
+                    Add Expense
+                </Button>
+            </div>
 
-  const handleYearChange = (newYear: string) => {
-    const params = new URLSearchParams(searchParams.toString())
-    params.set('year', newYear)
-    router.push(`?${params.toString()}`, { scroll: false })
-  }
+            {/* Filters */}
+            <div className="flex gap-4">
+                <div className="w-32">
+                    <Select value={year} onValueChange={setYear}>
+                        <SelectTrigger className="bg-background">
+                            <SelectValue placeholder="Year" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="2024">2024</SelectItem>
+                            <SelectItem value="2025">2025</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
+                <div className="w-40">
+                    <Select value={month} onValueChange={setMonth}>
+                        <SelectTrigger className="bg-background">
+                            <SelectValue placeholder="Month" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="1">January</SelectItem>
+                            <SelectItem value="2">February</SelectItem>
+                            <SelectItem value="3">March</SelectItem>
+                            <SelectItem value="4">April</SelectItem>
+                            <SelectItem value="5">May</SelectItem>
+                            <SelectItem value="6">June</SelectItem>
+                            <SelectItem value="7">July</SelectItem>
+                            <SelectItem value="8">August</SelectItem>
+                            <SelectItem value="9">September</SelectItem>
+                            <SelectItem value="10">October</SelectItem>
+                            <SelectItem value="11">November</SelectItem>
+                            <SelectItem value="12">December</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
+            </div>
 
-  const handleMonthChange = (newMonth: string) => {
-    const params = new URLSearchParams(searchParams.toString())
-    params.set('month', newMonth)
-    router.push(`?${params.toString()}`, { scroll: false })
-  }
+            {/* Expenses Table */}
+            <ExpensesTable year={year} month={month} />
 
-  const months = [
-    { value: "1", label: "January" },
-    { value: "2", label: "February" },
-    { value: "3", label: "March" },
-    { value: "4", label: "April" },
-    { value: "5", label: "May" },
-    { value: "6", label: "June" },
-    { value: "7", label: "July" },
-    { value: "8", label: "August" },
-    { value: "9", label: "September" },
-    { value: "10", label: "October" },
-    { value: "11", label: "November" },
-    { value: "12", label: "December" },
-  ]
-
-  const handleRefresh = () => {
-    window.location.reload()
-  }
-
-  const handleTableRefresh = () => {
-    setRefreshTrigger(prev => prev + 1)
-  }
-
-  return (
-    <div className="space-y-6">
-      {/* Page Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">Expense Management</h1>
-          <p className="text-slate-600">Track and manage mess expenses</p>
+            {/* Add Expense Dialog */}
+            <AddExpenseDialog
+                open={addDialogOpen}
+                onOpenChange={setAddDialogOpen}
+                onSuccess={handleExpenseAdded}
+            />
         </div>
-        <div className="flex items-center space-x-2">
-          <Button variant="outline" onClick={handleRefresh}>
-            Refresh
-          </Button>
-          <ExpensesActions onRefresh={handleTableRefresh} />
-        </div>
-      </div>
-
-      {/* Filters */}
-      <div className="flex items-center space-x-4 p-4 bg-white border rounded-lg">
-        <div className="flex items-center space-x-2">
-          <span className="text-sm font-medium text-slate-700">Period:</span>
-          <YearPicker
-            value={year}
-            onValueChange={handleYearChange}
-            className="w-32"
-          />
-
-          <Select value={month} onValueChange={handleMonthChange}>
-            <SelectTrigger className="w-32">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {months.map((m) => (
-                <SelectItem key={m.value} value={m.value}>
-                  {m.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
-
-      {/* Expenses Table */}
-      <ExpensesTable key={refreshTrigger} year={year} month={month} />
-    </div>
-  )
+    )
 }

@@ -35,24 +35,21 @@ export function StudentImportTypeDialog({ onSelectRegular, onSelectMando, onSele
 
   return (
     <div className="space-y-6">
-      <div className="text-center">
-        <h2 className="text-xl font-semibold text-slate-900 mb-2">Import Student Data</h2>
-        <p className="text-slate-600">Configure your student import settings</p>
-      </div>
+
 
       {/* Student Type Selection */}
       <div className="space-y-3">
         <label className="text-sm font-medium text-slate-900">Student Type</label>
         <div className="grid grid-cols-2 gap-4">
           <Card className={`p-4 cursor-pointer transition-all ${studentType === 'regular' ? 'border-blue-500 bg-blue-50' : 'border-slate-200'}`}
-                onClick={() => setStudentType('regular')}>
+            onClick={() => setStudentType('regular')}>
             <div className="text-center">
               <Users className="w-8 h-8 text-blue-600 mx-auto mb-2" />
               <div className="font-medium text-slate-900">Regular</div>
             </div>
           </Card>
           <Card className={`p-4 cursor-pointer transition-all ${studentType === 'mando' ? 'border-purple-500 bg-purple-50' : 'border-slate-200'}`}
-                onClick={() => setStudentType('mando')}>
+            onClick={() => setStudentType('mando')}>
             <div className="text-center">
               <Crown className="w-8 h-8 text-purple-600 mx-auto mb-2" />
               <div className="font-medium text-slate-900">Mando</div>
@@ -66,14 +63,14 @@ export function StudentImportTypeDialog({ onSelectRegular, onSelectMando, onSele
         <label className="text-sm font-medium text-slate-900">Select Gender</label>
         <div className="grid grid-cols-2 gap-4">
           <Card className={`p-4 cursor-pointer transition-all ${gender === 'boys' ? 'border-blue-500 bg-blue-50' : 'border-slate-200'}`}
-                onClick={() => setGender('boys')}>
+            onClick={() => setGender('boys')}>
             <div className="text-center">
               <Users className="w-8 h-8 text-blue-600 mx-auto mb-2" />
               <div className="font-medium text-slate-900">Boys</div>
             </div>
           </Card>
           <Card className={`p-4 cursor-pointer transition-all ${gender === 'girls' ? 'border-pink-500 bg-pink-50' : 'border-slate-200'}`}
-                onClick={() => setGender('girls')}>
+            onClick={() => setGender('girls')}>
             <div className="text-center">
               <Crown className="w-8 h-8 text-pink-600 mx-auto mb-2" />
               <div className="font-medium text-slate-900">Girls</div>
@@ -87,14 +84,14 @@ export function StudentImportTypeDialog({ onSelectRegular, onSelectMando, onSele
         <label className="text-sm font-medium text-slate-900">Import Type</label>
         <div className="grid grid-cols-2 gap-4">
           <Card className={`p-4 cursor-pointer transition-all ${importType === 'batch' ? 'border-green-500 bg-green-50' : 'border-slate-200'}`}
-                onClick={() => setImportType('batch')}>
+            onClick={() => setImportType('batch')}>
             <div className="text-center">
               <div className="font-medium text-slate-900 mb-1">Batch Import</div>
               <div className="text-xs text-slate-600">All years in single sheet</div>
             </div>
           </Card>
           <Card className={`p-4 cursor-pointer transition-all ${importType === 'separate' ? 'border-orange-500 bg-orange-50' : 'border-slate-200'}`}
-                onClick={() => setImportType('separate')}>
+            onClick={() => setImportType('separate')}>
             <div className="text-center">
               <div className="font-medium text-slate-900 mb-1">Separate Import</div>
               <div className="text-xs text-slate-600">Import specific year</div>

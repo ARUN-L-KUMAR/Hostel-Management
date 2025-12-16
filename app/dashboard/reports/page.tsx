@@ -226,36 +226,40 @@ export default function ReportsPage() {
     try {
       const params = new URLSearchParams({ year: selectedYear, month: selectedMonth })
 
-      // Calculate date range for provision usage
+      // Fetch all data in parallel
+      // We need specific monthly data for report metrics, but ALL-TIME data for accurate Inventory Stock calculation
       const startDate = `${selectedYear}-${selectedMonth.padStart(2, '0')}-01`
       const endDate = new Date(parseInt(selectedYear), parseInt(selectedMonth), 0)
       const endDateStr = endDate.toISOString().split('T')[0]
 
-      // Fetch all data in parallel
-      const [provisionsRes, provisionUsageRes, provisionItemsRes, expensesRes, outsidersRes, mandoRes] = await Promise.all([
-        fetch(`/api/provision-purchases?${params}`),
-        fetch(`/api/provision-usage?startDate=${startDate}&endDate=${endDateStr}`),
+      const [provisionsRes, provisionUsageRes, provisionItemsRes, expensesRes, outsidersRes, mandoRes, allPurchasesRes, allUsageRes] = await Promise.all([
+        fetch(`/api/provision-purchases?${params}`), // Monthly purchases
+        fetch(`/api/provision-usage?startDate=${startDate}&endDate=${endDateStr}`), // Monthly usage
         fetch('/api/provisions'),
         fetch(`/api/expenses?${params}`),
         fetch(`/api/outsider-meal-records?${params}`),
-        fetch(`/api/mando-meal-records?${params}`)
+        fetch(`/api/mando-meal-records?${params}`),
+        fetch('/api/provision-purchases'), // All-time purchases for inventory
+        fetch('/api/provision-usage')      // All-time usage for inventory
       ])
 
-      const [provisionsData, provisionUsageData, provisionItemsData, expensesData, outsidersData, mandoData] = await Promise.all([
+      const [provisionsData, provisionUsageData, provisionItemsData, expensesData, outsidersData, mandoData, allPurchasesData, allUsageData] = await Promise.all([
         provisionsRes.json(),
         provisionUsageRes.json(),
         provisionItemsRes.json(),
         expensesRes.json(),
         outsidersRes.json(),
-        mandoRes.json()
+        mandoRes.json(),
+        allPurchasesRes.json(),
+        allUsageRes.json()
       ])
 
       console.log('Fetched data - outsidersData length:', outsidersData.length, 'mandoData length:', mandoData.length)
 
-      // Calculate provision purchases total
+      // Calculate provision purchases total (Monthly)
       const provisionsTotal = provisionsData.reduce((sum: number, item: any) => sum + parseFloat(item.totalAmount || 0), 0)
 
-      // Calculate provision usage totals
+      // Calculate provision usage totals (Monthly)
       const provisionUsageTotal = provisionUsageData.reduce((acc: any, usage: any) => {
         const quantity = parseFloat(usage.quantity || 0)
         const unitCost = parseFloat(usage.provisionItem?.unitCost || 0)
@@ -274,32 +278,45 @@ export default function ReportsPage() {
         }
       }, { totalQuantity: 0, totalCost: 0, items: [] })
 
-      // Calculate inventory stock balance (purchased - used for the month)
+      // Calculate inventory stock balance using ALL-TIME data (Cumulative)
+      // This mimics logic from provisions/page.tsx
       const inventoryStock = provisionItemsData.map((item: any) => {
-        // Find total purchased for this item in the month
-        const purchasedQuantity = provisionsData.reduce((sum: number, purchase: any) => {
+        // Find TOTAL purchased for this item (All time)
+        const totalPurchased = allPurchasesData.reduce((sum: number, purchase: any) => {
           const itemPurchases = purchase.items?.filter((purchaseItem: any) => purchaseItem.provisionItem?.id === item.id) || []
           return sum + itemPurchases.reduce((itemSum: number, purchaseItem: any) => itemSum + parseFloat(purchaseItem.quantity || 0), 0)
         }, 0)
 
-        // Find total used for this item in the month
-        const usedQuantity = provisionUsageData.reduce((sum: number, usage: any) => {
-          return usage.provisionItem?.id === item.id ? sum + parseFloat(usage.quantity || 0) : sum
+        // Find TOTAL used for this item (All time)
+        const totalUsed = allUsageData.reduce((sum: number, usage: any) => {
+          const usageItemId = usage.provisionItemId || usage.provisionItem?.id
+          return usageItemId === item.id ? sum + parseFloat(usage.quantity || 0) : sum
         }, 0)
 
-        const remainingQuantity = purchasedQuantity - usedQuantity
+        const remainingQuantity = totalPurchased - totalUsed
+
+        // Calculate average cost from purchase history for accurate valuation
+        let averageCost = parseFloat(item.unitCost || 0)
+        const itemPurchasesList = allPurchasesData.flatMap((p: any) => p.items || []).filter((i: any) => i.provisionItem?.id === item.id)
+        if (itemPurchasesList.length > 0) {
+          const totalCost = itemPurchasesList.reduce((sum: number, i: any) => sum + (parseFloat(i.quantity) * parseFloat(i.unitCost)), 0)
+          const totalQty = itemPurchasesList.reduce((sum: number, i: any) => sum + parseFloat(i.quantity), 0)
+          if (totalQty > 0) {
+            averageCost = totalCost / totalQty
+          }
+        }
 
         return {
           id: item.id,
           name: item.name,
           unit: item.unit,
-          unitCost: parseFloat(item.unitCost || 0),
+          unitCost: averageCost,
           unitMeasure: item.unitMeasure,
-          purchased: purchasedQuantity,
-          used: usedQuantity,
+          purchased: totalPurchased,
+          used: totalUsed,
           remaining: remainingQuantity
         }
-      }).filter((item: any) => item.remaining > 0) // Only show items with remaining stock
+      }).filter((item: any) => item.remaining > 0.01) // Only show items with valid remaining stock (tolerance for float errors)
 
       const inventoryTotal = {
         totalItems: inventoryStock.length,
@@ -1004,52 +1021,53 @@ export default function ReportsPage() {
     toast.success("CSV exported successfully!")
   }
 
+
   return (
-    <div className="space-y-6">
+    <div className="w-full max-w-full space-y-8 p-4 md:p-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Monthly Reports</h1>
-          <p className="text-muted-foreground">Independent cost reports for each category</p>
+          <h1 className="text-3xl font-bold tracking-tight text-foreground">Monthly Reports</h1>
+          <p className="text-muted-foreground mt-1">Independent cost reports for each category</p>
           {loadedReport && (
             <div className="flex items-center gap-2 mt-2">
-              <div className="flex items-center gap-2 px-3 py-1 bg-green-100 border border-green-300 rounded-full">
-                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                <span className="text-sm font-medium text-green-800">
+              <div className="flex items-center gap-2 px-3 py-1 bg-emerald-500/10 border border-emerald-500/20 rounded-full animate-in fade-in slide-in-from-top-1">
+                <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
+                <span className="text-sm font-medium text-emerald-700 dark:text-emerald-400">
                   Loaded: {loadedReport.reportName}
                 </span>
                 <button
                   onClick={() => setLoadedReport(null)}
-                  className="ml-1 text-green-600 hover:text-green-800"
+                  className="ml-1 text-emerald-600 hover:text-emerald-800 dark:text-emerald-400 dark:hover:text-emerald-300 transition-colors"
                   title="Clear loaded report"
                 >
-                  <X className="w-3 h-3" />
+                  <X className="w-3.5 h-3.5" />
                 </button>
               </div>
             </div>
           )}
         </div>
-        <div className="flex items-center gap-3">
-          <Button variant="outline" onClick={handleSaveClick}>
+        <div className="flex flex-wrap items-center gap-3">
+          <Button variant="outline" onClick={handleSaveClick} className="border-border shadow-sm">
             <Save className="w-4 h-4 mr-2" />
             Save Bill
           </Button>
-          <Button variant="outline" onClick={exportToCSV}>
+          <Button variant="outline" onClick={exportToCSV} className="border-border shadow-sm">
             <FileText className="w-4 h-4 mr-2" />
             Export CSV
           </Button>
-          <Button variant="outline" onClick={handleRefresh}>
+          <Button variant="outline" onClick={handleRefresh} className="border-border shadow-sm">
             Refresh
           </Button>
           <YearPicker
             value={selectedYear}
             onValueChange={setSelectedYear}
-            className="w-32"
+            className="w-32 bg-background border-input"
           />
           <div className="flex items-center space-x-2">
-            <Label>Month:</Label>
+            <Label className="text-muted-foreground">Month:</Label>
             <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-              <SelectTrigger className="w-32">
+              <SelectTrigger className="w-32 bg-background border-input">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -1064,56 +1082,56 @@ export default function ReportsPage() {
 
           {/* Inventory Details Dialog */}
           <Dialog open={inventoryDialogOpen} onOpenChange={setInventoryDialogOpen}>
-            <DialogContent className="max-w-4xl bg-white">
+            <DialogContent className="max-w-4xl bg-background border-border">
               <DialogHeader>
-                <DialogTitle>Inventory Stock Balance - {monthNames[parseInt(selectedMonth) - 1]} {selectedYear}</DialogTitle>
+                <DialogTitle className="text-foreground">Inventory Stock Balance - {monthNames[parseInt(selectedMonth) - 1]} {selectedYear}</DialogTitle>
               </DialogHeader>
               <div className="space-y-4">
-                <div className="text-sm text-gray-600">
+                <div className="text-sm text-muted-foreground">
                   Items with remaining stock after accounting for usage in the selected month.
                 </div>
-                <div className="border rounded-lg">
+                <div className="border border-border rounded-lg overflow-hidden">
                   <table className="w-full">
-                    <thead className="bg-gray-50">
+                    <thead className="bg-muted/50">
                       <tr>
-                        <th className="px-4 py-2 text-left text-sm font-medium text-gray-700">Item Name</th>
-                        <th className="px-4 py-2 text-right text-sm font-medium text-gray-700">Purchased</th>
-                        <th className="px-4 py-2 text-right text-sm font-medium text-gray-700">Used</th>
-                        <th className="px-4 py-2 text-right text-sm font-medium text-gray-700">Remaining</th>
-                        <th className="px-4 py-2 text-right text-sm font-medium text-gray-700">Unit Cost</th>
-                        <th className="px-4 py-2 text-right text-sm font-medium text-gray-700">Value</th>
+                        <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Item Name</th>
+                        <th className="px-4 py-3 text-right text-sm font-medium text-muted-foreground">Purchased</th>
+                        <th className="px-4 py-3 text-right text-sm font-medium text-muted-foreground">Used</th>
+                        <th className="px-4 py-3 text-right text-sm font-medium text-muted-foreground">Remaining</th>
+                        <th className="px-4 py-3 text-right text-sm font-medium text-muted-foreground">Unit Cost</th>
+                        <th className="px-4 py-3 text-right text-sm font-medium text-muted-foreground">Value</th>
                       </tr>
                     </thead>
-                    <tbody>
+                    <tbody className="divide-y divide-border/50">
                       {reportData?.provisions.inventory.items.map((item: any) => (
-                        <tr key={item.id} className="border-t">
-                          <td className="px-4 py-2 text-sm font-medium">{item.name}</td>
-                          <td className="px-4 py-2 text-sm text-right">{item.purchased.toFixed(2)} {item.unit}</td>
-                          <td className="px-4 py-2 text-sm text-right">{item.used.toFixed(2)} {item.unit}</td>
-                          <td className="px-4 py-2 text-sm text-right font-medium text-green-600">{item.remaining.toFixed(2)} {item.unit}</td>
-                          <td className="px-4 py-2 text-sm text-right">₹{item.unitCost.toFixed(2)}</td>
-                          <td className="px-4 py-2 text-sm text-right">₹{(item.remaining * item.unitCost).toFixed(2)}</td>
+                        <tr key={item.id} className="hover:bg-muted/20 transition-colors">
+                          <td className="px-4 py-2.5 text-sm font-medium text-foreground">{item.name}</td>
+                          <td className="px-4 py-2.5 text-sm text-right text-muted-foreground">{item.purchased.toFixed(2)} {item.unit}</td>
+                          <td className="px-4 py-2.5 text-sm text-right text-muted-foreground">{item.used.toFixed(2)} {item.unit}</td>
+                          <td className="px-4 py-2.5 text-sm text-right font-medium text-emerald-600 dark:text-emerald-400">{item.remaining.toFixed(2)} {item.unit}</td>
+                          <td className="px-4 py-2.5 text-sm text-right text-muted-foreground">₹{item.unitCost.toFixed(2)}</td>
+                          <td className="px-4 py-2.5 text-sm text-right text-foreground">₹{(item.remaining * item.unitCost).toFixed(2)}</td>
                         </tr>
                       ))}
                     </tbody>
-                    <tfoot className="bg-gray-50 border-t">
+                    <tfoot className="bg-muted/30 border-t border-border">
                       <tr>
-                        <td className="px-4 py-2 text-sm font-medium">Total</td>
-                        <td className="px-4 py-2 text-sm text-right">-</td>
-                        <td className="px-4 py-2 text-sm text-right">-</td>
-                        <td className="px-4 py-2 text-sm text-right font-medium">
+                        <td className="px-4 py-3 text-sm font-medium text-foreground">Total</td>
+                        <td className="px-4 py-3 text-sm text-right">-</td>
+                        <td className="px-4 py-3 text-sm text-right">-</td>
+                        <td className="px-4 py-3 text-sm text-right font-medium text-muted-foreground">
                           {reportData?.provisions.inventory.items.reduce((sum: number, item: any) => sum + item.remaining, 0).toFixed(2)} units
                         </td>
-                        <td className="px-4 py-2 text-sm text-right">-</td>
-                        <td className="px-4 py-2 text-sm text-right font-medium">
+                        <td className="px-4 py-3 text-sm text-right">-</td>
+                        <td className="px-4 py-3 text-sm text-right font-medium text-foreground">
                           ₹{reportData?.provisions.inventory.totalValue.toLocaleString()}
                         </td>
                       </tr>
                     </tfoot>
                   </table>
                 </div>
-                <div className="flex justify-end">
-                  <Button variant="outline" onClick={() => setInventoryDialogOpen(false)}>
+                <div className="flex justify-end pt-2">
+                  <Button variant="outline" onClick={() => setInventoryDialogOpen(false)} className="border-border">
                     Close
                   </Button>
                 </div>
@@ -1124,82 +1142,89 @@ export default function ReportsPage() {
       </div>
 
       {loading ? (
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-          <span className="ml-2 text-slate-600">Loading report data...</span>
+        <div className="flex items-center justify-center py-24 border border-dashed border-border rounded-xl bg-muted/5">
+          <div className="flex flex-col items-center gap-3">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            <span className="text-muted-foreground font-medium">Loading report data...</span>
+          </div>
         </div>
       ) : reportData ? (
-        <div className="grid gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-6 w-full">
           {/* Provisions Report */}
-          <Card className="md:col-span-3">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-lg font-semibold flex items-center">
-                <Package className="h-5 w-5 mr-2 text-blue-600" />
+          <Card className="col-span-1 md:col-span-12 border-border/60 shadow-sm transition-all hover:shadow-md">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4 border-b border-border/40">
+              <CardTitle className="text-lg font-semibold flex items-center text-foreground">
+                <div className="p-2 bg-blue-500/10 rounded-lg mr-3">
+                  <Package className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                </div>
                 Provisions Overview - {monthNames[parseInt(selectedMonth) - 1]} {selectedYear}
               </CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="pt-6">
               <div className="grid gap-4 md:grid-cols-3">
                 {/* Provision Purchases */}
-                <div className="p-4 border border-blue-200 rounded-lg bg-blue-50">
-                  <div className="flex items-center justify-between">
+                <div className="p-5 border border-blue-200/50 dark:border-blue-900/30 rounded-xl bg-blue-50/50 dark:bg-blue-950/10 transition-colors hover:bg-blue-50/80 dark:hover:bg-blue-950/20">
+                  <div className="flex items-center justify-between mb-3">
                     <div>
-                      <p className="text-sm font-medium text-blue-800">Purchases</p>
-                      <p className="text-xs text-blue-600">Total spent on provisions</p>
+                      <p className="text-sm font-semibold text-blue-900 dark:text-blue-300">Purchases</p>
+                      <p className="text-xs text-blue-600/80 dark:text-blue-400/80 mt-0.5">Total spent on provisions</p>
                     </div>
-                    <Package className="h-8 w-8 text-blue-600" />
+                    <div className="p-2 bg-blue-500/10 rounded-full">
+                      <Package className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                    </div>
                   </div>
-                  <div className="mt-2">
-                    <div className="text-2xl font-bold text-blue-900">
+                  <div>
+                    <div className="text-2xl font-bold text-blue-950 dark:text-blue-100">
                       ₹{reportData.provisions.totalCost.toLocaleString()}
                     </div>
                   </div>
                 </div>
 
                 {/* Provision Usage */}
-                <div className="p-4 border border-green-200 rounded-lg bg-green-50">
-                  <div className="flex items-center justify-between">
+                <div className="p-5 border border-emerald-200/50 dark:border-emerald-900/30 rounded-xl bg-emerald-50/50 dark:bg-emerald-950/10 transition-colors hover:bg-emerald-50/80 dark:hover:bg-emerald-950/20">
+                  <div className="flex items-center justify-between mb-3">
                     <div>
-                      <p className="text-sm font-medium text-green-800">Usage</p>
-                      <p className="text-xs text-green-600">Provisions consumed</p>
+                      <p className="text-sm font-semibold text-emerald-900 dark:text-emerald-300">Usage</p>
+                      <p className="text-xs text-emerald-600/80 dark:text-emerald-400/80 mt-0.5">Provisions consumed</p>
                     </div>
-                    <Users className="h-8 w-8 text-green-600" />
+                    <div className="p-2 bg-emerald-500/10 rounded-full">
+                      <Users className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+                    </div>
                   </div>
-                  <div className="mt-2">
-                    <div className="text-2xl font-bold text-green-900">
+                  <div>
+                    <div className="text-2xl font-bold text-emerald-950 dark:text-emerald-100">
                       ₹{reportData.provisions.usage.totalCost.toLocaleString()}
                     </div>
-                    <p className="text-xs text-green-600">
+                    <p className="text-xs font-medium text-emerald-600/90 dark:text-emerald-400/90 mt-1">
                       {reportData.provisions.usage.totalQuantity.toFixed(2)} units used
                     </p>
                   </div>
                 </div>
 
                 {/* Inventory Stock */}
-                <div className="p-4 border border-purple-200 rounded-lg bg-purple-50">
-                  <div className="flex items-center justify-between">
+                <div className="p-5 border border-purple-200/50 dark:border-purple-900/30 rounded-xl bg-purple-50/50 dark:bg-purple-950/10 transition-colors hover:bg-purple-50/80 dark:hover:bg-purple-950/20">
+                  <div className="flex items-center justify-between mb-3">
                     <div>
-                      <p className="text-sm font-medium text-purple-800">Inventory</p>
-                      <p className="text-xs text-purple-600">Stock balance</p>
+                      <p className="text-sm font-semibold text-purple-900 dark:text-purple-300">Inventory</p>
+                      <p className="text-xs text-purple-600/80 dark:text-purple-400/80 mt-0.5">Stock balance</p>
                     </div>
                     <div className="flex items-center gap-2">
                       <Button
                         size="sm"
-                        variant="outline"
+                        variant="secondary"
                         onClick={() => setInventoryDialogOpen(true)}
-                        className="h-8 px-2"
+                        className="h-7 px-2.5 bg-white/50 hover:bg-white dark:bg-black/20 dark:hover:bg-black/30 text-xs border border-purple-200/50 dark:border-purple-800/30"
                       >
-                        <Eye className="h-3 w-3 mr-1" />
+                        <Eye className="h-3 w-3 mr-1.5" />
                         View
                       </Button>
-                      <UserCheck className="h-8 w-8 text-purple-600" />
                     </div>
                   </div>
-                  <div className="mt-2">
-                    <div className="text-2xl font-bold text-purple-900">
+                  <div>
+                    <div className="text-2xl font-bold text-purple-950 dark:text-purple-100">
                       ₹{reportData.provisions.inventory.totalValue.toLocaleString()}
                     </div>
-                    <p className="text-xs text-purple-600">
+                    <p className="text-xs font-medium text-purple-600/90 dark:text-purple-400/90 mt-1">
                       {reportData.provisions.inventory.totalItems} items remaining
                     </p>
                   </div>
@@ -1209,27 +1234,34 @@ export default function ReportsPage() {
           </Card>
 
           {/* Expenses Report */}
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-lg font-semibold flex items-center">
-                <DollarSign className="h-5 w-5 mr-2 text-orange-600" />
+          <Card className="col-span-1 md:col-span-6 border-border/60 shadow-sm transition-all hover:shadow-md">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4 border-b border-border/40">
+              <CardTitle className="text-lg font-semibold flex items-center text-foreground">
+                <div className="p-2 bg-orange-500/10 rounded-lg mr-3">
+                  <DollarSign className="h-5 w-5 text-orange-600 dark:text-orange-400" />
+                </div>
                 Expenses
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div className="text-3xl font-bold text-orange-600">
-                  ₹{reportData.expenses.totalAmount.toLocaleString()}
-                </div>
-                <div className="text-sm text-muted-foreground">
-                  {reportData.expenses.count} expenses for {monthNames[parseInt(selectedMonth) - 1]} {selectedYear}
+            <CardContent className="pt-6">
+              <div className="space-y-6">
+                <div>
+                  <div className="text-3xl font-bold text-foreground">
+                    ₹{reportData.expenses.totalAmount.toLocaleString()}
+                  </div>
+                  <div className="text-sm text-muted-foreground mt-1">
+                    {reportData.expenses.count} expenses for {monthNames[parseInt(selectedMonth) - 1]} {selectedYear}
+                  </div>
                 </div>
                 {Object.keys(reportData.expenses.byType).length > 0 && (
-                  <div className="space-y-2 pt-2 border-t border-slate-200">
+                  <div className="space-y-3 pt-4 border-t border-border/50">
                     {Object.entries(reportData.expenses.byType).map(([type, data]: [string, any]) => (
-                      <div key={type} className="flex justify-between text-sm">
-                        <span className="text-slate-600 capitalize">{type.toLowerCase()}:</span>
-                        <span>{data.count} items (₹{data.amount.toLocaleString()})</span>
+                      <div key={type} className="flex justify-between items-center text-sm p-2 rounded-lg hover:bg-muted/50 transition-colors">
+                        <span className="text-muted-foreground font-medium capitalize flex items-center gap-2">
+                          <div className="w-1.5 h-1.5 rounded-full bg-slate-400"></div>
+                          {type.toLowerCase()}
+                        </span>
+                        <span className="text-foreground font-medium">{data.count} items <span className="text-muted-foreground ml-1">(₹{data.amount.toLocaleString()})</span></span>
                       </div>
                     ))}
                   </div>
@@ -1239,45 +1271,48 @@ export default function ReportsPage() {
           </Card>
 
           {/* Labour Charges Report */}
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-lg font-semibold flex items-center">
-                <Users className="h-5 w-5 mr-2 text-amber-600" />
+          <Card className="col-span-1 md:col-span-6 border-border/60 shadow-sm transition-all hover:shadow-md">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4 border-b border-border/40">
+              <CardTitle className="text-lg font-semibold flex items-center text-foreground">
+                <div className="p-2 bg-amber-500/10 rounded-lg mr-3">
+                  <Users className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+                </div>
                 Labour Charges
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
+            <CardContent className="pt-6">
+              <div className="space-y-6">
                 {/* Monthly Labour Charge Input */}
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium text-amber-800">Monthly Labour Charge</Label>
+                <div className="space-y-3">
+                  <Label className="text-sm font-medium text-foreground">Monthly Labour Charge</Label>
                   <div className="flex items-center space-x-2">
-                    <span className="text-lg font-medium text-amber-700">₹</span>
+                    <span className="text-lg font-medium text-muted-foreground">₹</span>
                     <Input
                       type="number"
                       value={monthlyLabourCharge ?? ''}
                       onChange={(e) => setMonthlyLabourCharge(e.target.value ? parseFloat(e.target.value) : null)}
-                      className="flex-1 h-10 text-lg font-semibold border-amber-300 focus:border-amber-500"
+                      className="flex-1 h-11 text-lg font-semibold bg-background border-input focus:border-amber-500/50"
+                      placeholder="0.00"
                     />
                   </div>
                 </div>
 
                 {/* Per Day Calculation Display */}
-                <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                <div className="bg-amber-500/5 border border-amber-500/10 rounded-xl p-5">
                   <div className="flex items-center justify-between">
                     <div>
-                      <div className="text-lg font-semibold text-amber-800">
+                      <div className="text-base font-semibold text-amber-900 dark:text-amber-400">
                         Per Day Labour Charge
                       </div>
-                      <div className="text-sm text-amber-600">
+                      <div className="text-xs text-amber-700/80 dark:text-amber-500/80 mt-1">
                         {getDaysInMonth(selectedYear, selectedMonth)} days in {monthNames[parseInt(selectedMonth) - 1]} {selectedYear}
                       </div>
                     </div>
                     <div className="text-right">
-                      <div className="text-2xl font-bold text-amber-700">
+                      <div className="text-2xl font-bold text-amber-700 dark:text-amber-400">
                         ₹{getPerDayLabourCharge().toFixed(2)}
                       </div>
-                      <div className="text-xs text-amber-600">
+                      <div className="text-[10px] uppercase tracking-wider font-semibold text-amber-600/70 dark:text-amber-500/70 mt-0.5">
                         per day
                       </div>
                     </div>
@@ -1285,11 +1320,11 @@ export default function ReportsPage() {
                 </div>
 
                 {/* Total Monthly Display */}
-                <div className="flex items-center justify-between pt-2 border-t border-amber-200">
-                  <div className="text-sm font-medium text-amber-800">
+                <div className="flex items-center justify-between pt-4 border-t border-border/50">
+                  <div className="text-sm font-medium text-muted-foreground">
                     Total Monthly Labour Cost
                   </div>
-                  <div className="text-xl font-bold text-amber-700">
+                  <div className="text-xl font-bold text-foreground">
                     ₹{monthlyLabourCharge?.toLocaleString() || '0'}
                   </div>
                 </div>
@@ -1298,34 +1333,36 @@ export default function ReportsPage() {
           </Card>
 
           {/* Incomes Report */}
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-lg font-semibold flex items-center">
-                <TrendingUp className="h-5 w-5 mr-2 text-emerald-600" />
+          <Card className="col-span-1 md:col-span-12 border-border/60 shadow-sm transition-all hover:shadow-md">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4 border-b border-border/40">
+              <CardTitle className="text-lg font-semibold flex items-center text-foreground">
+                <div className="p-2 bg-emerald-500/10 rounded-lg mr-3">
+                  <TrendingUp className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+                </div>
                 Mess Income
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
+            <CardContent className="pt-6">
+              <div className="space-y-6">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <div>
-                    <div className="text-2xl font-bold text-emerald-600">
+                    <div className="text-3xl font-bold text-emerald-600 dark:text-emerald-400">
                       ₹{reportData.incomes.totalAdvancePaid.toLocaleString()}
                     </div>
-                    <div className="text-sm text-emerald-700 font-medium">
-                      Advance Paid
+                    <div className="text-sm text-muted-foreground font-medium mt-1">
+                      Total Advance Paid
                     </div>
                   </div>
-                  <div className="space-y-2">
-                    <Label className="text-sm font-medium">Semester Selection</Label>
+                  <div className="space-y-2 w-full sm:w-auto">
+                    <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Semester Selection</Label>
                     {loadingSemesters ? (
-                      <div className="flex items-center justify-center h-8 w-32 border border-gray-300 rounded-md bg-white">
-                        <div className="animate-spin rounded-full h-3 w-3 border-b border-emerald-600 mr-1"></div>
-                        <span className="text-xs text-gray-600">Loading...</span>
+                      <div className="flex items-center justify-center h-10 w-full sm:w-48 border border-input rounded-md bg-background px-3">
+                        <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-primary mr-2"></div>
+                        <span className="text-xs text-muted-foreground">Loading...</span>
                       </div>
                     ) : (
                       <Select value={selectedSemesterId} onValueChange={handleSemesterChange}>
-                        <SelectTrigger className="w-48 h-8">
+                        <SelectTrigger className="w-full sm:w-56 h-10 bg-background">
                           <SelectValue placeholder="Select semester" />
                         </SelectTrigger>
                         <SelectContent>
@@ -1341,23 +1378,26 @@ export default function ReportsPage() {
                   </div>
                 </div>
 
-                <div className="border-t border-gray-200 pt-3 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-2">
+                <div className="border-t border-border/50 pt-5 space-y-5">
+                  <div className="flex items-center justify-between p-4 bg-blue-500/5 border border-blue-500/10 rounded-xl">
+                    <div className="flex items-center space-x-3">
+                      <div className="p-2 bg-blue-500/10 rounded-full">
+                        <DollarSign className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                      </div>
                       <div>
-                        <div className="text-lg font-semibold text-blue-600">
+                        <div className="text-lg font-semibold text-blue-700 dark:text-blue-300">
                           ₹{reportData.incomes.bankInterestIncome.toFixed(2)}
                         </div>
-                        <div className="text-xs text-blue-700 flex items-center">
+                        <div className="text-xs text-blue-600/80 dark:text-blue-400/80 flex items-center mt-0.5">
                           Bank Interest Income (
                           {editingInterestRate ? (
-                            <div className="flex items-center space-x-1">
+                            <div className="flex items-center space-x-1 mx-1">
                               <Input
                                 type="number"
                                 step="0.01"
                                 value={bankInterestRate}
                                 onChange={(e) => setBankInterestRate(parseFloat(e.target.value) || 0)}
-                                className="w-16 h-5 text-xs px-1"
+                                className="w-16 h-6 text-xs px-1 bg-white dark:bg-black/20 border-blue-200"
                                 onBlur={() => setEditingInterestRate(false)}
                                 onKeyDown={(e) => {
                                   if (e.key === 'Enter') {
@@ -1370,11 +1410,11 @@ export default function ReportsPage() {
                             </div>
                           ) : (
                             <span
-                              className="cursor-pointer hover:bg-blue-100 px-1 rounded flex items-center space-x-1"
+                              className="cursor-pointer hover:bg-blue-500/10 px-1.5 py-0.5 rounded mx-1 flex items-center space-x-1 transition-colors border border-transparent hover:border-blue-200/50"
                               onClick={() => setEditingInterestRate(true)}
                             >
-                              <span>{bankInterestRate.toFixed(2)}%</span>
-                              <Pencil className="h-3 w-3 text-blue-500" />
+                              <span className="font-semibold">{bankInterestRate.toFixed(2)}%</span>
+                              <Pencil className="h-3 w-3 text-blue-500 opacity-70" />
                             </span>
                           )}
                           )
@@ -1382,87 +1422,88 @@ export default function ReportsPage() {
                       </div>
                     </div>
                     <div className="text-right">
-                      <div className="text-sm text-gray-600">
+                      <div className="text-sm font-medium text-blue-800 dark:text-blue-200">
                         Monthly Interest
                       </div>
-                      <div className="text-xs text-gray-500">
+                      <div className="text-xs text-blue-600/70 dark:text-blue-400/70 mt-0.5">
                         For {monthNames[parseInt(selectedMonth) - 1]} {selectedYear}
                       </div>
                     </div>
                   </div>
 
                   {/* External Incomes List */}
-                  <div className="space-y-3">
+                  <div className="space-y-4">
                     <div className="flex items-center justify-between">
-                      <div className="text-sm font-medium text-purple-800">
+                      <div className="text-sm font-semibold text-foreground flex items-center gap-2">
+                        <div className="w-1.5 h-1.5 rounded-full bg-purple-500"></div>
                         Other External Income Sources
                       </div>
                       <Button
                         size="sm"
-                        variant="outline"
+                        variant="secondary"
                         onClick={() => setShowAddIncome(true)}
-                        className="h-7 px-2 text-xs"
+                        className="h-8 px-3 text-xs bg-purple-500/10 text-purple-700 hover:bg-purple-500/20 border border-purple-200/50"
                       >
-                        <Plus className="h-3 w-3 mr-1" />
+                        <Plus className="h-3 w-3 mr-1.5" />
                         Add Income
                       </Button>
                     </div>
 
                     {reportData.incomes.externalIncomes.length > 0 ? (
-                      <div className="space-y-2">
+                      <div className="space-y-3">
                         {reportData.incomes.externalIncomes.map((income) => (
-                          <div key={income.id} className="flex items-center justify-between p-2 bg-purple-50 rounded border border-purple-200">
+                          <div key={income.id} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg border border-border/50 hover:bg-muted/50 transition-colors">
                             <div className="flex-1">
-                              <div className="text-sm font-medium text-purple-900">{income.name}</div>
+                              <div className="text-sm font-medium text-foreground">{income.name}</div>
                             </div>
-                            <div className="flex items-center space-x-2">
-                              <div className="text-sm font-semibold text-purple-700">
+                            <div className="flex items-center space-x-3">
+                              <div className="text-sm font-semibold text-muted-foreground">
                                 ₹{income.amount.toLocaleString()}
                               </div>
                               <Button
                                 size="sm"
                                 variant="ghost"
                                 onClick={() => removeExternalIncome(income.id)}
-                                className="h-6 w-6 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
+                                className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-full"
                               >
-                                <X className="h-3 w-3" />
+                                <X className="h-3.5 w-3.5" />
                               </Button>
                             </div>
                           </div>
                         ))}
-                        <div className="flex items-center justify-between p-2 bg-purple-100 rounded border border-purple-300">
-                          <div className="text-sm font-medium text-purple-900">Total External Income</div>
-                          <div className="text-sm font-bold text-purple-800">
+                        <div className="flex items-center justify-between p-3 bg-purple-500/5 rounded-lg border border-purple-500/10">
+                          <div className="text-sm font-bold text-purple-900 dark:text-purple-300">Total External Income</div>
+                          <div className="text-sm font-bold text-purple-700 dark:text-purple-400">
                             ₹{reportData.incomes.totalExternalIncome.toLocaleString()}
                           </div>
                         </div>
                       </div>
                     ) : (
-                      <div className="text-center py-4 text-purple-600 text-sm">
-                        No external income sources added
+                      <div className="text-center py-6 border border-dashed border-border rounded-xl bg-muted/5">
+                        <p className="text-sm text-muted-foreground">No external income sources added</p>
                       </div>
                     )}
 
                     {/* Add Income Dialog */}
                     {showAddIncome && (
-                      <div className="p-3 bg-purple-50 rounded border border-purple-200">
-                        <div className="space-y-3">
-                          <div className="text-sm font-medium text-purple-800">Add New Income Source</div>
-                          <div className="grid grid-cols-2 gap-2">
+                      <div className="p-4 bg-muted/50 rounded-xl border border-border mt-3 animate-in fade-in slide-in-from-top-2">
+                        <div className="space-y-4">
+                          <div className="text-sm font-medium text-foreground">Add New Income Source</div>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <Input
                               placeholder="Income name"
                               value={newIncomeName}
                               onChange={(e) => setNewIncomeName(e.target.value)}
-                              className="h-8 text-xs"
+                              className="h-9 text-sm bg-background"
                             />
-                            <div className="flex items-center space-x-1">
-                              <span className="text-xs text-gray-600">₹</span>
+                            <div className="flex items-center space-x-2">
+                              <span className="text-sm text-muted-foreground font-medium">₹</span>
                               <Input
                                 type="number"
                                 placeholder="Amount"
                                 value={newIncomeAmount}
                                 onChange={(e) => setNewIncomeAmount(e.target.value)}
-                                className="h-8 text-xs"
+                                className="h-9 text-sm bg-background"
                                 onKeyDown={(e) => {
                                   if (e.key === 'Enter') {
                                     addExternalIncome()
@@ -1471,23 +1512,23 @@ export default function ReportsPage() {
                               />
                             </div>
                           </div>
-                          <div className="flex justify-end space-x-2">
+                          <div className="flex justify-end space-x-3 pt-2">
                             <Button
                               size="sm"
-                              variant="outline"
+                              variant="ghost"
                               onClick={() => {
                                 setShowAddIncome(false)
                                 setNewIncomeName('')
                                 setNewIncomeAmount('')
                               }}
-                              className="h-7 px-3 text-xs"
+                              className="h-8 px-4 text-xs"
                             >
                               Cancel
                             </Button>
                             <Button
                               size="sm"
                               onClick={addExternalIncome}
-                              className="h-7 px-3 text-xs bg-purple-600 hover:bg-purple-700"
+                              className="h-8 px-4 text-xs bg-purple-600 hover:bg-purple-700 text-white shadow-sm"
                             >
                               Add Income
                             </Button>
@@ -1497,18 +1538,18 @@ export default function ReportsPage() {
                     )}
                   </div>
 
-                  <div className="border-t border-gray-300 pt-2">
+                  <div className="border-t border-border/50 pt-5">
                     <div className="flex items-center justify-between">
                       <div>
-                        <div className="text-xl font-bold text-green-700">
+                        <div className="text-2xl font-bold text-foreground">
                           ₹{reportData.incomes.totalIncome.toLocaleString()}
                         </div>
-                        <div className="text-sm text-green-800 font-medium">
+                        <div className="text-sm text-muted-foreground font-medium mt-1">
                           Total Income
                         </div>
                       </div>
                       <div className="text-right">
-                        <div className="text-xs text-gray-500">
+                        <div className="text-xs text-muted-foreground bg-muted py-1 px-3 rounded-full">
                           Advance + Interest + External
                         </div>
                       </div>
@@ -1516,11 +1557,12 @@ export default function ReportsPage() {
                   </div>
                 </div>
 
-                <div className="text-sm text-muted-foreground">
-                  {reportData.incomes.studentCount} students paid advance for {reportData.incomes.semesterName}
+                <div className="text-sm text-muted-foreground flex items-center gap-2">
+                  <Users className="w-4 h-4 opacity-70" />
+                  <span>{reportData.incomes.studentCount} students paid advance for <span className="font-semibold text-foreground">{reportData.incomes.semesterName}</span></span>
                 </div>
                 {selectedSemester && (
-                  <div className="text-xs text-gray-500">
+                  <div className="text-xs text-muted-foreground/70 pl-6">
                     {new Date(selectedSemester.startDate).toLocaleDateString()} - {new Date(selectedSemester.endDate).toLocaleDateString()}
                   </div>
                 )}
@@ -1529,27 +1571,29 @@ export default function ReportsPage() {
           </Card>
 
           {/* Outsiders Report */}
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-lg font-semibold flex items-center">
-                <Users className="h-5 w-5 mr-2 text-green-600" />
+          <Card className="col-span-1 md:col-span-6 border-border/60 shadow-sm transition-all hover:shadow-md">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4 border-b border-border/40">
+              <CardTitle className="text-lg font-semibold flex items-center text-foreground">
+                <div className="p-2 bg-green-500/10 rounded-lg mr-3">
+                  <Users className="h-5 w-5 text-green-600 dark:text-green-400" />
+                </div>
                 Outsiders
               </CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="pt-6">
               <div className="space-y-4">
-                <div className="text-3xl font-bold text-green-600">
+                <div className="text-3xl font-bold text-green-600 dark:text-green-400">
                   ₹{(reportData.outsiders.totalMeals * outsiderRate).toLocaleString()}
                 </div>
-                <div className="text-sm text-muted-foreground flex items-center">
-                  {reportData.outsiders.totalMeals} meals × ₹
+                <div className="text-sm text-muted-foreground flex items-center p-2 bg-muted/40 rounded-lg border border-border/40 w-fit">
+                  <span className="font-semibold text-foreground mr-1">{reportData.outsiders.totalMeals}</span> meals × ₹
                   {editingOutsiderRate ? (
                     <div className="flex items-center space-x-1 ml-1">
                       <Input
                         type="number"
                         value={outsiderRate}
                         onChange={(e) => setOutsiderRate(parseInt(e.target.value) || 0)}
-                        className="w-16 h-6 text-xs px-1"
+                        className="w-16 h-7 text-xs px-1 bg-background"
                         onBlur={() => setEditingOutsiderRate(false)}
                         onKeyDown={(e) => {
                           if (e.key === 'Enter') {
@@ -1561,11 +1605,12 @@ export default function ReportsPage() {
                     </div>
                   ) : (
                     <span
-                      className="cursor-pointer hover:bg-green-100 px-1 rounded ml-1 flex items-center space-x-1"
+                      className="cursor-pointer hover:bg-muted/60 px-1.5 py-0.5 rounded ml-1 flex items-center space-x-1 border border-transparent hover:border-border transition-all"
                       onClick={() => setEditingOutsiderRate(true)}
+                      title="Edit Rate"
                     >
-                      <span>{outsiderRate}</span>
-                      <Pencil className="h-3 w-3 text-green-500" />
+                      <span className="font-medium text-foreground">{outsiderRate}</span>
+                      <Pencil className="h-3 w-3 text-muted-foreground opacity-70" />
                     </span>
                   )}
                 </div>
@@ -1574,27 +1619,29 @@ export default function ReportsPage() {
           </Card>
 
           {/* Mando Report */}
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-lg font-semibold flex items-center">
-                <UserCheck className="h-5 w-5 mr-2 text-orange-600" />
+          <Card className="col-span-1 md:col-span-6 border-border/60 shadow-sm transition-all hover:shadow-md">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4 border-b border-border/40">
+              <CardTitle className="text-lg font-semibold flex items-center text-foreground">
+                <div className="p-2 bg-orange-500/10 rounded-lg mr-3">
+                  <UserCheck className="h-5 w-5 text-orange-600 dark:text-orange-400" />
+                </div>
                 Mando Students
               </CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="pt-6">
               <div className="space-y-4">
-                <div className="text-3xl font-bold text-orange-600">
+                <div className="text-3xl font-bold text-orange-600 dark:text-orange-400">
                   ₹{(reportData.mando.totalMeals * mandoRate).toLocaleString()}
                 </div>
-                <div className="text-sm text-muted-foreground flex items-center">
-                  {reportData.mando.totalMeals} meals × ₹
+                <div className="text-sm text-muted-foreground flex items-center p-2 bg-muted/40 rounded-lg border border-border/40 w-fit">
+                  <span className="font-semibold text-foreground mr-1">{reportData.mando.totalMeals}</span> meals × ₹
                   {editingMandoRate ? (
                     <div className="flex items-center space-x-1 ml-1">
                       <Input
                         type="number"
                         value={mandoRate}
                         onChange={(e) => setMandoRate(parseInt(e.target.value) || 0)}
-                        className="w-16 h-6 text-xs px-1"
+                        className="w-16 h-7 text-xs px-1 bg-background"
                         onBlur={() => setEditingMandoRate(false)}
                         onKeyDown={(e) => {
                           if (e.key === 'Enter') {
@@ -1606,20 +1653,24 @@ export default function ReportsPage() {
                     </div>
                   ) : (
                     <span
-                      className="cursor-pointer hover:bg-orange-100 px-1 rounded ml-1 flex items-center space-x-1"
+                      className="cursor-pointer hover:bg-muted/60 px-1.5 py-0.5 rounded ml-1 flex items-center space-x-1 border border-transparent hover:border-border transition-all"
                       onClick={() => setEditingMandoRate(true)}
+                      title="Edit Rate"
                     >
-                      <span>{mandoRate}</span>
-                      <Pencil className="h-3 w-3 text-orange-500" />
+                      <span className="font-medium text-foreground">{mandoRate}</span>
+                      <Pencil className="h-3 w-3 text-muted-foreground opacity-70" />
                     </span>
                   )}
                 </div>
                 {reportData.mando.byGender && (
-                  <div className="space-y-2 pt-2 border-t border-slate-200">
+                  <div className="space-y-2 pt-4 border-t border-border/50">
                     {Object.entries(reportData.mando.byGender).map(([genderName, data]: [string, any]) => (
-                      <div key={genderName} className="flex justify-between text-sm">
-                        <span className="text-slate-600">{genderName}:</span>
-                        <span>{data.meals} meals (₹{data.cost.toLocaleString()})</span>
+                      <div key={genderName} className="flex justify-between text-sm items-center">
+                        <span className="text-muted-foreground font-medium flex items-center gap-2">
+                          <div className={`w-1.5 h-1.5 rounded-full ${genderName === 'Boys' ? 'bg-blue-500' : 'bg-pink-500'}`}></div>
+                          {genderName}
+                        </span>
+                        <span className="text-foreground">{data.meals} meals <span className="text-muted-foreground text-xs ml-1">(₹{data.cost.toLocaleString()})</span></span>
                       </div>
                     ))}
                   </div>
@@ -1629,124 +1680,136 @@ export default function ReportsPage() {
           </Card>
 
           {/* Per Student Per Day Cost Analysis */}
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-lg font-semibold flex items-center">
-                <TrendingUp className="h-5 w-5 mr-2 text-indigo-600" />
+          <Card className="col-span-1 md:col-span-12 border-border/60 shadow-md">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4 border-b border-border/40">
+              <CardTitle className="text-lg font-semibold flex items-center text-foreground">
+                <div className="p-2 bg-indigo-500/10 rounded-lg mr-3">
+                  <TrendingUp className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+                </div>
                 Per Student Per Day Cost Analysis
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
+            <CardContent className="pt-6">
+              <div className="space-y-6">
                 {perStudentCosts ? (
                   <>
-                    <div className="text-sm text-gray-600 mb-4">
-                      Based on {perStudentCosts.totalStudents} students for {monthNames[parseInt(selectedMonth) - 1]} {selectedYear}
+                    <div className="text-sm text-muted-foreground mb-4">
+                      Based on <span className="font-bold text-foreground">{perStudentCosts.totalStudents}</span> students for {monthNames[parseInt(selectedMonth) - 1]} {selectedYear}
                     </div>
 
                     {/* Total Mandays Display */}
-                    <div className="mb-6 p-4 bg-slate-50 border border-slate-200 rounded-lg">
-                      <div className="space-y-3">
+                    <div className="mb-6 p-5 bg-muted/40 border border-border/60 rounded-xl">
+                      <div className="space-y-5">
                         <div className="flex items-center justify-between">
-                          <div className="flex items-center space-x-2">
-                            <Calendar className="h-5 w-5 text-slate-600" />
+                          <div className="flex items-center space-x-3">
+                            <div className="p-1.5 bg-background border border-border rounded-md shadow-sm">
+                              <Calendar className="h-4 w-4 text-muted-foreground" />
+                            </div>
                             <div>
-                              <div className="text-lg font-semibold text-slate-800">
+                              <div className="text-base font-semibold text-foreground">
                                 Total Mandays Breakdown
                               </div>
-                              <div className="text-xs text-slate-600">
+                              <div className="text-xs text-muted-foreground mt-0.5">
                                 Separate calculations for labour and provision charges
                               </div>
                             </div>
                           </div>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           {/* Labour Mandays */}
-                          <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                          <div className="p-4 bg-background border border-border rounded-lg shadow-sm">
                             <div className="flex items-center justify-between">
                               <div>
-                                <div className="text-sm font-medium text-blue-800">Labour Mandays</div>
-                                <div className="text-xs text-blue-600">
-                                  <span className="font-medium">P + L + CN</span>
+                                <div className="text-sm font-semibold text-foreground">Labour Mandays</div>
+                                <div className="text-xs text-muted-foreground mt-1">
+                                  <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-muted text-muted-foreground">P + L + CN</span>
                                 </div>
                               </div>
-                              <Users className="h-4 w-4 text-blue-600" />
+                              <div className="p-2 bg-blue-500/10 rounded-full">
+                                <Users className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                              </div>
                             </div>
-                            <div className="mt-2">
-                              <div className="text-xl font-bold text-blue-900">
+                            <div className="mt-3">
+                              <div className="text-2xl font-bold text-foreground">
                                 {perStudentCosts.totalLabourMandays.toLocaleString()}
                               </div>
                             </div>
                           </div>
 
                           {/* Provision Mandays */}
-                          <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+                          <div className="p-4 bg-background border border-border rounded-lg shadow-sm">
                             <div className="flex items-center justify-between">
                               <div>
-                                <div className="text-sm font-medium text-green-800">Provision Mandays</div>
-                                <div className="text-xs text-green-600">
-                                  <span className="font-medium">P + L</span>
+                                <div className="text-sm font-semibold text-foreground">Provision Mandays</div>
+                                <div className="text-xs text-muted-foreground mt-1">
+                                  <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-muted text-muted-foreground">P + L</span>
                                 </div>
                               </div>
-                              <Package className="h-4 w-4 text-green-600" />
+                              <div className="p-2 bg-emerald-500/10 rounded-full">
+                                <Package className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                              </div>
                             </div>
-                            <div className="mt-2">
-                              <div className="text-xl font-bold text-green-900">
+                            <div className="mt-3">
+                              <div className="text-2xl font-bold text-foreground">
                                 {perStudentCosts.totalProvisionMandays.toLocaleString()}
                               </div>
                             </div>
                           </div>
                         </div>
-
-
                       </div>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       {/* Labour Charge Per Student */}
-                      <div className="p-4 border border-amber-200 rounded-lg bg-amber-50">
+                      <div className="p-5 border border-amber-200/50 dark:border-amber-900/30 rounded-xl bg-amber-50/50 dark:bg-amber-950/10 hover:bg-amber-50/80 dark:hover:bg-amber-950/20 transition-colors">
                         <div className="flex items-center justify-between">
                           <div>
-                            <p className="text-sm font-medium text-amber-800">Labour Charge</p>
-                            <p className="text-xs text-amber-600">per student per day</p>
+                            <p className="text-sm font-semibold text-amber-900 dark:text-amber-400">Labour Cost</p>
+                            <p className="text-xs text-amber-600/80 dark:text-amber-500/80 mt-0.5">per student / day</p>
                           </div>
-                          <Users className="h-8 w-8 text-amber-600" />
+                          <div className="p-1.5 bg-amber-500/10 rounded-md">
+                            <Users className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+                          </div>
                         </div>
-                        <div className="mt-2">
-                          <div className="text-2xl font-bold text-amber-900">
+                        <div className="mt-3">
+                          <div className="text-2xl font-bold text-amber-950 dark:text-amber-100">
                             ₹{perStudentCosts.labourPerStudent.toFixed(2)}
                           </div>
                         </div>
                       </div>
 
                       {/* Provision Usage Per Student */}
-                      <div className="p-4 border border-green-200 rounded-lg bg-green-50">
+                      <div className="p-5 border border-emerald-200/50 dark:border-emerald-900/30 rounded-xl bg-emerald-50/50 dark:bg-emerald-950/10 hover:bg-emerald-50/80 dark:hover:bg-emerald-950/20 transition-colors">
                         <div className="flex items-center justify-between">
                           <div>
-                            <p className="text-sm font-medium text-green-800">Provision Usage</p>
-                            <p className="text-xs text-green-600">per student per day</p>
+                            <p className="text-sm font-semibold text-emerald-900 dark:text-emerald-400">Provision Cost</p>
+                            <p className="text-xs text-emerald-600/80 dark:text-emerald-500/80 mt-0.5">per student / day</p>
                           </div>
-                          <Package className="h-8 w-8 text-green-600" />
+                          <div className="p-1.5 bg-emerald-500/10 rounded-md">
+                            <Package className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+                          </div>
                         </div>
-                        <div className="mt-2">
-                          <div className="text-2xl font-bold text-green-900">
+                        <div className="mt-3">
+                          <div className="text-2xl font-bold text-emerald-950 dark:text-emerald-100">
                             ₹{perStudentCosts.provisionPerStudent.toFixed(2)}
                           </div>
                         </div>
                       </div>
 
                       {/* Total Per Student */}
-                      <div className="p-4 border border-indigo-200 rounded-lg bg-indigo-50">
+                      <div className="p-5 border border-indigo-200/50 dark:border-indigo-900/30 rounded-xl bg-indigo-50/50 dark:bg-indigo-950/10 hover:bg-indigo-50/80 dark:hover:bg-indigo-950/20 transition-colors">
                         <div className="flex items-center justify-between">
                           <div>
-                            <p className="text-sm font-medium text-indigo-800">Total Cost</p>
-                            <p className="text-xs text-indigo-600">per student per day</p>
+                            <p className="text-sm font-semibold text-indigo-900 dark:text-indigo-400">Total Cost</p>
+                            <p className="text-xs text-indigo-600/80 dark:text-indigo-500/80 mt-0.5">per student / day</p>
                           </div>
-                          <TrendingUp className="h-8 w-8 text-indigo-600" />
+                          <div className="p-1.5 bg-indigo-500/10 rounded-md">
+                            <TrendingUp className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+                          </div>
                         </div>
-                        <div className="mt-2">
-                          <div className="text-3xl font-bold text-indigo-900">
+                        <div className="mt-3">
+                          <div className="text-3xl font-bold text-indigo-950 dark:text-indigo-100">
                             ₹{perStudentCosts.totalPerStudent.toFixed(2)}
                           </div>
                         </div>
@@ -1754,24 +1817,27 @@ export default function ReportsPage() {
                     </div>
 
                     {/* Summary */}
-                    <div className="mt-6 p-4 bg-gray-50 border border-gray-200 rounded-lg">
-                      <div className="text-sm font-medium text-gray-800 mb-2">Monthly Breakdown</div>
-                      <div className="grid grid-cols-2 gap-4 text-sm">
-                        <div>
-                          <span className="text-gray-600">Total Labour Cost:</span>
-                          <span className="font-semibold ml-2">₹{(perStudentCosts.labourPerStudent * perStudentCosts.totalStudents * getDaysInMonth(selectedYear, selectedMonth)).toLocaleString()}</span>
+                    <div className="mt-6 p-5 bg-muted/40 border border-border/60 rounded-xl">
+                      <div className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
+                        <div className="w-1 h-4 bg-primary rounded-full"></div>
+                        Monthly Breakdown
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+                        <div className="bg-background p-3 rounded-lg border border-border shadow-sm flex justify-between items-center">
+                          <span className="text-muted-foreground">Total Labour Cost</span>
+                          <span className="font-bold text-foreground">₹{(perStudentCosts.labourPerStudent * perStudentCosts.totalStudents * getDaysInMonth(selectedYear, selectedMonth)).toLocaleString()}</span>
                         </div>
-                        <div>
-                          <span className="text-gray-600">Total Provision Cost:</span>
-                          <span className="font-semibold ml-2">₹{(perStudentCosts.provisionPerStudent * perStudentCosts.totalStudents * getDaysInMonth(selectedYear, selectedMonth)).toLocaleString()}</span>
+                        <div className="bg-background p-3 rounded-lg border border-border shadow-sm flex justify-between items-center">
+                          <span className="text-muted-foreground">Total Provision Cost</span>
+                          <span className="font-bold text-foreground">₹{(perStudentCosts.provisionPerStudent * perStudentCosts.totalStudents * getDaysInMonth(selectedYear, selectedMonth)).toLocaleString()}</span>
                         </div>
                       </div>
                     </div>
                   </>
                 ) : (
-                  <div className="text-center py-8">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mx-auto mb-2"></div>
-                    <p className="text-sm text-gray-600">Calculating per student costs...</p>
+                  <div className="text-center py-12">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mx-auto mb-3"></div>
+                    <p className="text-sm text-muted-foreground font-medium">Calculating per student costs...</p>
                   </div>
                 )}
               </div>
@@ -1779,62 +1845,82 @@ export default function ReportsPage() {
           </Card>
         </div>
       ) : (
-        <div className="text-center py-8 text-muted-foreground">
-          No data available for the selected period
+        <div className="flex flex-col items-center justify-center py-24 border border-dashed border-border rounded-xl bg-muted/5">
+          <div className="text-4xl mb-4 opacity-20">📊</div>
+          <p className="text-lg font-medium text-foreground">No data available</p>
+          <p className="text-sm text-muted-foreground mt-1">Please select a different period or verify data exists for this month.</p>
         </div>
       )}
 
       {/* Saved Reports Section */}
-      <Card className="mt-6">
-        <CardHeader>
-          <CardTitle className="text-lg font-semibold flex items-center">
-            <Eye className="h-5 w-5 mr-2 text-blue-600" />
+      <Card className="mt-6 border-border/60 shadow-sm">
+        <CardHeader className="border-b border-border/40 pb-4">
+          <CardTitle className="text-lg font-semibold flex items-center text-foreground">
+            <Eye className="h-5 w-5 mr-3 text-primary" />
             Saved Reports
           </CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="pt-6">
           <div className="space-y-4">
             <Button
               variant="outline"
               onClick={loadSavedReports}
               disabled={loadingSavedReports}
-              className="w-full"
+              className="w-full border-border"
             >
-              {loadingSavedReports ? "Loading..." : "Refresh Saved Reports"}
+              {loadingSavedReports ? (
+                <>
+                  <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-current mr-2"></div>
+                  Loading...
+                </>
+              ) : (
+                "Refresh Saved Reports"
+              )}
             </Button>
 
             {savedReports.length > 0 ? (
-              <div className="space-y-2">
-                <div className="text-sm text-gray-600 mb-2">
+              <div className="space-y-3">
+                <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
                   {savedReports.length} saved report(s) found
                 </div>
                 {savedReports.map((report: any) => (
-                  <div key={report.id} className="flex items-center justify-between p-3 border border-gray-200 rounded-lg">
-                    <div>
-                      <div className="font-medium text-gray-900">{report.reportName}</div>
-                      <div className="text-sm text-gray-600">
-                        {monthNames[report.month - 1]} {report.year} •
-                        Expenses: ₹{report.summary?.totalExpenses?.toLocaleString() || '0'} •
-                        Income: ₹{report.summary?.totalIncomes?.toLocaleString() || '0'} •
-                        Net: ₹{report.summary?.netProfit?.toLocaleString() || '0'}
+                  <div key={report.id} className="group flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 bg-card border border-border/60 rounded-xl hover:border-primary/30 hover:shadow-sm transition-all">
+                    <div className="mb-3 sm:mb-0">
+                      <div className="font-semibold text-foreground flex items-center gap-2">
+                        {report.reportName}
+                        {report.id === loadedReport?.id && (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 font-medium">Active</span>
+                        )}
                       </div>
-                      <div className="text-xs text-gray-500">
-                        Saved on {new Date(report.createdAt).toLocaleDateString()}
+                      <div className="text-sm text-muted-foreground mt-1 flex flex-wrap gap-x-2 gap-y-1">
+                        <span className="font-medium text-foreground">{monthNames[report.month - 1]} {report.year}</span>
+                        <span className="text-border">•</span>
+                        <span>Exp: ₹{report.summary?.totalExpenses?.toLocaleString() || '0'}</span>
+                        <span className="text-border">•</span>
+                        <span>Inc: ₹{report.summary?.totalIncomes?.toLocaleString() || '0'}</span>
+                        <span className="text-border">•</span>
+                        <span className={report.summary?.netProfit >= 0 ? "text-emerald-600 font-medium" : "text-destructive font-medium"}>
+                          Net: ₹{report.summary?.netProfit?.toLocaleString() || '0'}
+                        </span>
+                      </div>
+                      <div className="text-xs text-muted-foreground/60 mt-2">
+                        Saved on {new Date(report.createdAt).toLocaleDateString()} at {new Date(report.createdAt).toLocaleTimeString()}
                       </div>
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 w-full sm:w-auto">
                       <Button
                         size="sm"
-                        variant="outline"
+                        variant={report.id === loadedReport?.id ? "secondary" : "outline"}
                         onClick={() => loadReport(report.id)}
+                        className="flex-1 sm:flex-none border-border"
                       >
                         Load
                       </Button>
                       <Button
                         size="sm"
-                        variant="outline"
+                        variant="ghost"
                         onClick={() => deleteReport(report.id, report.reportName)}
-                        className="text-red-600 hover:text-red-700"
+                        className="flex-1 sm:flex-none text-destructive hover:text-destructive hover:bg-destructive/10"
                       >
                         Delete
                       </Button>
@@ -1843,8 +1929,10 @@ export default function ReportsPage() {
                 ))}
               </div>
             ) : (
-              <div className="text-center py-8 text-gray-500">
-                No saved reports found. Save your first report using the "Save Bill" button.
+              <div className="text-center py-12 border border-dashed border-border rounded-xl bg-muted/5">
+                <FileText className="h-8 w-8 text-muted-foreground/30 mx-auto mb-3" />
+                <p className="text-sm text-muted-foreground">No saved reports found.</p>
+                <p className="text-xs text-muted-foreground/60 mt-1">Save your first report using the "Save Bill" button.</p>
               </div>
             )}
           </div>
@@ -1853,7 +1941,7 @@ export default function ReportsPage() {
 
       {/* Save Report Dialog */}
       <Dialog open={showSaveDialog} onOpenChange={setShowSaveDialog}>
-        <DialogContent className="sm:max-w-md bg-white">
+        <DialogContent className="sm:max-w-md bg-white dark:bg-zinc-950 border-border">
           <DialogHeader>
             <DialogTitle>Save Monthly Report</DialogTitle>
           </DialogHeader>
@@ -1870,17 +1958,18 @@ export default function ReportsPage() {
                     saveReport('new')
                   }
                 }}
+                className="bg-background"
               />
             </div>
-            <div className="text-sm text-gray-600">
+            <div className="text-sm text-muted-foreground">
               This will save all current report data including expenses, incomes, and calculations for {monthNames[parseInt(selectedMonth) - 1]} {selectedYear}.
             </div>
           </div>
-          <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={() => setShowSaveDialog(false)}>
+          <div className="flex justify-end gap-2 text-white">
+            <Button variant="ghost" onClick={() => setShowSaveDialog(false)} className="text-muted-foreground hover:text-foreground">
               Cancel
             </Button>
-            <Button onClick={() => saveReport('new')} disabled={savingReport}>
+            <Button onClick={() => saveReport('new')} disabled={savingReport} className="text-white">
               {savingReport ? "Saving..." : "Save Report"}
             </Button>
           </div>
@@ -1889,27 +1978,30 @@ export default function ReportsPage() {
 
       {/* Overwrite Confirmation Dialog */}
       <Dialog open={showOverwriteDialog} onOpenChange={setShowOverwriteDialog}>
-        <DialogContent className="sm:max-w-md bg-white">
+        <DialogContent className="sm:max-w-md bg-white dark:bg-zinc-950 border-border">
           <DialogHeader>
-            <DialogTitle>Report Already Exists</DialogTitle>
+            <DialogTitle className="text-destructive flex items-center gap-2">
+              <span className="bg-destructive/10 p-1.5 rounded-full"><div className="w-2 h-2 bg-destructive rounded-full"></div></span>
+              Report Already Exists
+            </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <div className="text-sm text-gray-600">
+            <div className="text-sm text-muted-foreground">
               A report for <strong>{monthNames[parseInt(selectedMonth) - 1]} {selectedYear}</strong> already exists:
             </div>
             {existingReport && (
-              <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg">
-                <div className="font-medium text-gray-900">{existingReport.reportName}</div>
-                <div className="text-sm text-gray-600">
+              <div className="p-4 bg-muted/40 border border-border/60 rounded-xl">
+                <div className="font-semibold text-foreground">{existingReport.reportName}</div>
+                <div className="text-sm text-muted-foreground mt-0.5">
                   Saved on {new Date(existingReport.createdAt).toLocaleDateString()}
                 </div>
               </div>
             )}
-            <div className="text-sm text-gray-600">
+            <div className="text-sm text-muted-foreground">
               What would you like to do?
             </div>
           </div>
-          <div className="flex justify-end gap-2">
+          <div className="flex flex-col sm:flex-row justify-end gap-2 pt-2">
             <Button
               variant="outline"
               onClick={() => {
@@ -1925,22 +2017,24 @@ export default function ReportsPage() {
                 setReportName(`${baseName} (${timestamp})`)
                 setShowSaveDialog(true)
               }}
+              className="sm:order-1"
             >
               Create New
             </Button>
             <Button
-              variant="outline"
+              variant="ghost"
               onClick={() => {
                 setShowOverwriteDialog(false)
                 setExistingReport(null)
               }}
+              className="sm:order-2"
             >
               Cancel
             </Button>
             <Button
               onClick={() => saveReport('overwrite')}
               disabled={savingReport}
-              className="bg-red-600 hover:bg-red-700 text-white"
+              className="bg-destructive hover:bg-destructive/90 text-white sm:order-3"
             >
               {savingReport ? "Updating..." : "Overwrite Existing"}
             </Button>

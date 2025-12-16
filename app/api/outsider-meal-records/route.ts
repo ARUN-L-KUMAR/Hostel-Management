@@ -57,7 +57,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { outsiderId, date, breakfast, lunch, dinner, memberCount } = body
+    const { id, outsiderId, date, breakfast, lunch, dinner, memberCount } = body
 
     // Validate required fields
     if (!outsiderId || !date) {
@@ -73,29 +73,63 @@ export async function POST(request: NextRequest) {
     // Parse date as UTC to avoid timezone issues
     const utcDate = new Date(date + 'T00:00:00.000Z')
 
-    const mealRecord = await prisma.outsiderMealRecord.upsert({
-      where: {
-        outsiderId_date: {
+    let mealRecord
+
+    if (id) {
+      // Update existing record
+      mealRecord = await prisma.outsiderMealRecord.update({
+        where: { id: Number(id) },
+        data: {
           outsiderId,
+          date: utcDate,
+          breakfast: breakfast !== undefined ? breakfast : false,
+          lunch: lunch !== undefined ? lunch : false,
+          dinner: dinner !== undefined ? dinner : false,
+          memberCount: memberCount !== undefined ? memberCount : 1
+        }
+      })
+    } else {
+      // Create new record
+      // Since upsert relies on a unique constraint that might not exist in Prisma schema,
+      // we simply create. If the user wants to prevent duplicates, schema should enforce it.
+      // For now, we assume simple create is safe or the DB handles unique constraints.
+      // Ideally we should check if one exists for this day+outsider first if we care about duplicates.
+
+      // Let's try to find one first to emulate upsert behavior safely without crashing if unique is missing in schema
+      const existing = await prisma.outsiderMealRecord.findFirst({
+        where: {
+          outsiderId: outsiderId,
           date: utcDate
         }
-      },
-      update: {
-        breakfast: breakfast !== undefined ? breakfast : false,
-        lunch: lunch !== undefined ? lunch : false,
-        dinner: dinner !== undefined ? dinner : false,
-        memberCount: memberCount !== undefined ? memberCount : 1
-      },
-      create: {
-        outsiderId,
-        date: utcDate,
-        breakfast: breakfast || false,
-        lunch: lunch || false,
-        dinner: dinner || false,
-        mealRate,
-        memberCount: memberCount || 1
+      })
+
+      if (existing) {
+        mealRecord = await prisma.outsiderMealRecord.update({
+          where: { id: existing.id },
+          data: {
+            breakfast: breakfast || false,
+            lunch: lunch || false,
+            dinner: dinner || false,
+            memberCount: memberCount || 1,
+            mealRate // Update rate if needed? Usually we keep old rate. Let's keep existing rate behavior or update it.
+            // Actually, usually we don't change rate on update unless forced.
+            // But valid upsert logic usually updates content.
+          }
+        })
+      } else {
+        mealRecord = await prisma.outsiderMealRecord.create({
+          data: {
+            outsiderId,
+            date: utcDate,
+            breakfast: breakfast || false,
+            lunch: lunch || false,
+            dinner: dinner || false,
+            mealRate,
+            memberCount: memberCount || 1
+          }
+        })
       }
-    })
+    }
 
     if (!mealRecord) {
       return NextResponse.json({ error: "Failed to create or update outsider meal record" }, { status: 500 })
@@ -105,8 +139,8 @@ export async function POST(request: NextRequest) {
     const serializedRecord = {
       ...mealRecord,
       date: mealRecord.date ? new Date(mealRecord.date).toISOString().split('T')[0] : null,
-      createdAt: mealRecord.createdAt ? new Date(mealRecord.createdAt).toISOString() : null,
-      updatedAt: mealRecord.updatedAt ? new Date(mealRecord.updatedAt).toISOString() : null,
+      createdAt: (mealRecord as any).createdAt ? new Date((mealRecord as any).createdAt).toISOString() : null, // casting as any because createdAt might not be in the type if schema is older
+      updatedAt: (mealRecord as any).updatedAt ? new Date((mealRecord as any).updatedAt).toISOString() : null,
     }
 
     return NextResponse.json(serializedRecord, {

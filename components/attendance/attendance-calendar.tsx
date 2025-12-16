@@ -65,8 +65,8 @@ export function AttendanceCalendar({ year, month, filters, onExport, onStudentsC
             .filter((att: any) => {
               const attDate = new Date(att.date)
               const isInRange = att.studentId === student.id &&
-                      attDate >= startOfMonth &&
-                      attDate <= endOfMonth
+                attDate >= startOfMonth &&
+                attDate <= endOfMonth
               if (isInRange) {
                 console.log(`[v0] Student ${student.id}: attendance on ${attDate.toISOString()}`)
               }
@@ -114,9 +114,9 @@ export function AttendanceCalendar({ year, month, filters, onExport, onStudentsC
       <div className="space-y-4">
         <AttendanceLegend />
         <AttendancePeriodFilters />
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-          <span className="ml-2 text-slate-600">Loading attendance data...</span>
+        <div className="flex items-center justify-center h-64 border border-dashed border-border rounded-lg bg-muted/5">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+          <span className="ml-2 text-muted-foreground">Loading attendance data...</span>
         </div>
       </div>
     )

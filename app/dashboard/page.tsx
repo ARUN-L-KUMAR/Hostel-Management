@@ -125,7 +125,9 @@ export default function DashboardPage() {
         attendanceRes,
         studentsRes,
         mandoMealRecordsRes,
-        outsiderMealRecordsRes
+        outsiderMealRecordsRes,
+        allProvisionsRes,
+        allProvisionUsageRes
       ] = await Promise.all([
         fetch(`/api/expenses?year=${year}&month=${month}`),
         fetch(`/api/provision-purchases?year=${year}&month=${month}`),
@@ -134,7 +136,9 @@ export default function DashboardPage() {
         fetch('/api/attendance'),
         fetch('/api/students'),
         fetch(`/api/mando-meal-records?year=${year}&month=${month}`),
-        fetch(`/api/outsider-meal-records?year=${year}&month=${month}`)
+        fetch(`/api/outsider-meal-records?year=${year}&month=${month}`),
+        fetch('/api/provision-purchases'),
+        fetch('/api/provision-usage')
       ])
 
       const [
@@ -145,7 +149,9 @@ export default function DashboardPage() {
         attendanceData,
         studentsData,
         mandoMealRecordsData,
-        outsiderMealRecordsData
+        outsiderMealRecordsData,
+        allPurchasesData,
+        allUsageData
       ] = await Promise.all([
         expensesRes.json(),
         provisionsRes.json(),
@@ -154,7 +160,9 @@ export default function DashboardPage() {
         attendanceRes.json(),
         studentsRes.json(),
         mandoMealRecordsRes.json(),
-        outsiderMealRecordsRes.json()
+        outsiderMealRecordsRes.json(),
+        allProvisionsRes.json(),
+        allProvisionUsageRes.json()
       ])
 
       // Calculate KPIs
@@ -162,18 +170,18 @@ export default function DashboardPage() {
       const totalProvisionsPurchased = provisionsData.reduce((sum: number, prov: any) => sum + parseFloat(prov.totalAmount || 0), 0)
       const totalProvisionUsage = provisionUsageData.reduce((sum: number, usage: any) => sum + (parseFloat(usage.quantity || 0) * parseFloat(usage.provisionItem?.unitCost || 0)), 0)
 
-      // Calculate inventory value
+      // Calculate inventory value (using ALL history, not just this month)
       const inventoryValue = provisionItemsData.reduce((sum: number, item: any) => {
-        const purchased = provisionsData.reduce((pSum: number, purchase: any) => {
+        const purchased = (Array.isArray(allPurchasesData) ? allPurchasesData : []).reduce((pSum: number, purchase: any) => {
           const itemPurchases = purchase.items?.filter((pi: any) => pi.provisionItem?.id === item.id) || []
           return pSum + itemPurchases.reduce((ipSum: number, pi: any) => ipSum + parseFloat(pi.quantity || 0), 0)
         }, 0)
 
-        const used = provisionUsageData.reduce((uSum: number, usage: any) => {
+        const used = (Array.isArray(allUsageData) ? allUsageData : []).reduce((uSum: number, usage: any) => {
           return usage.provisionItem?.id === item.id ? uSum + parseFloat(usage.quantity || 0) : uSum
         }, 0)
 
-        const remaining = purchased - used
+        const remaining = Math.max(0, purchased - used) // Prevent negative inventory in display
         return sum + (remaining * parseFloat(item.unitCost || 0))
       }, 0)
 
@@ -279,21 +287,22 @@ export default function DashboardPage() {
           usage: totalProvisionUsage,
           inventory: inventoryValue,
           topItems: provisionItemsData.slice(0, 5).map((item: any) => {
-            const purchased = provisionsData.reduce((sum: number, purchase: any) => {
+            const purchased = (Array.isArray(allPurchasesData) ? allPurchasesData : []).reduce((sum: number, purchase: any) => {
               const itemPurchases = purchase.items?.filter((pi: any) => pi.provisionItem?.id === item.id) || []
               return sum + itemPurchases.reduce((iSum: number, pi: any) => iSum + parseFloat(pi.quantity || 0), 0)
             }, 0)
 
-            const used = provisionUsageData.reduce((sum: number, usage: any) => {
+            const used = (Array.isArray(allUsageData) ? allUsageData : []).reduce((sum: number, usage: any) => {
               return usage.provisionItem?.id === item.id ? sum + parseFloat(usage.quantity || 0) : sum
             }, 0)
 
+            const remaining = Math.max(0, purchased - used)
             return {
               name: item.name,
               purchased,
               used,
-              remaining: purchased - used,
-              value: (purchased - used) * parseFloat(item.unitCost || 0)
+              remaining,
+              value: remaining * parseFloat(item.unitCost || 0)
             }
           }).sort((a: any, b: any) => b.value - a.value)
         },
@@ -391,40 +400,42 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8 animate-in fade-in duration-500">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-          <p className="text-muted-foreground">
-            Overview for {dashboardData.currentMonth.monthName} {dashboardData.currentMonth.year}
+          <h1 className="text-3xl font-bold tracking-tight text-foreground">Dashboard</h1>
+          <p className="text-muted-foreground mt-1">
+            Overview for <span className="font-medium text-foreground">{dashboardData.currentMonth.monthName} {dashboardData.currentMonth.year}</span>
           </p>
-          <div className="flex items-center gap-2 mt-2">
-            <Calendar className="h-4 w-4 text-muted-foreground" />
-            <span className="text-sm text-muted-foreground">
-              Day {dashboardData.currentMonth.currentDay} of {dashboardData.currentMonth.daysInMonth}
+          <div className="flex items-center gap-3 mt-4 text-sm bg-muted/50 w-fit px-3 py-1.5 rounded-full border border-border/50">
+            <Calendar className="h-4 w-4 text-primary" />
+            <span className="text-muted-foreground">
+              Day <span className="font-medium text-foreground">{dashboardData.currentMonth.currentDay}</span> of {dashboardData.currentMonth.daysInMonth}
             </span>
-            <Progress
-              value={(dashboardData.currentMonth.currentDay / dashboardData.currentMonth.daysInMonth) * 100}
-              className="w-24 h-2"
-            />
+            <div className="w-24 h-1.5 bg-muted rounded-full overflow-hidden">
+              <div
+                className="h-full bg-primary transition-all duration-500"
+                style={{ width: `${(dashboardData.currentMonth.currentDay / dashboardData.currentMonth.daysInMonth) * 100}%` }}
+              />
+            </div>
           </div>
         </div>
-        <Button variant="outline" onClick={handleRefresh} disabled={refreshing}>
+        <Button variant="outline" onClick={handleRefresh} disabled={refreshing} className="shadow-sm">
           <RefreshCw className={`w-4 h-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
-          Refresh
+          Refresh Data
         </Button>
       </div>
 
       {/* Access Denied Alert */}
       {accessDeniedPage && (
-        <Card className="border-l-4 border-l-red-500 bg-red-50">
+        <Card className="border-l-4 border-l-destructive bg-destructive/5 shadow-sm">
           <CardContent className="p-4">
             <div className="flex items-start gap-3">
-              <Shield className="h-5 w-5 text-red-600 mt-0.5" />
+              <Shield className="h-5 w-5 text-destructive mt-0.5" />
               <div>
-                <h4 className="font-medium text-sm text-red-800">Access Denied</h4>
-                <p className="text-sm text-red-700 mt-1">
+                <h4 className="font-semibold text-sm text-destructive">Access Denied</h4>
+                <p className="text-sm text-destructive/80 mt-1">
                   You don't have permission to access the <strong>{accessDeniedPage}</strong> page.
                   Contact your administrator to request access to this feature.
                 </p>
@@ -436,20 +447,19 @@ export default function DashboardPage() {
 
       {/* System Alerts */}
       {dashboardData.alerts.length > 0 && (
-        <div className="space-y-2">
+        <div className="grid gap-4">
           {dashboardData.alerts.map((alert, index) => (
-            <Card key={index} className={`border-l-4 ${
-              alert.type === 'warning' ? 'border-l-yellow-500 bg-yellow-50' :
-              alert.type === 'info' ? 'border-l-blue-500 bg-blue-50' :
-              'border-l-green-500 bg-green-50'
-            }`}>
+            <Card key={index} className={`border-l-4 shadow-sm ${alert.type === 'warning' ? 'border-l-amber-500 bg-amber-500/10' :
+              alert.type === 'info' ? 'border-l-blue-500 bg-blue-500/10' :
+                'border-l-emerald-500 bg-emerald-500/10'
+              }`}>
               <CardContent className="p-4">
                 <div className="flex items-start gap-3">
-                  {alert.type === 'warning' && <AlertTriangle className="h-5 w-5 text-yellow-600 mt-0.5" />}
-                  {alert.type === 'info' && <Clock className="h-5 w-5 text-blue-600 mt-0.5" />}
-                  {alert.type === 'success' && <CheckCircle className="h-5 w-5 text-green-600 mt-0.5" />}
+                  {alert.type === 'warning' && <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-500 mt-0.5" />}
+                  {alert.type === 'info' && <Clock className="h-5 w-5 text-blue-600 dark:text-blue-500 mt-0.5" />}
+                  {alert.type === 'success' && <CheckCircle className="h-5 w-5 text-emerald-600 dark:text-emerald-500 mt-0.5" />}
                   <div>
-                    <h4 className="font-medium text-sm">{alert.title}</h4>
+                    <h4 className="font-semibold text-sm text-foreground">{alert.title}</h4>
                     <p className="text-sm text-muted-foreground mt-1">{alert.message}</p>
                   </div>
                 </div>
@@ -460,87 +470,87 @@ export default function DashboardPage() {
       )}
 
       {/* KPIs */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <Card className="shadow-sm hover:shadow-md transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Income</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium text-muted-foreground">Total Income</CardTitle>
+            <TrendingUp className="h-4 w-4 text-emerald-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">₹{dashboardData.kpis.totalIncome.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground">From student fees</p>
+            <div className="text-2xl font-bold tracking-tight">₹{dashboardData.kpis.totalIncome.toLocaleString()}</div>
+            <p className="text-xs text-muted-foreground mt-1">From student fees collected</p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="shadow-sm hover:shadow-md transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Expenses</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Total Expenses</CardTitle>
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">₹{dashboardData.kpis.totalExpenses.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground">Provisions + other costs</p>
+            <div className="text-2xl font-bold tracking-tight">₹{dashboardData.kpis.totalExpenses.toLocaleString()}</div>
+            <p className="text-xs text-muted-foreground mt-1">Provisions & operational costs</p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="shadow-sm hover:shadow-md transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Net Profit</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Net Profit</CardTitle>
             {dashboardData.kpis.netProfit >= 0 ? (
-              <TrendingUp className="h-4 w-4 text-green-600" />
+              <TrendingUp className="h-4 w-4 text-emerald-500" />
             ) : (
-              <TrendingDown className="h-4 w-4 text-red-600" />
+              <TrendingDown className="h-4 w-4 text-destructive" />
             )}
           </CardHeader>
           <CardContent>
-            <div className={`text-2xl font-bold ${
-              dashboardData.kpis.netProfit >= 0 ? 'text-green-600' : 'text-red-600'
-            }`}>
+            <div className={`text-2xl font-bold tracking-tight ${dashboardData.kpis.netProfit >= 0 ? 'text-emerald-600 dark:text-emerald-500' : 'text-destructive'}`}>
               ₹{Math.abs(dashboardData.kpis.netProfit).toLocaleString()}
             </div>
-            <p className="text-xs text-muted-foreground">
-              {dashboardData.kpis.profitMargin >= 0 ? '+' : ''}{dashboardData.kpis.profitMargin.toFixed(1)}% margin
+            <p className="text-xs text-muted-foreground mt-1">
+              <span className={dashboardData.kpis.profitMargin >= 0 ? 'text-emerald-600' : 'text-destructive'}>
+                {dashboardData.kpis.profitMargin >= 0 ? '+' : ''}{dashboardData.kpis.profitMargin.toFixed(1)}%
+              </span> margin
             </p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="shadow-sm hover:shadow-md transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active Students</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium text-muted-foreground">Active Students</CardTitle>
+            <Users className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{dashboardData.kpis.activeStudents}</div>
-            <p className="text-xs text-muted-foreground">
-              of {dashboardData.kpis.totalStudents} total students
+            <div className="text-2xl font-bold tracking-tight">{dashboardData.kpis.activeStudents}</div>
+            <p className="text-xs text-muted-foreground mt-1">
+              out of {dashboardData.kpis.totalStudents} total enrolled
             </p>
           </CardContent>
         </Card>
       </div>
 
       {/* Charts and Tables */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Expenses Breakdown */}
-        <Card>
+        <Card className="shadow-sm">
           <CardHeader>
-            <CardTitle>Expenses Breakdown</CardTitle>
+            <CardTitle className="text-lg font-semibold">Expenses Breakdown</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
+            <div className="space-y-6">
               {dashboardData.expenses.byCategory.slice(0, 5).map((category) => (
-                <div key={category.category} className="flex items-center justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-sm font-medium">{category.category}</span>
-                      <span className="text-sm text-muted-foreground">
-                        ₹{category.amount.toLocaleString()}
-                      </span>
-                    </div>
-                    <Progress value={category.percentage} className="h-2" />
+                <div key={category.category} className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-foreground">{category.category}</span>
+                    <span className="text-sm text-muted-foreground font-medium">
+                      ₹{category.amount.toLocaleString()}
+                    </span>
                   </div>
-                  <Badge variant="secondary" className="ml-2">
-                    {category.percentage.toFixed(1)}%
-                  </Badge>
+                  <div className="flex items-center gap-3">
+                    <Progress value={category.percentage} className="h-2 flex-1" />
+                    <span className="text-xs font-medium w-10 text-right text-muted-foreground">
+                      {category.percentage.toFixed(1)}%
+                    </span>
+                  </div>
                 </div>
               ))}
             </div>
@@ -548,27 +558,29 @@ export default function DashboardPage() {
         </Card>
 
         {/* Recent Expenses */}
-        <Card>
+        <Card className="shadow-sm">
           <CardHeader>
-            <CardTitle>Recent Expenses</CardTitle>
+            <CardTitle className="text-lg font-semibold">Recent Expenses</CardTitle>
           </CardHeader>
           <CardContent>
             <Table>
               <TableHeader>
-                <TableRow>
-                  <TableHead>Description</TableHead>
+                <TableRow className="hover:bg-muted/50">
+                  <TableHead className="w-[40%]">Description</TableHead>
                   <TableHead>Category</TableHead>
                   <TableHead className="text-right">Amount</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {dashboardData.expenses.recent.map((expense) => (
-                  <TableRow key={expense.id}>
-                    <TableCell className="font-medium">{expense.name}</TableCell>
+                  <TableRow key={expense.id} className="hover:bg-muted/50">
+                    <TableCell className="font-medium text-foreground">{expense.name}</TableCell>
                     <TableCell>
-                      <Badge variant="outline">{expense.type}</Badge>
+                      <Badge variant="secondary" className="font-normal text-muted-foreground bg-muted hover:bg-muted-foreground/20">
+                        {expense.type}
+                      </Badge>
                     </TableCell>
-                    <TableCell className="text-right font-medium">
+                    <TableCell className="text-right font-medium text-foreground">
                       ₹{expense.amount.toLocaleString()}
                     </TableCell>
                   </TableRow>
@@ -579,42 +591,43 @@ export default function DashboardPage() {
         </Card>
 
         {/* Meals Overview */}
-        <Card>
+        <Card className="shadow-sm">
           <CardHeader>
-            <CardTitle>Meals Overview</CardTitle>
+            <CardTitle className="text-lg font-semibold">Meals Overview</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="text-center p-4 bg-blue-50 rounded-lg">
-                  <div className="text-2xl font-bold text-blue-600">
+            <div className="space-y-6">
+              <div className="grid grid-cols-2 gap-6">
+                <div className="text-center p-6 bg-blue-500/5 rounded-xl border border-blue-500/10">
+                  <div className="text-3xl font-bold text-primary mb-1">
                     {dashboardData.meals.regularStudents.total}
                   </div>
-                  <div className="text-sm text-blue-600">Regular Student Meals</div>
-                  <div className="text-xs text-muted-foreground mt-1">
-                    ₹{dashboardData.meals.regularStudents.cost.toLocaleString()}
+                  <div className="text-sm font-medium text-primary/80">Regular Meals</div>
+                  <div className="text-xs text-muted-foreground mt-2 font-medium">
+                    Est. Cost: ₹{dashboardData.meals.regularStudents.cost.toLocaleString()}
                   </div>
                 </div>
-                <div className="text-center p-4 bg-green-50 rounded-lg">
-                  <div className="text-2xl font-bold text-green-600">
+                <div className="text-center p-6 bg-emerald-500/5 rounded-xl border border-emerald-500/10">
+                  <div className="text-3xl font-bold text-emerald-600 dark:text-emerald-500 mb-1">
                     {dashboardData.meals.outsiders.total}
                   </div>
-                  <div className="text-sm text-green-600">Outsider Meals</div>
-                  <div className="text-xs text-muted-foreground mt-1">
-                    {dashboardData.meals.outsiders.memberCount} members
+                  <div className="text-sm font-medium text-emerald-600/80 dark:text-emerald-500/80">Outsider Meals</div>
+                  <div className="text-xs text-muted-foreground mt-2 font-medium">
+                    {dashboardData.meals.outsiders.memberCount} Active Members
                   </div>
                 </div>
               </div>
-              <div className="pt-4 border-t">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm font-medium">Total Meals Served</span>
-                  <span className="text-lg font-bold">{dashboardData.kpis.totalMeals}</span>
+              <div className="pt-6 border-t border-border flex justify-between items-center">
+                <div>
+                  <span className="text-sm font-medium text-muted-foreground block">Total Meals Served</span>
+                  <span className="text-2xl font-bold text-foreground">{dashboardData.kpis.totalMeals.toLocaleString()}</span>
                 </div>
-                <div className="flex justify-between items-center mt-2">
-                  <span className="text-sm text-muted-foreground">Average per day</span>
-                  <span className="text-sm font-medium">
+                <div className="text-right">
+                  <span className="text-sm font-medium text-muted-foreground block">Daily Average</span>
+                  <span className="text-xl font-semibold text-foreground">
                     {Math.round(dashboardData.kpis.totalMeals / dashboardData.currentMonth.daysInMonth)}
                   </span>
+                  <span className="text-xs text-muted-foreground ml-1">meals/day</span>
                 </div>
               </div>
             </div>
@@ -622,37 +635,37 @@ export default function DashboardPage() {
         </Card>
 
         {/* Inventory Status */}
-        <Card>
+        <Card className="shadow-sm">
           <CardHeader>
-            <CardTitle>Top Inventory Items</CardTitle>
+            <CardTitle className="text-lg font-semibold">Top Inventory Items</CardTitle>
           </CardHeader>
           <CardContent>
             <Table>
               <TableHeader>
-                <TableRow>
+                <TableRow className="hover:bg-muted/50">
                   <TableHead>Item</TableHead>
-                  <TableHead className="text-right">Remaining</TableHead>
+                  <TableHead className="text-right">Stock</TableHead>
                   <TableHead className="text-right">Value</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {dashboardData.provisions.topItems.map((item) => (
-                  <TableRow key={item.name}>
-                    <TableCell className="font-medium">{item.name}</TableCell>
-                    <TableCell className="text-right">
-                      {item.remaining.toFixed(1)} units
+                  <TableRow key={item.name} className="hover:bg-muted/50">
+                    <TableCell className="font-medium text-foreground">{item.name}</TableCell>
+                    <TableCell className="text-right text-muted-foreground">
+                      {item.remaining.toFixed(1)}
                     </TableCell>
-                    <TableCell className="text-right font-medium">
+                    <TableCell className="text-right font-medium text-foreground">
                       ₹{item.value.toLocaleString()}
                     </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
-            <div className="mt-4 pt-4 border-t">
-              <div className="flex justify-between items-center">
-                <span className="text-sm font-medium">Total Inventory Value</span>
-                <span className="text-lg font-bold">₹{dashboardData.kpis.inventoryValue.toLocaleString()}</span>
+            <div className="mt-6 pt-4 border-t border-border">
+              <div className="flex justify-between items-center bg-muted/50 p-3 rounded-lg">
+                <span className="text-sm font-medium text-foreground">Total Inventory Value</span>
+                <span className="text-lg font-bold text-primary">₹{dashboardData.kpis.inventoryValue.toLocaleString()}</span>
               </div>
             </div>
           </CardContent>
@@ -660,30 +673,30 @@ export default function DashboardPage() {
       </div>
 
       {/* Attendance Overview */}
-      <Card>
+      <Card className="shadow-sm">
         <CardHeader>
-          <CardTitle>Attendance Overview</CardTitle>
+          <CardTitle className="text-lg font-semibold">Attendance Overview</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="text-center">
-              <div className="text-3xl font-bold text-green-600 mb-2">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 p-4">
+            <div className="flex flex-col items-center justify-center space-y-2">
+              <div className="text-4xl font-bold text-emerald-600 dark:text-emerald-500">
                 {dashboardData.attendance.attendanceRate.toFixed(1)}%
               </div>
-              <div className="text-sm text-muted-foreground">Attendance Rate</div>
-              <Progress value={dashboardData.attendance.attendanceRate} className="mt-2" />
+              <div className="text-sm font-medium text-muted-foreground">Attendance Rate</div>
+              <Progress value={dashboardData.attendance.attendanceRate} className="w-full h-2 mt-2 max-w-[150px]" />
             </div>
-            <div className="text-center">
-              <div className="text-3xl font-bold text-blue-600 mb-2">
+            <div className="flex flex-col items-center justify-center space-y-2 border-x border-border/50">
+              <div className="text-4xl font-bold text-primary">
                 {dashboardData.attendance.totalPresent}
               </div>
-              <div className="text-sm text-muted-foreground">Total Present</div>
+              <div className="text-sm font-medium text-muted-foreground">Students Present</div>
             </div>
-            <div className="text-center">
-              <div className="text-3xl font-bold text-red-600 mb-2">
+            <div className="flex flex-col items-center justify-center space-y-2">
+              <div className="text-4xl font-bold text-destructive">
                 {dashboardData.attendance.totalAbsent}
               </div>
-              <div className="text-sm text-muted-foreground">Total Absent</div>
+              <div className="text-sm font-medium text-muted-foreground">Students Absent</div>
             </div>
           </div>
         </CardContent>

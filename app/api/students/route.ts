@@ -37,8 +37,11 @@ export async function GET(request: NextRequest) {
       where.isMando = true
     } else if (isMando === "false") {
       where.isMando = false
+    } else {
+      // Explicitly request ALL students (both regular and mando)
+      // otherwise lib/db.ts defaults to excluding mando students
+      where.isMando = 'ALL'
     }
-    // If isMando is null/undefined, no filter is applied (show all students)
 
     if (status && status !== "all") {
       where.status = status
@@ -98,7 +101,7 @@ export async function GET(request: NextRequest) {
     const hostelNames = [...new Set(students.map(s => s.hostel?.name).filter(Boolean))]
     console.log(`[DEBUG] Hostel names in results: ${JSON.stringify(hostelNames)}`)
 
-    console.log(`[v0] Finding students with options:`, JSON.stringify({where, include, orderBy: {name: "asc"}}))
+    console.log(`[v0] Finding students with options:`, JSON.stringify({ where, include, orderBy: { name: "asc" } }))
     console.log(`[v0] Found students:`, students.length)
 
     return NextResponse.json(students, {

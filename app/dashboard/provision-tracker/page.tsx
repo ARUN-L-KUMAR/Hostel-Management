@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Plus, Calendar, TrendingUp, ShoppingCart, BarChart3 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
+import { DatePicker } from "@/components/ui/date-picker"
 
 interface ProvisionItem {
   id: string
@@ -21,12 +22,12 @@ interface ProvisionItem {
 }
 
 interface ProvisionUsage {
-   id: string
-   provisionItem: ProvisionItem
-   date: string
-   fromDate?: string
-   toDate?: string
-   quantity: number
+  id: string
+  provisionItem: ProvisionItem
+  date: string
+  fromDate?: string
+  toDate?: string
+  quantity: number
 }
 
 interface ProvisionPurchase {
@@ -265,20 +266,20 @@ export default function ProvisionTrackerPage() {
       const method = editingUsage ? 'PUT' : 'POST'
       const body = editingUsage
         ? {
-            id: editingUsage.id,
-            provisionItemId: selectedItem,
-            date: usageDate,
-            fromDate,
-            toDate,
-            quantity: convertedQuantity
-          }
+          id: editingUsage.id,
+          provisionItemId: selectedItem,
+          date: usageDate,
+          fromDate,
+          toDate,
+          quantity: convertedQuantity
+        }
         : {
-            provisionItemId: selectedItem,
-            date: usageDate,
-            fromDate,
-            toDate,
-            quantity: convertedQuantity
-          }
+          provisionItemId: selectedItem,
+          date: usageDate,
+          fromDate,
+          toDate,
+          quantity: convertedQuantity
+        }
 
       await fetch('/api/provision-usage', {
         method,
@@ -537,20 +538,30 @@ export default function ProvisionTrackerPage() {
               <div className="flex gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="startDate">Start Date</Label>
-                  <Input
-                    id="startDate"
-                    type="date"
-                    value={startDate}
-                    onChange={(e) => setStartDate(e.target.value)}
+                  <DatePicker
+                    date={startDate ? new Date(startDate) : undefined}
+                    setDate={(date) => {
+                      if (date) {
+                        const offsetDate = new Date(date.getTime() - (date.getTimezoneOffset() * 60000));
+                        setStartDate(offsetDate.toISOString().split('T')[0])
+                      } else {
+                        setStartDate("")
+                      }
+                    }}
                   />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="endDate">End Date</Label>
-                  <Input
-                    id="endDate"
-                    type="date"
-                    value={endDate}
-                    onChange={(e) => setEndDate(e.target.value)}
+                  <DatePicker
+                    date={endDate ? new Date(endDate) : undefined}
+                    setDate={(date) => {
+                      if (date) {
+                        const offsetDate = new Date(date.getTime() - (date.getTimezoneOffset() * 60000));
+                        setEndDate(offsetDate.toISOString().split('T')[0])
+                      } else {
+                        setEndDate("")
+                      }
+                    }}
                   />
                 </div>
               </div>
@@ -576,11 +587,16 @@ export default function ProvisionTrackerPage() {
                 <div className="space-y-4">
                   <div>
                     <Label htmlFor="purchaseDate">Purchase Date</Label>
-                    <Input
-                      id="purchaseDate"
-                      type="date"
-                      value={purchaseDate}
-                      onChange={(e) => setPurchaseDate(e.target.value)}
+                    <DatePicker
+                      date={purchaseDate ? new Date(purchaseDate) : undefined}
+                      setDate={(date) => {
+                        if (date) {
+                          const offsetDate = new Date(date.getTime() - (date.getTimezoneOffset() * 60000));
+                          setPurchaseDate(offsetDate.toISOString().split('T')[0])
+                        } else {
+                          setPurchaseDate("")
+                        }
+                      }}
                     />
                   </div>
 
@@ -776,20 +792,30 @@ export default function ProvisionTrackerPage() {
               <div className="flex gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="startDate">Start Date</Label>
-                  <Input
-                    id="startDate"
-                    type="date"
-                    value={startDate}
-                    onChange={(e) => setStartDate(e.target.value)}
+                  <DatePicker
+                    date={startDate ? new Date(startDate) : undefined}
+                    setDate={(date) => {
+                      if (date) {
+                        const offsetDate = new Date(date.getTime() - (date.getTimezoneOffset() * 60000));
+                        setStartDate(offsetDate.toISOString().split('T')[0])
+                      } else {
+                        setStartDate("")
+                      }
+                    }}
                   />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="endDate">End Date</Label>
-                  <Input
-                    id="endDate"
-                    type="date"
-                    value={endDate}
-                    onChange={(e) => setEndDate(e.target.value)}
+                  <DatePicker
+                    date={endDate ? new Date(endDate) : undefined}
+                    setDate={(date) => {
+                      if (date) {
+                        const offsetDate = new Date(date.getTime() - (date.getTimezoneOffset() * 60000));
+                        setEndDate(offsetDate.toISOString().split('T')[0])
+                      } else {
+                        setEndDate("")
+                      }
+                    }}
                   />
                 </div>
               </div>
@@ -891,22 +917,32 @@ export default function ProvisionTrackerPage() {
                   {usageType === "day" && (
                     <div>
                       <Label htmlFor="date">Date</Label>
-                      <Input
-                        id="date"
-                        type="date"
-                        value={startDate}
-                        onChange={(e) => setStartDate(e.target.value)}
+                      <DatePicker
+                        date={startDate ? new Date(startDate) : undefined}
+                        setDate={(date) => {
+                          if (date) {
+                            const offsetDate = new Date(date.getTime() - (date.getTimezoneOffset() * 60000));
+                            setStartDate(offsetDate.toISOString().split('T')[0])
+                          } else {
+                            setStartDate("")
+                          }
+                        }}
                       />
                     </div>
                   )}
                   {usageType === "week" && (
                     <div>
                       <Label htmlFor="weekStart">Week Starting</Label>
-                      <Input
-                        id="weekStart"
-                        type="date"
-                        value={startDate}
-                        onChange={(e) => setStartDate(e.target.value)}
+                      <DatePicker
+                        date={startDate ? new Date(startDate) : undefined}
+                        setDate={(date) => {
+                          if (date) {
+                            const offsetDate = new Date(date.getTime() - (date.getTimezoneOffset() * 60000));
+                            setStartDate(offsetDate.toISOString().split('T')[0])
+                          } else {
+                            setStartDate("")
+                          }
+                        }}
                       />
                     </div>
                   )}
@@ -914,20 +950,30 @@ export default function ProvisionTrackerPage() {
                     <>
                       <div>
                         <Label htmlFor="monthStart">Start Date</Label>
-                        <Input
-                          id="monthStart"
-                          type="date"
-                          value={startDate}
-                          onChange={(e) => setStartDate(e.target.value)}
+                        <DatePicker
+                          date={startDate ? new Date(startDate) : undefined}
+                          setDate={(date) => {
+                            if (date) {
+                              const offsetDate = new Date(date.getTime() - (date.getTimezoneOffset() * 60000));
+                              setStartDate(offsetDate.toISOString().split('T')[0])
+                            } else {
+                              setStartDate("")
+                            }
+                          }}
                         />
                       </div>
                       <div>
                         <Label htmlFor="monthEnd">End Date</Label>
-                        <Input
-                          id="monthEnd"
-                          type="date"
-                          value={endDate}
-                          onChange={(e) => setEndDate(e.target.value)}
+                        <DatePicker
+                          date={endDate ? new Date(endDate) : undefined}
+                          setDate={(date) => {
+                            if (date) {
+                              const offsetDate = new Date(date.getTime() - (date.getTimezoneOffset() * 60000));
+                              setEndDate(offsetDate.toISOString().split('T')[0])
+                            } else {
+                              setEndDate("")
+                            }
+                          }}
                         />
                       </div>
                     </>
