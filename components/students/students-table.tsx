@@ -355,7 +355,7 @@ export function StudentsTable({ filters }: StudentsTableProps) {
 
       {/* Dialogs */}
       <ViewStudentDialog
-        studentId={selectedStudent?.id || null}
+        student={selectedStudent}
         open={viewDialogOpen}
         onOpenChange={setViewDialogOpen}
       />

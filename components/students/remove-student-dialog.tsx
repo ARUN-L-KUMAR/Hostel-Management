@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { format } from "date-fns"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -11,11 +12,13 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { UserX, AlertTriangle } from "lucide-react"
+import { Calendar } from "@/components/ui/calendar"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { UserX, AlertTriangle, CalendarIcon } from "lucide-react"
 import { toast } from "sonner"
+import { cn } from "@/lib/utils"
 
 interface Student {
   id: string
@@ -40,12 +43,12 @@ export function RemoveStudentDialog({
   onOpenChange,
   onStudentRemoved,
 }: RemoveStudentDialogProps) {
-  const [description, setDescription] = useState("")
+  const [leaveDate, setLeaveDate] = useState<Date>(new Date())
   const [loading, setLoading] = useState(false)
 
   const handleRemoveStudent = async () => {
-    if (!student || !description.trim()) {
-      toast.error("Please provide a reason for removing the student")
+    if (!student) {
+      toast.error("No student selected")
       return
     }
 
@@ -58,8 +61,7 @@ export function RemoveStudentDialog({
         },
         body: JSON.stringify({
           status: "VACATE",
-          leaveDate: new Date().toISOString(),
-          leaveReason: description.trim(),
+          leaveDate: leaveDate.toISOString(),
         }),
       })
 
@@ -70,7 +72,7 @@ export function RemoveStudentDialog({
       toast.success("Student has been successfully removed/vacated")
       onStudentRemoved()
       onOpenChange(false)
-      setDescription("")
+      setLeaveDate(new Date())
     } catch (error) {
       console.error("Error removing student:", error)
       toast.error("Failed to remove student. Please try again.")
@@ -80,7 +82,7 @@ export function RemoveStudentDialog({
   }
 
   const handleCancel = () => {
-    setDescription("")
+    setLeaveDate(new Date())
     onOpenChange(false)
   }
 
@@ -95,7 +97,7 @@ export function RemoveStudentDialog({
             Remove Student (Vacate)
           </DialogTitle>
           <DialogDescription>
-            This action will mark the student as inactive and set their leave date. 
+            This action will mark the student as inactive and set their leave date.
             This action can be reversed by changing the student's status back to active.
           </DialogDescription>
         </DialogHeader>
@@ -134,8 +136,8 @@ export function RemoveStudentDialog({
                       <Badge
                         variant={student.status === "ACTIVE" ? "default" : "secondary"}
                         className={
-                          student.status === "ACTIVE" 
-                            ? "bg-green-100 text-green-800" 
+                          student.status === "ACTIVE"
+                            ? "bg-green-100 text-green-800"
                             : "bg-gray-100 text-gray-800"
                         }
                       >
@@ -148,21 +150,35 @@ export function RemoveStudentDialog({
             </CardContent>
           </Card>
 
-          {/* Reason Input */}
+          {/* Leave Date Picker */}
           <div className="space-y-2">
-            <Label htmlFor="description" className="text-sm font-medium">
-              Reason for Leaving/Vacating <span className="text-red-500">*</span>
+            <Label className="text-sm font-medium">
+              Leave Date <span className="text-red-500">*</span>
             </Label>
-            <Textarea
-              id="description"
-              placeholder="Please provide a detailed reason for the student leaving the hostel (e.g., Graduated, Transferred to another college, Personal reasons, etc.)"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              rows={4}
-              className="resize-none bg-white border-gray-300 focus:border-blue-500 focus:ring-blue-500"
-            />
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className={cn(
+                    "w-full justify-start text-left font-normal",
+                    !leaveDate && "text-muted-foreground"
+                  )}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {leaveDate ? format(leaveDate, "PPP") : <span>Select leave date</span>}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={leaveDate}
+                  onSelect={(date) => date && setLeaveDate(date)}
+                  initialFocus
+                />
+              </PopoverContent>
+            </Popover>
             <p className="text-xs text-slate-500">
-              This information will be recorded for audit purposes.
+              Select the date when the student is leaving/vacating the hostel.
             </p>
           </div>
         </div>
@@ -177,7 +193,7 @@ export function RemoveStudentDialog({
           </Button>
           <Button
             onClick={handleRemoveStudent}
-            disabled={loading || !description.trim()}
+            disabled={loading}
             className="bg-red-600 hover:bg-red-700 text-white"
           >
             {loading ? "Removing..." : "Remove Student"}

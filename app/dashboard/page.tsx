@@ -95,6 +95,18 @@ interface DashboardData {
     totalAbsent: number
     attendanceRate: number
   }
+  studentStats: {
+    boys: {
+      total: number
+      regular: number
+      mando: number
+    }
+    girls: {
+      total: number
+      regular: number
+      mando: number
+    }
+  }
   alerts: Array<{
     type: 'warning' | 'info' | 'success'
     title: string
@@ -229,6 +241,20 @@ export default function DashboardPage() {
         count: data.count
       })).sort((a, b) => b.amount - a.amount)
 
+      // Calculate student statistics by gender and type
+      const studentStats = {
+        boys: {
+          total: studentsData.filter((s: any) => s.hostel?.name === 'Boys' && s.status === 'ACTIVE').length,
+          regular: studentsData.filter((s: any) => s.hostel?.name === 'Boys' && s.status === 'ACTIVE' && !s.isMando).length,
+          mando: studentsData.filter((s: any) => s.hostel?.name === 'Boys' && s.status === 'ACTIVE' && s.isMando).length
+        },
+        girls: {
+          total: studentsData.filter((s: any) => s.hostel?.name === 'Girls' && s.status === 'ACTIVE').length,
+          regular: studentsData.filter((s: any) => s.hostel?.name === 'Girls' && s.status === 'ACTIVE' && !s.isMando).length,
+          mando: studentsData.filter((s: any) => s.hostel?.name === 'Girls' && s.status === 'ACTIVE' && s.isMando).length
+        }
+      }
+
       // Create alerts
       const alerts = []
       if (inventoryValue < 10000) {
@@ -329,6 +355,7 @@ export default function DashboardPage() {
           totalAbsent,
           attendanceRate
         },
+        studentStats,
         alerts
       }
 
@@ -524,6 +551,67 @@ export default function DashboardPage() {
             <p className="text-xs text-muted-foreground mt-1">
               out of {dashboardData.kpis.totalStudents} total enrolled
             </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Student Statistics by Gender */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Boys Hostel */}
+        <Card className="shadow-sm hover:shadow-md transition-shadow ">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg font-semibold flex items-center gap-2">
+              <Users className="h-5 w-5 text-blue-500" />
+              Boys Hostel
+            </CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Total: <span className="font-semibold text-foreground">{dashboardData.studentStats.boys.total}</span> students
+            </p>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="text-center p-4 bg-blue-500/5 rounded-xl border border-blue-500/10">
+                <div className="text-3xl font-bold text-blue-600 dark:text-blue-400 mb-1">
+                  {dashboardData.studentStats.boys.regular}
+                </div>
+                <div className="text-sm font-medium text-blue-600/80 dark:text-blue-400/80">Regular</div>
+              </div>
+              <div className="text-center p-4 bg-amber-500/5 rounded-xl border border-amber-500/10">
+                <div className="text-3xl font-bold text-amber-600 dark:text-amber-400 mb-1">
+                  {dashboardData.studentStats.boys.mando}
+                </div>
+                <div className="text-sm font-medium text-amber-600/80 dark:text-amber-400/80">Mando</div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Girls Hostel */}
+        <Card className="shadow-sm hover:shadow-md transition-shadow ">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg font-semibold flex items-center gap-2">
+              <Users className="h-5 w-5 text-pink-500" />
+              Girls Hostel
+            </CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Total: <span className="font-semibold text-foreground">{dashboardData.studentStats.girls.total}</span> students
+            </p>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="text-center p-4 bg-pink-500/5 rounded-xl border border-pink-500/10">
+                <div className="text-3xl font-bold text-pink-600 dark:text-pink-400 mb-1">
+                  {dashboardData.studentStats.girls.regular}
+                </div>
+                <div className="text-sm font-medium text-pink-600/80 dark:text-pink-400/80">Regular</div>
+              </div>
+              <div className="text-center p-4 bg-amber-500/5 rounded-xl border border-amber-500/10">
+                <div className="text-3xl font-bold text-amber-600 dark:text-amber-400 mb-1">
+                  {dashboardData.studentStats.girls.mando}
+                </div>
+                <div className="text-sm font-medium text-amber-600/80 dark:text-amber-400/80">Mando</div>
+              </div>
+            </div>
           </CardContent>
         </Card>
       </div>

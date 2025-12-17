@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { format } from "date-fns"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -11,11 +12,13 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { UserX, AlertTriangle } from "lucide-react"
+import { Calendar } from "@/components/ui/calendar"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { UserX, AlertTriangle, CalendarIcon } from "lucide-react"
 import { toast } from "sonner"
+import { cn } from "@/lib/utils"
 
 interface Student {
   id: string
@@ -40,15 +43,10 @@ export function BulkRemoveDialog({
   onOpenChange,
   onStudentsRemoved,
 }: BulkRemoveDialogProps) {
-  const [description, setDescription] = useState("")
+  const [leaveDate, setLeaveDate] = useState<Date>(new Date())
   const [loading, setLoading] = useState(false)
 
   const handleBulkRemoveStudents = async () => {
-    if (!description.trim()) {
-      toast.error("Please provide a reason for removing the students")
-      return
-    }
-
     if (students.length === 0) {
       toast.error("No students selected")
       return
@@ -64,14 +62,13 @@ export function BulkRemoveDialog({
           },
           body: JSON.stringify({
             status: "VACATE",
-            leaveDate: new Date().toISOString(),
-            leaveReason: description.trim(),
+            leaveDate: leaveDate.toISOString(),
           }),
         })
       )
 
       const responses = await Promise.all(promises)
-      
+
       // Check if all requests were successful
       const failed = responses.filter(response => !response.ok)
       if (failed.length > 0) {
@@ -81,7 +78,7 @@ export function BulkRemoveDialog({
       toast.success(`Successfully removed ${students.length} student(s)`)
       onStudentsRemoved()
       onOpenChange(false)
-      setDescription("")
+      setLeaveDate(new Date())
     } catch (error) {
       console.error("Error removing students:", error)
       toast.error("Failed to remove some students. Please try again.")
@@ -91,7 +88,7 @@ export function BulkRemoveDialog({
   }
 
   const handleCancel = () => {
-    setDescription("")
+    setLeaveDate(new Date())
     onOpenChange(false)
   }
 
@@ -104,7 +101,7 @@ export function BulkRemoveDialog({
             Remove Students (Bulk Vacate)
           </DialogTitle>
           <DialogDescription>
-            This action will vacate {students.length} selected student(s) and set their leave date. 
+            This action will vacate {students.length} selected student(s) and set their leave date.
             This action can be reversed by changing the students' status back to active.
           </DialogDescription>
         </DialogHeader>
@@ -140,21 +137,35 @@ export function BulkRemoveDialog({
             </CardContent>
           </Card>
 
-          {/* Reason Input */}
+          {/* Leave Date Picker */}
           <div className="space-y-2">
-            <Label htmlFor="description" className="text-sm font-medium">
-              Reason for Leaving/Vacating <span className="text-red-500">*</span>
+            <Label className="text-sm font-medium">
+              Leave Date <span className="text-red-500">*</span>
             </Label>
-            <Textarea
-              id="description"
-              placeholder="Please provide a detailed reason for the students vacating the hostel (e.g., Graduated, Transferred to another college, Personal reasons, etc.)"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              rows={4}
-              className="resize-none bg-white border-gray-300 focus:border-blue-500 focus:ring-blue-500"
-            />
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className={cn(
+                    "w-full justify-start text-left font-normal",
+                    !leaveDate && "text-muted-foreground"
+                  )}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {leaveDate ? format(leaveDate, "PPP") : <span>Select leave date</span>}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={leaveDate}
+                  onSelect={(date) => date && setLeaveDate(date)}
+                  initialFocus
+                />
+              </PopoverContent>
+            </Popover>
             <p className="text-xs text-slate-500">
-              This reason will be applied to all selected students and recorded for audit purposes.
+              This leave date will be applied to all selected students.
             </p>
           </div>
         </div>
@@ -169,7 +180,7 @@ export function BulkRemoveDialog({
           </Button>
           <Button
             onClick={handleBulkRemoveStudents}
-            disabled={loading || !description.trim()}
+            disabled={loading}
             className="bg-red-600 hover:bg-red-700 text-white"
           >
             {loading ? "Removing..." : `Remove ${students.length} Student(s)`}

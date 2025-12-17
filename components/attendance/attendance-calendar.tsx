@@ -22,7 +22,7 @@ interface Student {
   }>
 }
 
-export function AttendanceCalendar({ year, month, filters, onExport, onStudentsChange }: { year: string; month: string; filters: { hostel: string; year: string; mandoFilter: string; status: string; dept: string }; onExport?: (students: any[]) => void; onStudentsChange?: (students: any[]) => void }) {
+export function AttendanceCalendar({ year, month, filters, onExport, onStudentsChange }: { year: string; month: string; filters: { hostel: string; year: string; mandoFilter: string; status: string; dept: string; search: string }; onExport?: (students: any[]) => void; onStudentsChange?: (students: any[]) => void }) {
   const [students, setStudents] = useState<Student[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -43,8 +43,11 @@ export function AttendanceCalendar({ year, month, filters, onExport, onStudentsC
             (filters.mandoFilter === "mando" && student.isMando) ||
             (filters.mandoFilter === "regular" && !student.isMando)
           const matchesDept = filters.dept === "all" || (student.dept && student.dept.toLowerCase().includes(filters.dept.toLowerCase()))
+          const matchesSearch = !filters.search ||
+            student.name?.toLowerCase().includes(filters.search.toLowerCase()) ||
+            student.rollNo?.toLowerCase().includes(filters.search.toLowerCase())
 
-          return matchesHostel && matchesYear && matchesMando && matchesDept
+          return matchesHostel && matchesYear && matchesMando && matchesDept && matchesSearch
         })
 
         console.log(`[v0] Filtered to ${filteredStudents.length} students`)
