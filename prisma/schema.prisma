@@ -337,6 +337,7 @@ model OutsiderMealRecord {
    breakfast   Boolean  @default(false)
    lunch       Boolean  @default(false)
    dinner      Boolean  @default(false)
+   others      String?  // Custom meal/item description when 'others' checkbox is selected
    mealRate    Float
    memberCount Int      @default(1) // Number of members for this meal record
 

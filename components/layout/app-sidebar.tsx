@@ -36,8 +36,8 @@ export function AppSidebar() {
   const getMenuItems = () => {
     const allItems = [
       { icon: Home, label: "Dashboard", href: "/dashboard", permission: "dashboard" },
-      { icon: Calendar, label: "Attendance", href: "/dashboard/attendance", permission: "attendance" },
       { icon: Users, label: "Students", href: "/dashboard/students", permission: "students" },
+      { icon: Calendar, label: "Attendance", href: "/dashboard/attendance", permission: "attendance" },
       { icon: UtensilsCrossed, label: "Mando Meal Entry", href: "/dashboard/mando-students", permission: "mando-students" },
       { icon: UserCircle, label: "Outsiders", href: "/dashboard/outsiders", permission: "outsiders" },
       { icon: Package, label: "Provisions", href: "/dashboard/provisions", permission: "provisions" },

@@ -57,18 +57,21 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { id, outsiderId, date, breakfast, lunch, dinner, memberCount } = body
+    const { id, outsiderId, date, breakfast, lunch, dinner, others, mealRate: customMealRate, memberCount } = body
 
     // Validate required fields
     if (!outsiderId || !date) {
       return NextResponse.json({ error: "outsiderId and date are required" }, { status: 400 })
     }
 
-    // Get current meal rate from settings (assuming same rate for outsiders)
-    const mandoSettings = await prisma.mandoSettings.findFirst({
-      where: { isActive: true }
-    })
-    const mealRate = mandoSettings?.perMealRate || 50
+    // Use custom mealRate from client, or fall back to settings
+    let mealRate = customMealRate
+    if (mealRate === undefined || mealRate === null) {
+      const mandoSettings = await prisma.mandoSettings.findFirst({
+        where: { isActive: true }
+      })
+      mealRate = mandoSettings?.outsiderMealRate || 50
+    }
 
     // Parse date as UTC to avoid timezone issues
     const utcDate = new Date(date + 'T00:00:00.000Z')
@@ -85,17 +88,14 @@ export async function POST(request: NextRequest) {
           breakfast: breakfast !== undefined ? breakfast : false,
           lunch: lunch !== undefined ? lunch : false,
           dinner: dinner !== undefined ? dinner : false,
+          others: others || null,
+          mealRate,
           memberCount: memberCount !== undefined ? memberCount : 1
         }
       })
     } else {
       // Create new record
-      // Since upsert relies on a unique constraint that might not exist in Prisma schema,
-      // we simply create. If the user wants to prevent duplicates, schema should enforce it.
-      // For now, we assume simple create is safe or the DB handles unique constraints.
-      // Ideally we should check if one exists for this day+outsider first if we care about duplicates.
-
-      // Let's try to find one first to emulate upsert behavior safely without crashing if unique is missing in schema
+      // Let's try to find one first to emulate upsert behavior safely
       const existing = await prisma.outsiderMealRecord.findFirst({
         where: {
           outsiderId: outsiderId,
@@ -110,10 +110,9 @@ export async function POST(request: NextRequest) {
             breakfast: breakfast || false,
             lunch: lunch || false,
             dinner: dinner || false,
-            memberCount: memberCount || 1,
-            mealRate // Update rate if needed? Usually we keep old rate. Let's keep existing rate behavior or update it.
-            // Actually, usually we don't change rate on update unless forced.
-            // But valid upsert logic usually updates content.
+            others: others || null,
+            mealRate,
+            memberCount: memberCount || 1
           }
         })
       } else {
@@ -124,6 +123,7 @@ export async function POST(request: NextRequest) {
             breakfast: breakfast || false,
             lunch: lunch || false,
             dinner: dinner || false,
+            others: others || null,
             mealRate,
             memberCount: memberCount || 1
           }

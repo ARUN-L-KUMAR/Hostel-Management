@@ -18,6 +18,7 @@ interface MealRecord {
   breakfast: boolean
   lunch: boolean
   dinner: boolean
+  others: string | null  // Added others field
   mealRate: number
   memberCount: number
   outsider: {
@@ -78,12 +79,27 @@ export default function OutsidersPage() {
     }
   }
 
+  // Updated getMealsText to include "Others" if others field has a value
   const getMealsText = (record: MealRecord) => {
     const meals = []
     if (record.breakfast) meals.push('B')
     if (record.lunch) meals.push('L')
     if (record.dinner) meals.push('D')
+    if (record.others) meals.push('O')  // Added Others
     return meals.join(', ') || 'None'
+  }
+
+  // Calculate meal count including others
+  const getMealCount = (record: MealRecord) => {
+    let count = [record.breakfast, record.lunch, record.dinner].filter(Boolean).length
+    if (record.others) count += 1  // Count others as 1 meal if it has a value
+    return count
+  }
+
+  // Calculate total including others
+  const getTotal = (record: MealRecord) => {
+    const mealCount = getMealCount(record)
+    return mealCount * record.mealRate * (record.memberCount || 1)
   }
 
   const handleRefresh = () => {
@@ -179,7 +195,6 @@ export default function OutsidersPage() {
                 <TableHead>Name</TableHead>
                 <TableHead>Phone</TableHead>
                 <TableHead>Designation</TableHead>
-                <TableHead>Description</TableHead>
                 <TableHead>Date</TableHead>
                 <TableHead>Members</TableHead>
                 <TableHead>Meals</TableHead>
@@ -197,15 +212,13 @@ export default function OutsidersPage() {
                 </TableRow>
               ) : (
                 mealRecords.map((record) => {
-                  const mealCount = [record.breakfast, record.lunch, record.dinner].filter(Boolean).length
-                  const total = mealCount * record.mealRate * (record.memberCount || 1)
+                  const total = getTotal(record)
 
                   return (
                     <TableRow key={record.id}>
                       <TableCell className="font-medium">{record.outsider?.name || 'Unknown'}</TableCell>
                       <TableCell>{record.outsider?.phone || 'N/A'}</TableCell>
                       <TableCell className="truncate max-w-32">{record.outsider?.designation || 'Not Set'}</TableCell>
-                      <TableCell className="truncate max-w-32">{record.outsider?.description || 'Not Set'}</TableCell>
                       <TableCell>{record.date}</TableCell>
                       <TableCell className="text-center">{record.memberCount || 1}</TableCell>
                       <TableCell>
@@ -262,7 +275,7 @@ export default function OutsidersPage() {
         </DialogContent>
       </Dialog>
 
-      {/* View Details Dialog */}
+      {/* View Details Dialog - Updated to show Others meal info */}
       <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
         <DialogContent className="max-w-md bg-white">
           <DialogHeader>
@@ -274,12 +287,25 @@ export default function OutsidersPage() {
                 <div><strong>Name:</strong> {selectedRecord?.outsider?.name || 'Unknown'}</div>
                 <div><strong>Phone:</strong> {selectedRecord?.outsider?.phone || 'N/A'}</div>
                 <div><strong>Designation:</strong> {selectedRecord?.outsider?.designation || 'Not Set'}</div>
-                <div><strong>Description:</strong> {selectedRecord?.outsider?.description || 'Not Set'}</div>
                 <div><strong>Date:</strong> {selectedRecord?.date}</div>
                 <div><strong>Members:</strong> {selectedRecord?.memberCount || 1}</div>
                 <div><strong>Meals:</strong> {selectedRecord ? getMealsText(selectedRecord) : ''}</div>
-                <div><strong>Rate:</strong> ₹{selectedRecord?.mealRate}</div>
-                <div><strong>Total:</strong> ₹{selectedRecord ? [selectedRecord.breakfast, selectedRecord.lunch, selectedRecord.dinner].filter(Boolean).length * selectedRecord.mealRate * (selectedRecord.memberCount || 1) : 0}</div>
+                {/* Show individual meal details */}
+                <div className="border-t pt-3 space-y-2">
+                  <div className="text-sm font-medium text-slate-700">Meal Breakdown:</div>
+                  {selectedRecord?.breakfast && <div className="text-sm">• Breakfast</div>}
+                  {selectedRecord?.lunch && <div className="text-sm">• Lunch</div>}
+                  {selectedRecord?.dinner && <div className="text-sm">• Dinner</div>}
+                  {selectedRecord?.others && (
+                    <div className="text-sm text-purple-600">
+                      • Others: <span className="font-medium">{selectedRecord.others}</span>
+                    </div>
+                  )}
+                </div>
+                <div><strong>Rate per Meal:</strong> ₹{selectedRecord?.mealRate}</div>
+                <div className="text-lg font-bold border-t pt-3">
+                  <strong>Total:</strong> ₹{selectedRecord ? getTotal(selectedRecord) : 0}
+                </div>
               </div>
             </CardContent>
           </Card>

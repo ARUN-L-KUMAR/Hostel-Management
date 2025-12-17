@@ -1320,6 +1320,8 @@ export const prisma = {
               breakfast = ${updateData.breakfast !== undefined ? updateData.breakfast : existing[0].breakfast},
               lunch = ${updateData.lunch !== undefined ? updateData.lunch : existing[0].lunch},
               dinner = ${updateData.dinner !== undefined ? updateData.dinner : existing[0].dinner},
+              others = ${updateData.others !== undefined ? updateData.others : existing[0].others},
+              "mealRate" = ${updateData.mealRate !== undefined ? updateData.mealRate : existing[0].mealRate},
               "memberCount" = ${updateData.memberCount !== undefined ? updateData.memberCount : existing[0].memberCount}
             WHERE "outsiderId" = ${outsiderId} AND date = ${date}
             RETURNING *
@@ -1328,8 +1330,8 @@ export const prisma = {
         } else {
           // Create new
           const result = await sql`
-            INSERT INTO outsider_meal_records ("outsiderId", date, breakfast, lunch, dinner, "mealRate", "memberCount")
-            VALUES (${outsiderId}, ${date}, ${createData.breakfast || false}, ${createData.lunch || false}, ${createData.dinner || false}, ${createData.mealRate || 50}, ${createData.memberCount || 1})
+            INSERT INTO outsider_meal_records ("outsiderId", date, breakfast, lunch, dinner, others, "mealRate", "memberCount")
+            VALUES (${outsiderId}, ${date}, ${createData.breakfast || false}, ${createData.lunch || false}, ${createData.dinner || false}, ${createData.others || null}, ${createData.mealRate || 50}, ${createData.memberCount || 1})
             RETURNING *
           `
           return result[0]
@@ -1394,6 +1396,7 @@ export const prisma = {
         if (data.breakfast !== undefined) updates.push(`breakfast = ${data.breakfast}`)
         if (data.lunch !== undefined) updates.push(`lunch = ${data.lunch}`)
         if (data.dinner !== undefined) updates.push(`dinner = ${data.dinner}`)
+        if (data.others !== undefined) updates.push(`others = ${data.others === null ? 'NULL' : `'${data.others}'`}`)
         if (data.memberCount !== undefined) updates.push(`"memberCount" = ${data.memberCount}`)
         if (data.mealRate !== undefined) updates.push(`"mealRate" = ${data.mealRate}`)
         if (data.date !== undefined) updates.push(`date = '${new Date(data.date).toISOString()}'`)
@@ -1417,10 +1420,10 @@ export const prisma = {
 
     create: async (options: any) => {
       try {
-        const { outsiderId, date, breakfast, lunch, dinner, mealRate, memberCount } = options.data
+        const { outsiderId, date, breakfast, lunch, dinner, others, mealRate, memberCount } = options.data
         const result = await sql`
-          INSERT INTO outsider_meal_records ("outsiderId", date, breakfast, lunch, dinner, "mealRate", "memberCount")
-          VALUES (${outsiderId}, ${date}, ${breakfast || false}, ${lunch || false}, ${dinner || false}, ${mealRate || 50}, ${memberCount || 1})
+          INSERT INTO outsider_meal_records ("outsiderId", date, breakfast, lunch, dinner, others, "mealRate", "memberCount")
+          VALUES (${outsiderId}, ${date}, ${breakfast || false}, ${lunch || false}, ${dinner || false}, ${others || null}, ${mealRate || 50}, ${memberCount || 1})
           RETURNING *
         `
         return result[0]

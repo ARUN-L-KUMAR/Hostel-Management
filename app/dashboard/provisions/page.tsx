@@ -64,6 +64,8 @@ export default function ProvisionsPage() {
   const [purchaseDialogOpen, setPurchaseDialogOpen] = useState(false)
   const [editingUsage, setEditingUsage] = useState<ProvisionUsage | null>(null)
   const [editingPurchase, setEditingPurchase] = useState<ProvisionPurchase | null>(null)
+  const [savingPurchase, setSavingPurchase] = useState(false)
+  const [savingUsage, setSavingUsage] = useState(false)
   const [selectedItem, setSelectedItem] = useState<string>("")
   const [usageType, setUsageType] = useState<"day" | "week" | "month">("day")
   const [quantity, setQuantity] = useState("")
@@ -104,6 +106,7 @@ export default function ProvisionsPage() {
   // View states
   const [purchaseView, setPurchaseView] = useState<"date" | "item">("date")
   const [usageView, setUsageView] = useState<"date" | "item">("date")
+  const [activeTab, setActiveTab] = useState("inventory")
 
   const getAvailableUnits = (unit: string) => {
     if (unit === 'kg') return ['kg', 'gm']
@@ -288,6 +291,7 @@ export default function ProvisionsPage() {
       return
     }
 
+    setSavingUsage(true)
     try {
       const item = provisionItems.find(p => p.id === selectedItem)
       if (!item) return
@@ -374,12 +378,15 @@ export default function ProvisionsPage() {
         description: `Failed to ${editingUsage ? 'update' : 'add'} usage`,
         variant: "destructive",
       })
+    } finally {
+      setSavingUsage(false)
     }
   }
 
   const savePurchase = async () => {
     if (!vendor || !paymentType || purchaseItems.length === 0) return
 
+    setSavingPurchase(true)
     try {
       // First, create any new provision items that don't exist
       const processedItems = []
@@ -460,6 +467,7 @@ export default function ProvisionsPage() {
       // Fetch fresh data and recalculate inventory in order
       await fetchProvisionItems() // Refetch provision items (includes any new ones)
       await fetchPurchases() // Refetch purchases with latest data
+      await fetchUsages() // Refetch usages so Usage tab is updated
       await calculateInventoryLevels() // Recalculate inventory with fresh data
       fetchItemSuggestions() // Refresh suggestions (no await needed)
     } catch (error) {
@@ -469,6 +477,8 @@ export default function ProvisionsPage() {
         description: error instanceof Error ? error.message : `Failed to ${editingPurchase ? 'update' : 'add'} purchase`,
         variant: "destructive",
       })
+    } finally {
+      setSavingPurchase(false)
     }
   }
 
@@ -523,6 +533,21 @@ export default function ProvisionsPage() {
 
   const handleRefresh = () => {
     window.location.reload()
+  }
+
+  // Handle tab change - fetch fresh data for the selected tab
+  const handleTabChange = async (value: string) => {
+    setActiveTab(value)
+
+    if (value === "inventory") {
+      await fetchProvisionItems()
+      await calculateInventoryLevels()
+    } else if (value === "purchase") {
+      await fetchPurchases()
+    } else if (value === "usage") {
+      await fetchUsages()
+      await calculateInventoryLevels() // For showing available stock
+    }
   }
 
   const validateQuantity = (qty: string, unit: string, itemId: string) => {
@@ -790,7 +815,7 @@ export default function ProvisionsPage() {
         </Button>
       </div>
 
-      <Tabs defaultValue="inventory" className="w-full">
+      <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
         <TabsList className="grid w-full grid-cols-3 h-12 bg-slate-100 p-1 rounded-lg">
           <TabsTrigger
             value="inventory"
@@ -1094,9 +1119,9 @@ export default function ProvisionsPage() {
                           <SelectValue placeholder="Select payment type" />
                         </SelectTrigger>
                         <SelectContent>
+                          <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
                           <SelectItem value="cash">Cash</SelectItem>
                           <SelectItem value="card">Card</SelectItem>
-                          <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
                           <SelectItem value="cheque">Cheque</SelectItem>
                         </SelectContent>
                       </Select>
@@ -1112,8 +1137,15 @@ export default function ProvisionsPage() {
                     </div>
                   </div>
 
-                  <Button onClick={savePurchase} className="w-full">
-                    Save Purchase
+                  <Button onClick={savePurchase} className="w-full" disabled={savingPurchase}>
+                    {savingPurchase ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2"></div>
+                        Saving...
+                      </>
+                    ) : (
+                      "Save Purchase"
+                    )}
                   </Button>
                 </div>
               </DialogContent>
@@ -1493,8 +1525,15 @@ export default function ProvisionsPage() {
                       </div>
                     </>
                   )}
-                  <Button onClick={saveUsage} className="w-full">
-                    {editingUsage ? "Update Usage" : "Add Usage"}
+                  <Button onClick={saveUsage} className="w-full" disabled={savingUsage}>
+                    {savingUsage ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2"></div>
+                        Saving...
+                      </>
+                    ) : (
+                      editingUsage ? "Update Usage" : "Add Usage"
+                    )}
                   </Button>
                 </div>
               </DialogContent>
