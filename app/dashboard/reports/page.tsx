@@ -126,9 +126,7 @@ export default function ReportsPage() {
   const [reportData, setReportData] = useState<ReportData | null>(null)
   const [loading, setLoading] = useState(false)
   const [inventoryDialogOpen, setInventoryDialogOpen] = useState(false)
-  const [outsiderRate, setOutsiderRate] = useState(50)
   const [mandoRate, setMandoRate] = useState(50)
-  const [editingOutsiderRate, setEditingOutsiderRate] = useState(false)
   const [editingMandoRate, setEditingMandoRate] = useState(false)
 
   // Incomes states
@@ -225,7 +223,7 @@ export default function ReportsPage() {
   }
 
   const fetchReportData = async () => {
-    console.log('fetchReportData called with local rates - Outsider:', outsiderRate, 'Mando:', mandoRate)
+    console.log('fetchReportData called with local rates - Mando:', mandoRate)
     setLoading(true)
     try {
       const params = new URLSearchParams({ year: selectedYear, month: selectedMonth })
@@ -329,9 +327,16 @@ export default function ReportsPage() {
       }
 
       const outsidersMeals = outsidersData.reduce((sum: number, record: any) =>
-        sum + (record.breakfast ? 1 : 0) + (record.lunch ? 1 : 0) + (record.dinner ? 1 : 0), 0)
+        sum + ((record.breakfast ? 1 : 0) + (record.lunch ? 1 : 0) + (record.dinner ? 1 : 0) + (record.others ? 1 : 0)) * (record.memberCount || 1), 0)
 
-      console.log('Calculated outsidersMeals:', outsidersMeals, 'using outsiderRate:', outsiderRate)
+      const outsidersTotalCost = outsidersData.reduce((sum: number, record: any) => {
+        const meals = (record.breakfast ? 1 : 0) + (record.lunch ? 1 : 0) + (record.dinner ? 1 : 0) + (record.others ? 1 : 0)
+        const count = record.memberCount || 1
+        const rate = parseFloat(record.mealRate || 0)
+        return sum + (meals * count * rate)
+      }, 0)
+
+      console.log('Calculated outsidersMeals:', outsidersMeals, 'Total Cost:', outsidersTotalCost)
 
       // Calculate mando meals by gender (boys/girls)
       const mandoMealsByGender = mandoData.reduce((acc: any, record: any) => {
@@ -427,8 +432,8 @@ export default function ReportsPage() {
         },
         outsiders: {
           totalMeals: outsidersMeals,
-          totalCost: outsidersMeals * outsiderRate,
-          mealRate: outsiderRate,
+          totalCost: outsidersTotalCost,
+          mealRate: 0,
           records: outsidersData
         },
         mando: {
@@ -468,8 +473,7 @@ export default function ReportsPage() {
   useEffect(() => {
     console.log('useEffect triggered with selectedYear:', selectedYear, 'selectedMonth:', selectedMonth)
     fetchReportData()
-    // Note: outsiderRate and mandoRate are intentionally excluded to prevent refetch on rate changes
-    // The rates are applied locally when displaying the data
+    // Note: mandoRate is intentionally excluded to prevent refetch on rate changes
   }, [selectedYear, selectedMonth, selectedSemester, externalIncomes])
 
   // Auto-load saved reports when semesters are loaded
@@ -751,7 +755,7 @@ export default function ReportsPage() {
       // Save only user-configured settings and calculated summary
       const settings = {
         labourCharge: monthlyLabourCharge,
-        outsiderRate,
+
         mandoRate,
         bankInterestRate,
         externalIncomes,
@@ -762,6 +766,10 @@ export default function ReportsPage() {
           totalLabourMandays: perStudentCosts.totalLabourMandays,
           totalProvisionMandays: perStudentCosts.totalProvisionMandays,
           totalStudents: perStudentCosts.totalStudents,
+          labourMandaysBoys: perStudentCosts.labourMandaysBoys,
+          labourMandaysGirls: perStudentCosts.labourMandaysGirls,
+          provisionMandaysBoys: perStudentCosts.provisionMandaysBoys,
+          provisionMandaysGirls: perStudentCosts.provisionMandaysGirls,
         } : null,
       }
 
@@ -891,9 +899,7 @@ export default function ReportsPage() {
         if (report.settings?.labourCharge !== undefined) {
           setMonthlyLabourCharge(report.settings.labourCharge)
         }
-        if (report.settings?.outsiderRate !== undefined) {
-          setOutsiderRate(report.settings.outsiderRate)
-        }
+
         if (report.settings?.mandoRate !== undefined) {
           setMandoRate(report.settings.mandoRate)
         }
@@ -992,24 +998,30 @@ export default function ReportsPage() {
       ["2. DEBITS"],
       ["Description", "Amount"],
       ["Provisions Purchased", parseFloat(String(reportData.provisions.totalCost)).toFixed(2)],
-      ["Provision Usage", parseFloat(String(reportData.provisions.usage.totalCost)).toFixed(2)],
+      ["Provision Usage (Gross)", parseFloat(String(reportData.provisions.usage.totalCost)).toFixed(2)],
+      ["Mando Deduction", "-" + parseFloat(String(reportData.mando.totalCost)).toFixed(2)],
+      ["Net Provision Usage", parseFloat(String(Math.max(0, reportData.provisions.usage.totalCost - reportData.mando.totalCost))).toFixed(2)],
       ["Labour Charges", parseFloat(String(monthlyLabourCharge || 0)).toFixed(2)],
       ["Outsiders Meals", parseFloat(String(reportData.outsiders.totalCost)).toFixed(2)],
       ["Mando Students Meals", parseFloat(String(reportData.mando.totalCost)).toFixed(2)],
       ["Other Expenses", parseFloat(String(reportData.expenses.totalAmount)).toFixed(2)],
-      ["Total Debits", parseFloat(String(reportData.expenses.totalAmount + reportData.provisions.usage.totalCost + (monthlyLabourCharge || 0) + reportData.outsiders.totalCost + reportData.mando.totalCost)).toFixed(2)],
+      ["Total Debits", parseFloat(String(reportData.expenses.totalAmount +
+        Math.max(0, reportData.provisions.usage.totalCost - reportData.mando.totalCost) +
+        (monthlyLabourCharge || 0) +
+        reportData.outsiders.totalCost +
+        reportData.mando.totalCost)).toFixed(2)],
       [""],
       ["3. PER DAY CHARGES"],
       ["Description", "Rate"],
       ["Labour Charge per Day", parseFloat(String(getPerDayLabourCharge())).toFixed(2)],
       ["Provision Usage per Day", parseFloat(String(getPerDayProvisionUsage())).toFixed(2)],
-      ["Outsider Meal Rate", parseFloat(String(outsiderRate)).toFixed(2)],
+
       ["Mando Meal Rate", parseFloat(String(mandoRate)).toFixed(2)],
       [""],
       ["4. MANDAYS BREAKDOWN"],
       ["Mandays Type", "Count", "Description"],
-      ["Labour Mandays (P + L + CN)", perStudentCosts?.totalLabourMandays?.toString() || "0", "Present + Leave + Casual Leave"],
-      ["Provision Mandays (P + L)", perStudentCosts?.totalProvisionMandays?.toString() || "0", "Present + Leave only"],
+      ["Total Labour Mandays", perStudentCosts?.totalLabourMandays?.toString() || "0", "Boys: " + (perStudentCosts?.labourMandaysBoys || 0) + ", Girls: " + (perStudentCosts?.labourMandaysGirls || 0)],
+      ["Total Provision Mandays", perStudentCosts?.totalProvisionMandays?.toString() || "0", "Boys: " + (perStudentCosts?.provisionMandaysBoys || 0) + ", Girls: " + (perStudentCosts?.provisionMandaysGirls || 0)],
       [""],
       ["5. MONTHLY BREAKDOWN"],
       ["Cost Type", "Total Amount", "Per Student Per Day"],
@@ -1081,7 +1093,7 @@ export default function ReportsPage() {
           )}
         </div>
         <div className="flex flex-wrap items-center gap-3">
-          <Button variant="outline" onClick={handleSaveClick} className="border-border shadow-sm">
+          <Button onClick={handleSaveClick} className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm">
             <Save className="w-4 h-4 mr-2" />
             Save Bill
           </Button>
@@ -1405,7 +1417,7 @@ export default function ReportsPage() {
                       ₹{reportData.incomes.totalAdvancePaid.toLocaleString()}
                     </div>
                     <div className="text-sm text-muted-foreground font-medium mt-1">
-                      Total Advance Paid
+                      Total Students Advance Paid
                     </div>
                   </div>
                   <div className="space-y-2 w-full sm:w-auto">
@@ -1638,36 +1650,10 @@ export default function ReportsPage() {
             <CardContent className="pt-6">
               <div className="space-y-4">
                 <div className="text-3xl font-bold text-green-600 dark:text-green-400">
-                  ₹{(reportData.outsiders.totalMeals * outsiderRate).toLocaleString()}
+                  ₹{reportData.outsiders.totalCost.toLocaleString()}
                 </div>
                 <div className="text-sm text-muted-foreground flex items-center p-2 bg-muted/40 rounded-lg border border-border/40 w-fit">
-                  <span className="font-semibold text-foreground mr-1">{reportData.outsiders.totalMeals}</span> meals × ₹
-                  {editingOutsiderRate ? (
-                    <div className="flex items-center space-x-1 ml-1">
-                      <Input
-                        type="number"
-                        value={outsiderRate}
-                        onChange={(e) => setOutsiderRate(parseInt(e.target.value) || 0)}
-                        className="w-16 h-7 text-xs px-1 bg-background"
-                        onBlur={() => setEditingOutsiderRate(false)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            setEditingOutsiderRate(false)
-                          }
-                        }}
-                        autoFocus
-                      />
-                    </div>
-                  ) : (
-                    <span
-                      className="cursor-pointer hover:bg-muted/60 px-1.5 py-0.5 rounded ml-1 flex items-center space-x-1 border border-transparent hover:border-border transition-all"
-                      onClick={() => setEditingOutsiderRate(true)}
-                      title="Edit Rate"
-                    >
-                      <span className="font-medium text-foreground">{outsiderRate}</span>
-                      <Pencil className="h-3 w-3 text-muted-foreground opacity-70" />
-                    </span>
-                  )}
+                  <span className="font-semibold text-foreground mr-1">{reportData.outsiders.totalMeals}</span> meals
                 </div>
               </div>
             </CardContent>
