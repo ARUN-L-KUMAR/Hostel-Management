@@ -56,6 +56,7 @@ model Student {
    studentBills       StudentBill[]
    meals              MealRecord[]
    fees               FeeRecord[]
+   monthlyBalances    MonthlyBalance[]
 
    createdAt DateTime @default(now())
    updatedAt DateTime @updatedAt
@@ -253,6 +254,41 @@ model AuditLog {
   @@map("audit_logs")
 }
 
+model MonthlyBalance {
+  id              Int      @id @default(autoincrement())
+  studentId       String
+  student         Student  @relation(fields: [studentId], references: [id])
+  semesterId      Int
+  semester        Semester @relation(fields: [semesterId], references: [id])
+  month           Int      // 1-12
+  year            Int
+  balance         Decimal  @db.Decimal(10, 2)
+  laborDays       Int?
+  provisionDays   Int?
+  laborCharge     Decimal? @db.Decimal(10, 2)
+  provisionCharge Decimal? @db.Decimal(10, 2)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([studentId, semesterId, month, year])
+  @@map("monthly_balances")
+}
+
+model MonthlyRate {
+  id              Int      @id @default(autoincrement())
+  semesterId      Int
+  semester        Semester @relation(fields: [semesterId], references: [id])
+  month           Int      // 1-12
+  year            Int
+  laborRate       Decimal  @db.Decimal(10, 2)  // Labor charge per day
+  provisionRate   Decimal? @db.Decimal(10, 2)  // Provision per day (optional)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([semesterId, month, year])
+  @@map("monthly_rates")
+}
+
 // Enums
 enum UserRole {
   ADMIN
@@ -352,8 +388,10 @@ model Semester {
   startDate DateTime
   endDate   DateTime
 
-  feeStructures FeeStructure[]
-  feeRecords    FeeRecord[]
+  feeStructures   FeeStructure[]
+  feeRecords      FeeRecord[]
+  monthlyBalances MonthlyBalance[]
+  monthlyRates    MonthlyRate[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
