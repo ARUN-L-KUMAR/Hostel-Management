@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -90,6 +90,7 @@ export default function BillingPage() {
   const [feeRecords, setFeeRecords] = useState<FeeRecord[]>([])
   const [loadingSemesters, setLoadingSemesters] = useState(false)
   const [loadingFeeRecords, setLoadingFeeRecords] = useState(false)
+  const activeSemesterIdRef = useRef<string | null>(null)
 
   // New semester creation states
   const [showCreateSemester, setShowCreateSemester] = useState(false)
@@ -142,7 +143,31 @@ export default function BillingPage() {
     { value: "12", label: "December" },
   ]
 
+  const [totalSemesterDays, setTotalSemesterDays] = useState(0)
+  const [overallLaborCharge, setOverallLaborCharge] = useState("")
+
   const years = Array.from({ length: 5 }, (_, i) => (new Date().getFullYear() - 2 + i).toString())
+
+  // New helper to fetch saved labor rate for a semester
+  const fetchSemesterLaborRate = async (semester: Semester): Promise<number | null> => {
+    try {
+      const startDate = new Date(semester.startDate)
+      const year = startDate.getFullYear()
+      const month = startDate.getMonth() + 1
+
+      const response = await fetch(`/api/billing/overview?year=${year}&month=${month}`)
+      if (response.ok) {
+        const data = await response.json()
+        if (data && data.bill && data.bill.perDayRate) {
+          return parseFloat(data.bill.perDayRate)
+        }
+      }
+      return null
+    } catch (error) {
+      console.error("Error fetching semester labor rate:", error)
+      return null
+    }
+  }
 
   // Fetch semesters
   const fetchSemesters = async () => {
@@ -157,9 +182,30 @@ export default function BillingPage() {
         console.log("[DEBUG] Semester data:", data.map((s: any) => ({ id: s.id, name: s.name })))
         setSemesters(data)
         if (data.length > 0 && !selectedSemesterId) {
-          console.log("[DEBUG] Auto-selecting first semester:", data[0].name)
-          setSelectedSemesterId(data[0].id.toString())
-          setSelectedSemester(data[0])
+          const firstSemester = data[0]
+          console.log("[DEBUG] Auto-selecting first semester:", firstSemester.name)
+          setSelectedSemesterId(firstSemester.id.toString())
+          activeSemesterIdRef.current = firstSemester.id.toString()
+          setSelectedSemester(firstSemester)
+
+          // Calculate total days for the auto-selected semester
+          const startDate = new Date(firstSemester.startDate)
+          const endDate = new Date(firstSemester.endDate)
+          const totalDays = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1
+          setTotalSemesterDays(totalDays)
+
+          // Fetch saved rate
+          const savedRate = await fetchSemesterLaborRate(firstSemester)
+          if (savedRate !== null) {
+            console.log("[DEBUG] Found saved labor rate:", savedRate)
+            setSemLaborCharge(savedRate)
+            // Also initialize overall charge
+            if (totalDays > 0) {
+              const calculated = (savedRate * totalDays).toFixed(2)
+              setOverallLaborCharge(calculated.endsWith('.00') ? calculated.slice(0, -3) : calculated)
+            }
+          }
+
           // The useEffect will handle the data fetching
         } else {
           console.log("[DEBUG] No semesters to auto-select or semester already selected")
@@ -344,36 +390,61 @@ export default function BillingPage() {
         // Calculate total provision cost used
         const totalCost = provisionUsage.reduce((sum: number, usage: any) => {
           const cost = Number(usage.quantity) * Number(usage.provisionItem?.unitCost || 0)
-          console.log("[DEBUG] Usage record:", usage.quantity, "units *", usage.provisionItem?.unitCost, "cost/unit =", cost, "on", usage.date)
           return sum + cost
         }, 0)
 
-        console.log("[DEBUG] Total provision cost used:", totalCost)
+        console.log("[DEBUG] Total provision cost used (Gross):", totalCost)
 
-        // Store total provision usage cost
-        setTotalProvisionUsage(totalCost)
-        console.log("[DEBUG] Total provision usage cost stored:", totalCost)
+        // NEW: Fetch Mando Meal Records to subtract their cost
+        let mandoDeduction = 0
+        try {
+          const mandoUrl = `/api/mando-meal-records?startDate=${startDate}&endDate=${endDate}`
+          const mandoRes = await fetch(mandoUrl)
+          if (mandoRes.ok) {
+            const mandoRecords = await mandoRes.json()
+            // Calculate total mando cost: sum of (meals * rate)
+            // Each record has breakfast/lunch/dinner booleans and a mealRate
+            mandoDeduction = mandoRecords.reduce((sum: number, record: any) => {
+              const mealsCount = (record.breakfast ? 1 : 0) + (record.lunch ? 1 : 0) + (record.dinner ? 1 : 0)
+              return sum + (mealsCount * Number(record.mealRate || 50))
+            }, 0)
+            console.log("[DEBUG] Mando deduction calculated:", mandoDeduction, "from", mandoRecords.length, "records")
+          } else {
+            console.error("[DEBUG] Failed to fetch Mando records for deduction")
+          }
+        } catch (mandoErr) {
+          console.error("[DEBUG] Error calculating Mando deduction:", mandoErr)
+        }
+
+        const netProvisionCost = Math.max(0, totalCost - mandoDeduction)
+        console.log("[DEBUG] Net Provision Cost:", netProvisionCost, "(", totalCost, "-", mandoDeduction, ")")
+
+        // Store total provision usage cost (Net)
+        setTotalProvisionUsage(netProvisionCost)
 
         // Calculate provision charge per day
-        const provisionChargePerDay = totalDays > 0 ? totalCost / totalDays : 0
+        const provisionChargePerDay = totalDays > 0 ? netProvisionCost / totalDays : 0
         console.log("[DEBUG] Provision charge per day calculated:", provisionChargePerDay)
 
         setCalculatedProvisionCharge(provisionChargePerDay)
         setSemProvisionCharge(provisionChargePerDay)
 
-        // Note: Student data refresh is now handled by forceRefetchSemesterData in the useEffect
         console.log("[DEBUG] Provision charge calculated, data refresh will be handled by force refresh mechanism")
+
+        return provisionChargePerDay
       } else {
         const errorText = await response.text()
         console.error("[DEBUG] Failed to fetch provision usage. Status:", response.status, "Response:", errorText)
         setCalculatedProvisionCharge(0)
         setSemProvisionCharge(0)
+        return 0
       }
     } catch (error) {
       console.error("[DEBUG] Error calculating provision charge:", error)
       setCalculatedProvisionCharge(0)
       setSemProvisionCharge(0)
       setTotalProvisionUsage(0)
+      return 0
     } finally {
       console.log("[DEBUG] Finished provision charge calculation")
       console.log("[DEBUG] === PROVISION CHARGE CALCULATION COMPLETED ===")
@@ -404,31 +475,46 @@ export default function BillingPage() {
     console.log("[DEBUG] Force refetching for semester:", semester.name)
 
     try {
-      // Step 1: Calculate provision charge
-      console.log("[DEBUG] Step 1: Calculating provision charge")
-      await calculateProvisionChargePerDay(semester)
+      setLoadingProvisionCharge(true)
 
-      // Step 2: Wait longer for state to settle and async operations to complete
-      await new Promise(resolve => setTimeout(resolve, 300))
+      // Step 1: Fetch saved rate first to ensure calculations use correct rate
+      const savedRate = await fetchSemesterLaborRate(semester)
+      if (savedRate !== null) {
+        console.log("[DEBUG] Force refetch using saved rate:", savedRate)
+        setSemLaborCharge(savedRate)
+        // Update overall charge display
+        const startDate = new Date(semester.startDate)
+        const endDate = new Date(semester.endDate)
+        const totalDays = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1
+        if (totalDays > 0) {
+          const calculated = (savedRate * totalDays).toFixed(2)
+          setOverallLaborCharge(calculated.endsWith('.00') ? calculated.slice(0, -3) : calculated)
+        }
+      }
 
-      // Step 3: Fetch fee records
-      console.log("[DEBUG] Step 3: Fetching fee records")
-      await fetchFeeRecords(semester.id.toString())
+      // Step 2: Calculate provision charge
+      console.log("[DEBUG] Step 2: Calculating provision charge")
+      const calculatedProvisionRate = await calculateProvisionChargePerDay(semester)
 
-      // Step 4: Wait again for fee records to settle
-      await new Promise(resolve => setTimeout(resolve, 200))
+      // Step 3: Wait longer for state to settle and async operations to complete
+      await new Promise(resolve => setTimeout(resolve, 500))
 
-      // Step 5: Fetch student data with fresh calculations
-      console.log("[DEBUG] Step 5: Fetching student data")
-      await fetchSemStudentsData()
+      // Check if semester changed during wait
+      if (semester.id.toString() !== activeSemesterIdRef.current) {
+        console.log("[DEBUG] Semester changed during refetch wait, cancelling update")
+        return
+      }
 
-      console.log("[DEBUG] === FORCE REFETCH COMPLETED SUCCESSFULLY ===")
+      // Step 4: Fetch student data with explicit params to avoid stale state
+      console.log("[DEBUG] Step 4: Fetching student data with fresh params")
+      await fetchSemStudentsData(semester, savedRate || undefined, calculatedProvisionRate)
+
     } catch (error) {
-      console.error("[DEBUG] Error during force refetch:", error)
-      // Reset loading states on error
-      setLoadingProvisionCharge(false)
+      console.error("[DEBUG] Error in force refetch sequence:", error)
+    } finally {
       setLoadingStudentsSem(false)
-      setLoadingFeeRecords(false)
+      setLoadingProvisionCharge(false)
+      console.log("[DEBUG] === FORCE REFETCH COMPLETED ===")
     }
   }
 
@@ -439,6 +525,7 @@ export default function BillingPage() {
 
     // Step 1: Force reset all state immediately
     setSelectedSemesterId(semesterId)
+    activeSemesterIdRef.current = semesterId
     forceResetSemesterState()
 
     if (semesterId === "create-new") {
@@ -454,11 +541,18 @@ export default function BillingPage() {
         setSelectedSemester(semester)
         setShowCreateSemester(false)
 
+        // Calculate total days
+        const startDate = new Date(semester.startDate)
+        const endDate = new Date(semester.endDate)
+        const totalDays = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1
+        setTotalSemesterDays(totalDays)
+
         // Step 2: Set basic semester data
         const baseAmount = semester.feeStructures[0]?.baseAmount || 0
         setSemAdvanceAmount(baseAmount)
 
         // The useEffect will handle the data fetching
+        // We will fetch the rate in useEffect -> forceRefetchSemesterData
       } else {
         console.log("[DEBUG] No semester found for ID:", semesterId)
         setShowCreateSemester(false)
@@ -956,8 +1050,16 @@ export default function BillingPage() {
     return matchesSearch && matchesHostel && matchesYear && matchesStatus && matchesDept && isNotMando
   })
 
-  const fetchSemStudentsData = async (overrideProvisionCharge?: number) => {
-    if (!selectedSemester) {
+  const fetchSemStudentsData = async (semesterOverride?: Semester | null, overrideLaborRate?: number, overrideProvisionCharge?: number) => {
+    const targetSemester = semesterOverride || selectedSemester
+
+    // Validate if this request is for the currently active semester
+    if (targetSemester && targetSemester.id.toString() !== activeSemesterIdRef.current) {
+      console.log("[DEBUG] Skipping stale fetch request for semester:", targetSemester.id)
+      return
+    }
+
+    if (!targetSemester) {
       setStudentsSem([])
       setLoadingStudentsSem(false)
       return
@@ -965,8 +1067,8 @@ export default function BillingPage() {
 
     setLoadingStudentsSem(true)
     try {
-      const startDate = new Date(selectedSemester.startDate)
-      const endDate = new Date(selectedSemester.endDate)
+      const startDate = new Date(targetSemester.startDate)
+      const endDate = new Date(targetSemester.endDate)
 
       // Get all semesters once for carry forward calculations
       const allSemestersResponse = await fetch('/api/semesters')
@@ -976,12 +1078,12 @@ export default function BillingPage() {
       const allSemesters = await allSemestersResponse.json()
 
       // Find the semester that ended just before the current semester started
-      const currentSemesterStart = new Date(selectedSemester.startDate)
+      const currentSemesterStart = new Date(targetSemester.startDate)
       let previousSemester = null
       let smallestTimeDiff = Infinity
 
       for (const semester of allSemesters) {
-        if (semester.id !== selectedSemester.id) {
+        if (semester.id !== targetSemester.id) {
           const semesterEnd = new Date(semester.endDate)
           const timeDiff = currentSemesterStart.getTime() - semesterEnd.getTime()
 
@@ -1018,11 +1120,18 @@ export default function BillingPage() {
       const students = await studentsResponse.json()
 
       // Get fee records for the selected semester
-      const feeRecordsResponse = await fetch(`/api/fee-records?semesterId=${selectedSemester.id}`)
+      const feeRecordsResponse = await fetch(`/api/fee-records?semesterId=${targetSemester.id}`)
       if (!feeRecordsResponse.ok) {
         throw new Error("Failed to fetch fee records")
       }
       const feeRecords = await feeRecordsResponse.json()
+
+      // Final check: if user switched semester while we were fetching
+      if (targetSemester.id.toString() !== activeSemesterIdRef.current) {
+        console.log("[DEBUG] User switched semester during fetch, abandoning student data update")
+        setLoadingStudentsSem(false)
+        return
+      }
 
       // Get all attendance
       const attendanceResponse = await fetch('/api/attendance')
@@ -1053,6 +1162,11 @@ export default function BillingPage() {
           att.code === AttendanceCode.CN
         ).length
 
+        // Filter out vacated students with 0 mandays (no attendance in this period)
+        if (student.status === "VACATE" && labourMandays === 0) {
+          continue
+        }
+
         // Calculate provision mandays (P + L)
         const provisionMandays = attendanceRecords.filter((att: { code: AttendanceCode; date: Date }) =>
           att.code === AttendanceCode.P ||
@@ -1077,10 +1191,18 @@ export default function BillingPage() {
         }
 
         // Get the base amount for this semester
-        const semesterBaseAmount = selectedSemester?.feeStructures[0]?.baseAmount || 0
+        const semesterBaseAmount = targetSemester?.feeStructures[0]?.baseAmount || 0
 
-        const provisionChargeToUse = overrideProvisionCharge !== undefined ? overrideProvisionCharge : semProvisionCharge
-        const laborCharge = labourMandays * semLaborCharge
+        // Use override if provided, otherwise fallback to state or 0. Ensure it's a number.
+        const provisionChargeToUse = (typeof overrideProvisionCharge === 'number' && !isNaN(overrideProvisionCharge))
+          ? overrideProvisionCharge
+          : (typeof semProvisionCharge === 'number' && !isNaN(semProvisionCharge) ? semProvisionCharge : 0)
+
+        const laborRateToUse = (typeof overrideLaborRate === 'number' && !isNaN(overrideLaborRate))
+          ? overrideLaborRate
+          : semLaborCharge
+
+        const laborCharge = labourMandays * laborRateToUse
         const provisionCharge = provisionChargeToUse * provisionMandays
         const advanceAmountToPay = semesterBaseAmount + carryForwardAmount
 
@@ -1142,6 +1264,37 @@ export default function BillingPage() {
       console.log("[DEBUG] No selected semester, skipping force refresh")
     }
   }, [selectedSemester])
+
+  // Update overall labor charge when semLaborCharge or totalSemesterDays changes
+  useEffect(() => {
+    // This effect handles updates to overall charge display when underlying Per Day rate changes
+    // But we need to be careful not to create loops or overwrite user input while typing
+    if (totalSemesterDays > 0 && semLaborCharge > 0) {
+      const calculatedOverall = (semLaborCharge * totalSemesterDays).toFixed(2)
+      // Only set if significant difference to avoid fighting with rounding
+      // For now, we'll leave this as one-way from Per Day -> Overall is primarily for display if changed elsewhere
+    }
+  }, [semLaborCharge, totalSemesterDays])
+
+  // Initialize overall charge when semester is selected and totally calculated
+  useEffect(() => {
+    if (selectedSemester && totalSemesterDays > 0) {
+      const calculated = (semLaborCharge * totalSemesterDays).toFixed(2)
+      setOverallLaborCharge(calculated.endsWith('.00') ? calculated.slice(0, -3) : calculated)
+    }
+  }, [selectedSemester, totalSemesterDays])
+
+  // Handle overall labor charge change
+  const handleOverallLaborChargeChange = (value: string) => {
+    setOverallLaborCharge(value)
+    const amount = parseFloat(value)
+    if (!isNaN(amount) && totalSemesterDays > 0) {
+      const perDay = amount / totalSemesterDays
+      setSemLaborCharge(perDay)
+    } else {
+      setSemLaborCharge(0)
+    }
+  }
 
   // Removed the useEffect that was causing conflicts - now handled in handleSemesterChange
 
@@ -1316,20 +1469,69 @@ export default function BillingPage() {
             <CardTitle className="text-sm font-semibold text-foreground">Billing Parameters</CardTitle>
           </CardHeader>
           <CardContent className="p-4">
-            <div className="flex flex-col md:flex-row gap-4 items-end">
-              <div className="space-y-1.5 flex-1">
-                <Label htmlFor="semLabor" className="text-xs text-muted-foreground">Labor Charge / day</Label>
-                <Input
-                  id="semLabor"
-                  type="number"
-                  step="0.01"
-                  className="h-8"
-                  value={semLaborCharge}
-                  onChange={(e) => setSemLaborCharge(parseFloat(e.target.value) || 0)}
-                />
+            <div className="grid grid-cols-5 gap-4 items-end">
+              <div className="space-y-1.5">
+                <Label htmlFor="overallLabor" className="text-xs text-muted-foreground">Total Labor Cost</Label>
+                <div className="space-y-1">
+                  <div className="relative">
+                    <Input
+                      id="overallLabor"
+                      type="number"
+                      step="1"
+                      className={`h-8 ${loadingProvisionCharge ? 'bg-primary/5 border-primary/30 text-transparent' : ''}`}
+                      value={overallLaborCharge}
+                      onChange={(e) => handleOverallLaborChargeChange(e.target.value)}
+                      placeholder="Enter total amount"
+                      disabled={loadingProvisionCharge}
+                    />
+                    {loadingProvisionCharge && (
+                      <div className="absolute right-2 top-1/2 transform -translate-y-1/2">
+                        <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-primary"></div>
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
-              <div className="space-y-1.5 flex-1">
-                <Label htmlFor="semProvision" className="text-xs text-muted-foreground">Provision Charge / day</Label>
+              <div className="space-y-1.5">
+                <div className="flex justify-between items-center">
+                  <Label htmlFor="semLabor" className="text-xs text-muted-foreground">Labor Charge / day</Label>
+                  <span className="text-[10px] text-muted-foreground">({totalSemesterDays} days)</span>
+                </div>
+                <div className="relative">
+                  <Input
+                    id="semLabor"
+                    type="number"
+                    step="0.01"
+                    className={`h-8 bg-muted/50 ${loadingProvisionCharge ? 'text-transparent' : ''}`}
+                    value={semLaborCharge.toFixed(2)}
+                    disabled
+                  />
+                  {loadingProvisionCharge && (
+                    <div className="absolute right-2 top-1/2 transform -translate-y-1/2">
+                      <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-primary"></div>
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="overallProvision" className="text-xs text-muted-foreground">Total Provision Cost</Label>
+                <div className="relative">
+                  <Input
+                    id="overallProvision"
+                    type="number"
+                    className={`h-8 bg-muted/50 ${loadingProvisionCharge ? 'text-transparent' : ''}`}
+                    value={totalProvisionUsage.toFixed(2)}
+                    disabled
+                  />
+                  {loadingProvisionCharge && (
+                    <div className="absolute right-2 top-1/2 transform -translate-y-1/2">
+                      <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-primary"></div>
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="semProvision" className="text-xs text-muted-foreground">Provision / day</Label>
                 <div className="relative">
                   <Input
                     id="semProvision"
@@ -1346,22 +1548,29 @@ export default function BillingPage() {
                   )}
                 </div>
               </div>
-              <div className="space-y-1.5 flex-1">
-                <Label htmlFor="semAdvance" className="text-xs text-muted-foreground">Advance Amount ({semAdvanceAmount.toString()})</Label>
-                <Input
-                  id="semAdvance"
-                  type="number"
-                  className="h-8 bg-muted/50"
-                  value={semAdvanceAmount.toFixed(2)}
-                  disabled={true}
-                />
+              <div className="space-y-1.5">
+                <Label htmlFor="semAdvance" className="text-xs text-muted-foreground">Advance ({semAdvanceAmount.toString()})</Label>
+                <div className="relative">
+                  <Input
+                    id="semAdvance"
+                    type="number"
+                    className={`h-8 bg-muted/50 ${loadingProvisionCharge ? 'text-transparent' : ''}`}
+                    value={semAdvanceAmount.toFixed(2)}
+                    disabled={true}
+                  />
+                  {loadingProvisionCharge && (
+                    <div className="absolute right-2 top-1/2 transform -translate-y-1/2">
+                      <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-primary"></div>
+                    </div>
+                  )}
+                </div>
               </div>
-              <div className="pb-0.5">
-                <Button onClick={updateSemBillingSettings} disabled={updatingSem} size="sm" className="h-8 px-4">
-                  <Save className="w-3.5 h-3.5 mr-2" />
-                  {updatingSem ? "Updating..." : "Update"}
-                </Button>
-              </div>
+            </div>
+            <div className="flex justify-end pt-4">
+              <Button onClick={updateSemBillingSettings} disabled={updatingSem} size="sm" className="px-4">
+                <Save className="w-3.5 h-3.5 mr-2" />
+                {updatingSem ? "Updating Settings..." : "Update Settings"}
+              </Button>
             </div>
           </CardContent>
         </Card>

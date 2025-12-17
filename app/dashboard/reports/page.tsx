@@ -150,6 +150,10 @@ export default function ReportsPage() {
     totalStudents: number
     totalLabourMandays: number
     totalProvisionMandays: number
+    labourMandaysBoys: number
+    labourMandaysGirls: number
+    provisionMandaysBoys: number
+    provisionMandaysGirls: number
   } | null>(null)
   const [savedReports, setSavedReports] = useState<any[]>([])
   const [showSaveDialog, setShowSaveDialog] = useState(false)
@@ -566,7 +570,8 @@ export default function ReportsPage() {
   const getPerDayProvisionUsage = (): number => {
     if (!reportData) return 0
     const daysInMonth = getDaysInMonth(selectedYear, selectedMonth)
-    return daysInMonth > 0 ? reportData.provisions.usage.totalCost / daysInMonth : 0
+    const netProvisionCost = Math.max(0, reportData.provisions.usage.totalCost - reportData.mando.totalCost)
+    return daysInMonth > 0 ? netProvisionCost / daysInMonth : 0
   }
 
   const [totalStudents, setTotalStudents] = useState<number>(0)
@@ -576,7 +581,9 @@ export default function ReportsPage() {
       const response = await fetch('/api/students')
       if (response.ok) {
         const students = await response.json()
-        const count = Array.isArray(students) ? students.length : 0
+        // Only count regular students (not mando)
+        const regularStudents = Array.isArray(students) ? students.filter((s: any) => !s.isMando) : []
+        const count = regularStudents.length
         setTotalStudents(count)
         return count
       }
@@ -594,6 +601,10 @@ export default function ReportsPage() {
     // Calculate separate labour and provision mandays using billing page logic
     let totalLabourMandays = 0
     let totalProvisionMandays = 0
+    let labourMandaysBoys = 0
+    let labourMandaysGirls = 0
+    let provisionMandaysBoys = 0
+    let provisionMandaysGirls = 0
 
     try {
       const startDate = `${selectedYear}-${selectedMonth.padStart(2, '0')}-01`
@@ -643,11 +654,25 @@ export default function ReportsPage() {
 
         totalLabourMandays += studentLabourMandays
         totalProvisionMandays += studentProvisionMandays
+
+        // @ts-ignore
+        const gender = student.gender || 'M'; // Default to M if missing, or handle appropriately
+        if (gender === 'M') {
+          labourMandaysBoys += studentLabourMandays
+          provisionMandaysBoys += studentProvisionMandays
+        } else if (gender === 'G') {
+          labourMandaysGirls += studentLabourMandays
+          provisionMandaysGirls += studentProvisionMandays
+        }
       }
     } catch (error) {
       console.error("Error calculating mandays:", error)
       totalLabourMandays = 0
       totalProvisionMandays = 0
+      labourMandaysBoys = 0
+      labourMandaysGirls = 0
+      provisionMandaysBoys = 0
+      provisionMandaysGirls = 0
     }
 
     return {
@@ -656,7 +681,11 @@ export default function ReportsPage() {
       totalPerStudent: totalStudents > 0 ? (labourPerDay + provisionPerDay) / totalStudents : 0,
       totalStudents,
       totalLabourMandays,
-      totalProvisionMandays
+      totalProvisionMandays,
+      labourMandaysBoys,
+      labourMandaysGirls,
+      provisionMandaysBoys,
+      provisionMandaysGirls,
     }
   }
 
@@ -891,6 +920,10 @@ export default function ReportsPage() {
             totalStudents: report.settings.mandaysBreakdown.totalStudents,
             totalLabourMandays: report.settings.mandaysBreakdown.totalLabourMandays,
             totalProvisionMandays: report.settings.mandaysBreakdown.totalProvisionMandays,
+            labourMandaysBoys: report.settings.mandaysBreakdown.labourMandaysBoys || 0,
+            labourMandaysGirls: report.settings.mandaysBreakdown.labourMandaysGirls || 0,
+            provisionMandaysBoys: report.settings.mandaysBreakdown.provisionMandaysBoys || 0,
+            provisionMandaysGirls: report.settings.mandaysBreakdown.provisionMandaysGirls || 0,
           })
         }
 
@@ -1181,23 +1214,45 @@ export default function ReportsPage() {
                 </div>
 
                 {/* Provision Usage */}
-                <div className="p-5 border border-emerald-200/50 dark:border-emerald-900/30 rounded-xl bg-emerald-50/50 dark:bg-emerald-950/10 transition-colors hover:bg-emerald-50/80 dark:hover:bg-emerald-950/20">
-                  <div className="flex items-center justify-between mb-3">
+                {/* Provision Usage */}
+                <div className="p-5 border border-emerald-200/50 dark:border-emerald-900/30 rounded-xl bg-emerald-50/20 dark:bg-emerald-950/10 transition-colors hover:bg-emerald-50/30 dark:hover:bg-emerald-950/20">
+                  <div className="flex items-center justify-between mb-4">
                     <div>
-                      <p className="text-sm font-semibold text-emerald-900 dark:text-emerald-300">Usage</p>
-                      <p className="text-xs text-emerald-600/80 dark:text-emerald-400/80 mt-0.5">Provisions consumed</p>
+                      <p className="text-sm font-semibold text-emerald-900 dark:text-emerald-300">Provision Usage</p>
+                      <p className="text-xs text-emerald-600/80 dark:text-emerald-400/80 mt-0.5">Analysis & Deduction</p>
                     </div>
                     <div className="p-2 bg-emerald-500/10 rounded-full">
                       <Users className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
                     </div>
                   </div>
-                  <div>
-                    <div className="text-2xl font-bold text-emerald-950 dark:text-emerald-100">
-                      ₹{reportData.provisions.usage.totalCost.toLocaleString()}
+
+                  <div className="space-y-3">
+                    {/* Gross Usage */}
+                    <div className="flex justify-between items-baseline">
+                      <span className="text-sm font-medium text-emerald-800/80 dark:text-emerald-300/80">Gross Usage</span>
+                      <span className="text-lg font-bold text-emerald-900 dark:text-emerald-200">
+                        ₹{reportData.provisions.usage.totalCost.toLocaleString()}
+                      </span>
                     </div>
-                    <p className="text-xs font-medium text-emerald-600/90 dark:text-emerald-400/90 mt-1">
-                      {reportData.provisions.usage.totalQuantity.toFixed(2)} units used
-                    </p>
+
+                    {/* Deduction Line */}
+                    <div className="flex justify-between items-center text-rose-600/90 dark:text-rose-400/90 px-2 py-1 bg-rose-50/50 dark:bg-rose-950/20 rounded border border-rose-100 dark:border-rose-900/30">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-xs font-medium">(-) Mando Deduction</span>
+                        <span className="text-[10px] opacity-80">({reportData.mando.totalMeals} meals)</span>
+                      </div>
+                      <span className="text-sm font-semibold">- ₹{reportData.mando.totalCost.toLocaleString()}</span>
+                    </div>
+
+                    {/* Net Usage */}
+                    <div className="pt-2 border-t-2 border-emerald-200 dark:border-emerald-800 border-dashed">
+                      <div className="flex justify-between items-end">
+                        <span className="text-xs font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">Net Usage</span>
+                        <span className="text-2xl font-bold text-emerald-950 dark:text-emerald-100">
+                          ₹{(Math.max(0, reportData.provisions.usage.totalCost - reportData.mando.totalCost)).toLocaleString()}
+                        </span>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
@@ -1719,40 +1774,66 @@ export default function ReportsPage() {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           {/* Labour Mandays */}
                           <div className="p-4 bg-background border border-border rounded-lg shadow-sm">
-                            <div className="flex items-center justify-between">
+                            <div className="flex justify-between items-start">
                               <div>
-                                <div className="text-sm font-semibold text-foreground">Labour Mandays</div>
-                                <div className="text-xs text-muted-foreground mt-1">
-                                  <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-muted text-muted-foreground">P + L + CN</span>
+                                <div className="flex items-center gap-2">
+                                  <div className="text-sm font-semibold text-foreground">Labour Mandays</div>
+                                  <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-muted text-muted-foreground whitespace-nowrap">P + L + CN</span>
+                                </div>
+                                <div className="mt-2 text-3xl font-bold text-foreground">
+                                  {perStudentCosts.totalLabourMandays.toLocaleString()}
                                 </div>
                               </div>
-                              <div className="p-2 bg-blue-500/10 rounded-full">
+                              <div className="p-2 bg-blue-500/10 rounded-full mb-1">
                                 <Users className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                               </div>
                             </div>
-                            <div className="mt-3">
-                              <div className="text-2xl font-bold text-foreground">
-                                {perStudentCosts.totalLabourMandays.toLocaleString()}
+
+                            <div className="mt-3 pt-3 border-t border-border/50 grid grid-cols-2 gap-2">
+                              <div className="flex flex-col items-center bg-blue-50/50 dark:bg-blue-900/10 rounded p-1.5 border border-blue-100 dark:border-blue-900/20">
+                                <span className="text-[10px] uppercase text-muted-foreground font-semibold flex items-center gap-1">
+                                  <div className="w-1.5 h-1.5 rounded-full bg-blue-500"></div> Boys
+                                </span>
+                                <span className="text-base font-bold text-foreground">{perStudentCosts.labourMandaysBoys}</span>
+                              </div>
+                              <div className="flex flex-col items-center bg-pink-50/50 dark:bg-pink-900/10 rounded p-1.5 border border-pink-100 dark:border-pink-900/20">
+                                <span className="text-[10px] uppercase text-muted-foreground font-semibold flex items-center gap-1">
+                                  <div className="w-1.5 h-1.5 rounded-full bg-pink-500"></div> Girls
+                                </span>
+                                <span className="text-base font-bold text-foreground">{perStudentCosts.labourMandaysGirls}</span>
                               </div>
                             </div>
                           </div>
 
                           {/* Provision Mandays */}
                           <div className="p-4 bg-background border border-border rounded-lg shadow-sm">
-                            <div className="flex items-center justify-between">
+                            <div className="flex justify-between items-start">
                               <div>
-                                <div className="text-sm font-semibold text-foreground">Provision Mandays</div>
-                                <div className="text-xs text-muted-foreground mt-1">
-                                  <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-muted text-muted-foreground">P + L</span>
+                                <div className="flex items-center gap-2">
+                                  <div className="text-sm font-semibold text-foreground">Provision Mandays</div>
+                                  <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-muted text-muted-foreground whitespace-nowrap">P + L</span>
+                                </div>
+                                <div className="mt-2 text-3xl font-bold text-foreground">
+                                  {perStudentCosts.totalProvisionMandays.toLocaleString()}
                                 </div>
                               </div>
-                              <div className="p-2 bg-emerald-500/10 rounded-full">
+                              <div className="p-2 bg-emerald-500/10 rounded-full mb-1">
                                 <Package className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
                               </div>
                             </div>
-                            <div className="mt-3">
-                              <div className="text-2xl font-bold text-foreground">
-                                {perStudentCosts.totalProvisionMandays.toLocaleString()}
+
+                            <div className="mt-3 pt-3 border-t border-border/50 grid grid-cols-2 gap-2">
+                              <div className="flex flex-col items-center bg-blue-50/50 dark:bg-blue-900/10 rounded p-1.5 border border-blue-100 dark:border-blue-900/20">
+                                <span className="text-[10px] uppercase text-muted-foreground font-semibold flex items-center gap-1">
+                                  <div className="w-1.5 h-1.5 rounded-full bg-blue-500"></div> Boys
+                                </span>
+                                <span className="text-base font-bold text-foreground">{perStudentCosts.provisionMandaysBoys}</span>
+                              </div>
+                              <div className="flex flex-col items-center bg-pink-50/50 dark:bg-pink-900/10 rounded p-1.5 border border-pink-100 dark:border-pink-900/20">
+                                <span className="text-[10px] uppercase text-muted-foreground font-semibold flex items-center gap-1">
+                                  <div className="w-1.5 h-1.5 rounded-full bg-pink-500"></div> Girls
+                                </span>
+                                <span className="text-base font-bold text-foreground">{perStudentCosts.provisionMandaysGirls}</span>
                               </div>
                             </div>
                           </div>
@@ -1797,20 +1878,43 @@ export default function ReportsPage() {
                         </div>
                       </div>
 
-                      {/* Total Per Student */}
+                      {/* Total Per Student & Monthly Cost */}
                       <div className="p-5 border border-indigo-200/50 dark:border-indigo-900/30 rounded-xl bg-indigo-50/50 dark:bg-indigo-950/10 hover:bg-indigo-50/80 dark:hover:bg-indigo-950/20 transition-colors">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="text-sm font-semibold text-indigo-900 dark:text-indigo-400">Total Cost</p>
-                            <p className="text-xs text-indigo-600/80 dark:text-indigo-500/80 mt-0.5">per student / day</p>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          {/* Per Day */}
+                          <div className="border-r border-indigo-200/50 dark:border-indigo-800/30 pr-6">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <p className="text-sm font-semibold text-indigo-900 dark:text-indigo-400">Total Cost</p>
+                                <p className="text-xs text-indigo-600/80 dark:text-indigo-500/80 mt-0.5">per student / day</p>
+                              </div>
+                              <div className="p-1.5 bg-indigo-500/10 rounded-md">
+                                <TrendingUp className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+                              </div>
+                            </div>
+                            <div className="mt-3">
+                              <div className="text-3xl font-bold text-indigo-950 dark:text-indigo-100">
+                                ₹{perStudentCosts.totalPerStudent.toFixed(2)}
+                              </div>
+                            </div>
                           </div>
-                          <div className="p-1.5 bg-indigo-500/10 rounded-md">
-                            <TrendingUp className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
-                          </div>
-                        </div>
-                        <div className="mt-3">
-                          <div className="text-3xl font-bold text-indigo-950 dark:text-indigo-100">
-                            ₹{perStudentCosts.totalPerStudent.toFixed(2)}
+
+                          {/* Per Month */}
+                          <div className="pl-2">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <p className="text-sm font-semibold text-indigo-900 dark:text-indigo-400">Total Monthly Cost</p>
+                                <p className="text-xs text-indigo-600/80 dark:text-indigo-500/80 mt-0.5">per student / month</p>
+                              </div>
+                              <div className="p-1.5 bg-indigo-500/10 rounded-md">
+                                <Calendar className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+                              </div>
+                            </div>
+                            <div className="mt-3">
+                              <div className="text-3xl font-bold text-indigo-950 dark:text-indigo-100">
+                                ₹{(perStudentCosts.totalPerStudent * getDaysInMonth(selectedYear, selectedMonth)).toFixed(2)}
+                              </div>
+                            </div>
                           </div>
                         </div>
                       </div>

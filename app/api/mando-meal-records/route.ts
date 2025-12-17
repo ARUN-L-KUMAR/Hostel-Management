@@ -28,6 +28,16 @@ export async function GET(request: NextRequest) {
         gte: startDate,
         lte: endDate
       }
+    } else {
+      const startDateParam = searchParams.get("startDate")
+      const endDateParam = searchParams.get("endDate")
+
+      if (startDateParam && endDateParam) {
+        where.date = {
+          gte: new Date(startDateParam),
+          lte: new Date(endDateParam)
+        }
+      }
     }
 
     const mealRecords = await prisma.mealRecord.findMany({

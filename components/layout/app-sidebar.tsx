@@ -41,8 +41,8 @@ export function AppSidebar() {
       { icon: UtensilsCrossed, label: "Mando Meal Entry", href: "/dashboard/mando-students", permission: "mando-students" },
       { icon: UserCircle, label: "Outsiders", href: "/dashboard/outsiders", permission: "outsiders" },
       { icon: Package, label: "Provisions", href: "/dashboard/provisions", permission: "provisions" },
-      { icon: Receipt, label: "Billing", href: "/dashboard/billing", permission: "billing" },
       { icon: DollarSign, label: "Expenses", href: "/dashboard/expenses", permission: "expenses" },
+      { icon: Receipt, label: "Billing", href: "/dashboard/billing", permission: "billing" },
       { icon: FileText, label: "Reports", href: "/dashboard/reports", permission: "reports" },
       { icon: Settings, label: "Admin", href: "/dashboard/admin", permission: "admin" },
     ]
