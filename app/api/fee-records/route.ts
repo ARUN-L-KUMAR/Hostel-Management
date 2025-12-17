@@ -150,13 +150,15 @@ export async function POST(request: NextRequest) {
           paymentMode
         })
 
+        const finalBalance = updateBalance ? parseFloat(newBalance) : balance
+
         const newRecord = await prisma.feeRecord.create({
           data: {
             studentId,
             semesterId: parseInt(semesterId),
             totalDue: feeStructure.finalAmount,
             amountPaid: newAmountPaid,
-            balance,
+            balance: finalBalance,
             paymentMode
           }
         })

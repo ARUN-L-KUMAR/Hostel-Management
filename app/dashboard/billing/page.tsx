@@ -8,11 +8,12 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
-import { Save, RefreshCw, Filter, RotateCcw, Search, Download } from "lucide-react"
+import { Save, RefreshCw, Filter, RotateCcw, Search, Download, Calendar as CalendarIcon, Layers, Plus, Pencil, Check, X } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { computeMandays, AttendanceCode } from "@/lib/calculations"
 import { DatePicker } from "@/components/ui/date-picker"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 
 interface StudentBillingData {
   id: string
@@ -94,6 +95,15 @@ export default function BillingPage() {
 
   // View mode states (Semester vs Month)
   const [viewMode, setViewMode] = useState<'semester' | 'month'>('semester')
+  // Edit Carry Forward State
+  const [editingCarryForward, setEditingCarryForward] = useState<{
+    studentId: string;
+    studentName: string;
+    currentAmount: number;
+    isOpen: boolean;
+  } | null>(null)
+  const [newCarryForwardAmount, setNewCarryForwardAmount] = useState<string>("")
+  const [savingCarryForward, setSavingCarryForward] = useState(false)
   const [selectedMonths, setSelectedMonths] = useState<Set<string>>(new Set())
   const [availableMonths, setAvailableMonths] = useState<Array<{
     value: string
@@ -1386,6 +1396,185 @@ export default function BillingPage() {
     }
   }
 
+  // Handle edit carry forward click
+  const handleEditCarryForward = (student: StudentBillingData) => {
+    console.log("[DEBUG] Edit Carry Forward clicked for:", student.name, student.carryForwardAmount)
+    setEditingCarryForward({
+      studentId: student.id,
+      studentName: student.name,
+      currentAmount: student.carryForwardAmount,
+      isOpen: true
+    })
+    setNewCarryForwardAmount(student.carryForwardAmount.toString())
+  }
+  // ... (leave other parts)
+  // but I need to target the end of the file to fix the div too.
+  // I can't do two disjoint replaces in one replace_file_content unless I use multi_replace.
+  // But multi_replace is safer.
+
+
+  // Save modified carry forward amount
+  const handleSaveCarryForward = async () => {
+    if (!editingCarryForward || !selectedSemester) return
+
+    const amount = parseFloat(newCarryForwardAmount)
+    if (isNaN(amount)) {
+      alert("Please enter a valid number")
+      return
+    }
+
+    setSavingCarryForward(true)
+    try {
+      if (viewMode === 'month') {
+        // Month View: Update PREVIOUS month's balance
+        // Logic mirrors fetchMonthStudentsData's logic for finding previous month
+
+        let prevMonth: number, prevYear: number
+
+        // Get sorted available months to find the first one displayed
+        const allMonthsSorted = [...availableMonths].sort((a, b) =>
+          new Date(a.startDate).getTime() - new Date(b.startDate).getTime()
+        )
+
+        // Find which months are currently selected
+        const selectedMonthsList = allMonthsSorted.filter(m => selectedMonths.has(m.value))
+
+        if (selectedMonthsList.length > 0) {
+          // For the first selected month, carry forward comes from the month immediately preceding it
+          const firstSelectedMonth = selectedMonthsList[0]
+          const prevDate = new Date(firstSelectedMonth.startDate)
+          prevDate.setDate(0) // Last day of previous month
+
+          prevMonth = prevDate.getMonth() + 1
+          prevYear = prevDate.getFullYear()
+        } else {
+          // Fallback (shouldn't happen in valid state)
+          const startDate = new Date(selectedSemester.startDate)
+          startDate.setDate(0)
+          prevMonth = startDate.getMonth() + 1
+          prevYear = startDate.getFullYear()
+        }
+
+        console.log(`[DEBUG] Updating carry forward (prev month balance) for ${prevMonth}/${prevYear}`)
+
+        // Call monthly-balances API
+        const response = await fetch('/api/monthly-balances', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            semesterId: selectedSemester.id.toString(), // Used for creation context if needed
+            month: prevMonth,
+            year: prevYear,
+            balances: [{
+              studentId: editingCarryForward.studentId,
+              semesterId: selectedSemester.id.toString(),
+              month: prevMonth,
+              year: prevYear,
+              balance: amount,
+              // Preserving other fields as null/undefined to avoid overwriting with defaults if possible, 
+              // but API upsert might overwrite. 
+              // Ideally we should FETCH first then updates. 
+              // But for "Carry Forward" editing, we are essentially setting the balance.
+            }]
+          })
+        })
+
+        if (!response.ok) throw new Error("Failed to update monthly balance")
+
+        // Update local state without refetching (no page refresh)
+        // Recalculate dependent fields: totalAmount
+        setMonthStudentsData(prev => prev.map(s => {
+          if (s.id === editingCarryForward.studentId) {
+            const newCarryForward = amount
+            // Recalculate totalAmount: advPaid - carryForward - costs
+            const newTotalAmount = s.advancePaid - newCarryForward - s.laborCharge - s.provisionCharge
+            return {
+              ...s,
+              carryForwardAmount: newCarryForward,
+              totalAmount: newTotalAmount
+            }
+          }
+          return s
+        }))
+
+      } else {
+        // Semester View: Update PREVIOUS SEMESTER'S fee record balance
+        // We need to find the previous semester first
+
+        // 1. Fetch all semesters to find the previous one
+        const allSemestersRes = await fetch('/api/semesters')
+        if (!allSemestersRes.ok) throw new Error("Failed to fetch semesters")
+        const allSemesters: Semester[] = await allSemestersRes.json()
+
+        const currentStart = new Date(selectedSemester.startDate)
+        let previousSemester: Semester | null = null
+        let smallestTimeDiff = Infinity
+
+        for (const semester of allSemesters) {
+          if (semester.id !== selectedSemester.id) {
+            const semesterEnd = new Date(semester.endDate)
+            const timeDiff = currentStart.getTime() - semesterEnd.getTime()
+            if (timeDiff > 0 && timeDiff < smallestTimeDiff) {
+              smallestTimeDiff = timeDiff
+              previousSemester = semester
+            }
+          }
+        }
+
+        if (previousSemester) {
+          console.log(`[DEBUG] Updating carry forward (prev sem balance) for semester: ${previousSemester.name}`)
+
+          // Update fee record for previous semester
+          const response = await fetch('/api/fee-records', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              studentId: editingCarryForward.studentId,
+              semesterId: previousSemester.id,
+              updateBalance: true,
+              newBalance: amount, // Direct save: Positive = Debt, Negative = Surplus
+              // Required dummy fields for validation if any (API seems to handle it)
+              amountPaid: 0,
+              paymentMode: null
+            })
+          })
+
+          if (!response.ok) throw new Error("Failed to update semester balance")
+
+          // Update local state without refetching (no page refresh)
+          // Recalculate dependent fields: advanceAmountToPay and totalAmount
+          setStudentsSem(prev => prev.map(s => {
+            if (s.id === editingCarryForward.studentId) {
+              const newCarryForward = amount
+              const newAdvanceAmountToPay = semAdvanceAmount - newCarryForward
+              // Recalculate totalAmount based on new carry forward
+              const newTotalAmount = s.advancePaid === 0
+                ? s.advancePaid - newAdvanceAmountToPay - (s.laborCharge + s.provisionCharge)
+                : s.advancePaid - (s.laborCharge + s.provisionCharge)
+              return {
+                ...s,
+                carryForwardAmount: newCarryForward,
+                advanceAmountToPay: newAdvanceAmountToPay,
+                totalAmount: newTotalAmount
+              }
+            }
+            return s
+          }))
+
+        } else {
+          alert("No previous semester found to update carry forward from.")
+        }
+      }
+
+      setEditingCarryForward(null)
+    } catch (error) {
+      console.error("Error saving carry forward:", error)
+      alert("Failed to save carry forward amount")
+    } finally {
+      setSavingCarryForward(false)
+    }
+  }
+
   const exportToCSV = () => {
     if (!selectedSemester) return
     if (viewMode === 'month' && selectedMonths.size === 0) return
@@ -1663,9 +1852,9 @@ export default function BillingPage() {
           const prevRecord = prevFeeRecords.find((record: any) => record.studentId === student.id)
           if (prevRecord && prevRecord.balance !== undefined) {
             const prevBalance = prevRecord.balance
-            // If previous balance was negative (student owes money), carry forward is positive (add to next semester dues)
-            // If previous balance was positive (student has credit), carry forward is negative (reduce next semester dues)
-            carryForwardAmount = -prevBalance
+            // Align with Month View: Positive balance (Debt) -> Positive Carry Forward (Add to dues)
+            // Negative balance (Credit) -> Negative Carry Forward (Reduce dues)
+            carryForwardAmount = prevBalance
           }
         }
 
@@ -1683,7 +1872,7 @@ export default function BillingPage() {
 
         const laborCharge = labourMandays * laborRateToUse
         const provisionCharge = provisionChargeToUse * provisionMandays
-        const advanceAmountToPay = semesterBaseAmount + carryForwardAmount
+        const advanceAmountToPay = semesterBaseAmount - carryForwardAmount
 
         // Balance Amount calculation: if advance not paid, subtract the full advance amount to pay
         const totalAmount = advancePaid === 0
@@ -2210,14 +2399,14 @@ export default function BillingPage() {
         // Final balance is based on selected months only, not all months
         // Calculate: advancePaid - totalCosts (for first selected month being first of semester)
         // Or: carryForward - totalCosts (for subsequent months)
+        // Sign handling: Positive carry forward = Surplus (subtract), Negative = Debt (add)
         let finalBalance: number
         if (selectedMonthsInfo[0]?.isFirstMonth) {
-          // First month of semester selected
-          const studentFeeRecord = semesterFeeRecords.find((record: any) => record.studentId === student.id)
+          // First month of semester selected: Balance = AdvPaid - CarryForward - Costs
           const advPaid = studentFeeRecord ? studentFeeRecord.amountPaid : 0
-          finalBalance = advPaid - totalLaborCharge - totalProvisionCharge
+          finalBalance = advPaid - carryForwardForDisplay - totalLaborCharge - totalProvisionCharge
         } else {
-          // Later months - use carry forward (positive is credit, negative is debt) minus costs
+          // Later months - carry forward IS the starting balance, subtract costs
           finalBalance = carryForwardForDisplay - totalLaborCharge - totalProvisionCharge
         }
 
@@ -2237,7 +2426,7 @@ export default function BillingPage() {
           advancePaid: displayAdvancePaid,
           carryForwardAmount: carryForwardForDisplay,
           totalAmount: finalBalance,
-          advanceAmountToPay: selectedMonthsInfo[0]?.isFirstMonth ? semesterBaseAmount + carryForwardForDisplay : 0,
+          advanceAmountToPay: selectedMonthsInfo[0]?.isFirstMonth ? semesterBaseAmount - carryForwardForDisplay : 0,
           feeRecordId: studentFeeRecord?.id,
         })
       }
@@ -2859,7 +3048,7 @@ export default function BillingPage() {
                         ) : (
                           <Save className="w-3.5 h-3.5 mr-2" />
                         )}
-                        {updatingPayments ? "Updating..." : "Update Payments"}
+                        {updatingPayments ? "Saving..." : "Save Semester Payments"}
                       </Button>
                     </TooltipTrigger>
                     <TooltipContent>
@@ -3047,9 +3236,50 @@ export default function BillingPage() {
                       <TableCell className="text-right tabular-nums text-muted-foreground">₹{student.laborCharge.toFixed(2)}</TableCell>
                       <TableCell className="text-right tabular-nums text-muted-foreground">₹{student.provisionCharge.toFixed(2)}</TableCell>
                       <TableCell className="text-right tabular-nums">
-                        <span className={`${student.carryForwardAmount > 0 ? "text-amber-600 dark:text-amber-500" : "text-muted-foreground"}`}>
-                          ₹{student.carryForwardAmount.toFixed(2)}
-                        </span>
+                        {editingCarryForward?.studentId === student.id ? (
+                          <div className="flex items-center justify-end gap-1">
+                            <Input
+                              type="number"
+                              value={newCarryForwardAmount}
+                              onChange={(e) => setNewCarryForwardAmount(e.target.value)}
+                              onBlur={() => setEditingCarryForward(null)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  e.preventDefault()
+                                  handleSaveCarryForward()
+                                } else if (e.key === 'Escape') {
+                                  setEditingCarryForward(null)
+                                }
+                              }}
+                              className="w-24 h-7 text-right text-sm"
+                              autoFocus
+                            />
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6 text-green-600 hover:text-green-700 hover:bg-green-100"
+                              onMouseDown={(e) => e.preventDefault()}
+                              onClick={handleSaveCarryForward}
+                              disabled={savingCarryForward}
+                            >
+                              <Check className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center justify-end gap-1">
+                            <span className={`${student.carryForwardAmount > 0 ? "text-green-600 dark:text-green-500" : student.carryForwardAmount < 0 ? "text-amber-600 dark:text-amber-500" : "text-muted-foreground"}`}>
+                              ₹{student.carryForwardAmount.toFixed(2)}
+                            </span>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6 text-muted-foreground hover:text-primary"
+                              onClick={() => handleEditCarryForward(student)}
+                            >
+                              <Pencil className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        )}
                       </TableCell>
                       {/* To Pay (Adv) - only in Semester View */}
                       {viewMode === 'semester' && (
@@ -3114,7 +3344,7 @@ export default function BillingPage() {
                                     Processing...
                                   </>
                                 ) : (
-                                  "Unpaid"
+                                  "Mark Unpaid"
                                 )}
                               </Button>
                             )}
@@ -3129,7 +3359,8 @@ export default function BillingPage() {
           )}
         </CardContent>
       </Card>
-    </div>
 
+
+    </div>
   )
 }
